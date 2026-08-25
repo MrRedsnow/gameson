@@ -15,11 +15,12 @@ import {
   roleTeam,
   validateRoleSetup,
   weightedVoteLeaders,
+  type Winner,
   type WerewolfPhase,
   type WerewolfRole,
   type WerewolfTeam,
 } from "../../lib/werewolf";
-import { SECRET_AUDIO_PHASES, playWerewolfPhaseCue, unlockWerewolfAudio } from "../../lib/werewolf-audio";
+import { SECRET_AUDIO_PHASES, playWerewolfPhaseCue, playWerewolfWinnerCue, unlockWerewolfAudio } from "../../lib/werewolf-audio";
 
 type Screen = "home" | "create" | "join" | "local";
 type Session = { lobbyId: string; token: string };
@@ -27,7 +28,7 @@ type NearbyLobby = { id: string; name: string; player_count: number };
 type PlayerView = { id: string; name: string; isHost: boolean; alive: boolean; online: boolean; role?: WerewolfRole; knownRole?: WerewolfRole; charmed?: boolean };
 type PrivateRole = { role: WerewolfRole; label: string; description: string; team: WerewolfTeam; lover: string | null; roleModel: string | null; charmed: boolean; elderShield: boolean; healPotion: boolean; poisonPotion: boolean; reserveRoles?: WerewolfRole[] };
 type LobbyState = {
-  lobby: { id: string; name: string; status: "waiting" | "playing" | "results"; phase: WerewolfPhase; wolfCount: number; selectedRoles: WerewolfRole[]; mayorEnabled: boolean; mayorPlayerId: string | null; discoverable: boolean; audioMode: "all" | "host"; revision: number; matchNumber: number; night: number; winner: string | null; phaseStartedAt: number };
+  lobby: { id: string; name: string; status: "waiting" | "playing" | "results"; phase: WerewolfPhase; wolfCount: number; selectedRoles: WerewolfRole[]; mayorEnabled: boolean; mayorPlayerId: string | null; discoverable: boolean; audioMode: "all" | "host"; revision: number; matchNumber: number; night: number; winner: Winner; phaseStartedAt: number };
   me: { id: string; name: string; isHost: boolean; alive: boolean };
   players: PlayerView[];
   privateRole: PrivateRole | null;
@@ -62,8 +63,7 @@ const PHASE_COPY: Record<WerewolfPhase, { title: string; text: string }> = {
 
 const WINNER_COPY: Record<string, string> = { village: "Das Dorf gewinnt", wolves: "Das Rudel gewinnt", piper: "Der Flötenspieler gewinnt", white_werewolf: "Die Weiße Werwölfin gewinnt" };
 
-function randomIndex(length: number) { if (length <= 1) return 0; const values = new Uint32Array(1); crypto.getRandomValues(values); return values[0] % length; }
-function randomUnit() { const values = new Uint32Array(1); crypto.getRandomValues(values); return values[0] / 0x100000000; }
+function randomIndex(length: number) { if (length <= 1) return 0; const limit = Math.floor(0x100000000 / length) * length; const values = new Uint32Array(1); do crypto.getRandomValues(values); while (values[0] >= limit); return values[0] % length; }
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, { ...options, headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) }, cache: "no-store" });
@@ -141,7 +141,7 @@ function LobbyForm({ kind, nearby = [], inviteLobbyId = "", onPick, onBack, onDo
 
 function OnlineGame({ state, session, online, busy, post, leave, showError }: { state: LobbyState | null; session: Session; online: boolean; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; leave: () => void; showError: (error: unknown) => void }) {
   const [inviteOpen, setInviteOpen] = useState(false); const [settingsOpen, setSettingsOpen] = useState(false); const [roleOpen, setRoleOpen] = useState(false); const [qr, setQr] = useState("");
-  const [audioReady, setAudioReady] = useState(false); const playedCue = useRef(""); const announcedNight = useRef(""); const announcedInitialSleep = useRef(false);
+  const [audioReady, setAudioReady] = useState(false); const playedCue = useRef(""); const playedWinnerCue = useRef(""); const announcedNight = useRef(""); const announcedInitialSleep = useRef(false);
   const shareUrl = typeof window === "undefined" ? "" : `${window.location.origin}/werwolf?lobby=${session.lobbyId}`;
   useEffect(() => { if (shareUrl) QRCode.toDataURL(shareUrl, { width: 420, margin: 1, color: { dark: "#1a1119", light: "#f5efe6" } }).then(setQr).catch(() => undefined); }, [shareUrl]);
   const enableAudio = useCallback(async () => { try { await unlockWerewolfAudio(); setAudioReady(true); } catch (error) { showError(error); } }, [showError]);
@@ -165,6 +165,15 @@ function OnlineGame({ state, session, online, busy, post, leave, showError }: { 
       } else transition = "sleep-again";
     }
     playWerewolfPhaseCue(state.lobby.phase, Math.max(0, delay), transition);
+  }, [audioReady, state]);
+  useEffect(() => {
+    if (!state || !audioReady || state.lobby.status !== "results" || !state.lobby.winner) return;
+    if (state.lobby.audioMode === "host" && !state.me.isHost) return;
+    const cueKey = `${state.lobby.matchNumber}:${state.lobby.winner}:${state.lobby.phaseStartedAt}`;
+    if (playedWinnerCue.current === cueKey) return;
+    playedWinnerCue.current = cueKey;
+    const delay = state.lobby.phaseStartedAt + 1800 - state.serverTime;
+    playWerewolfWinnerCue(state.lobby.winner, Math.max(0, delay));
   }, [audioReady, state]);
   if (!state) return <main className="app-shell werewolf-shell center-shell"><div className="loader" /><p>Das Dorf wird geöffnet …</p></main>;
   const mayor = state.players.find((player) => player.id === state.lobby.mayorPlayerId);
@@ -234,8 +243,8 @@ const EMPTY_DRAFT: LocalDraft = { votes: [], wolfVotes: [], healId: null, witchH
 
 function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (error: unknown) => void }) {
   const [phase, setPhase] = useState<"setup" | "reveal" | "turn" | "dawn" | "discussion" | "results">("setup"); const [names, setNames] = useState(["", "", ""]); const [wolves, setWolves] = useState(1); const [roles, setRoles] = useState<WerewolfRole[]>([]); const [mayorEnabled, setMayorEnabled] = useState(true);
-  const [players, setPlayers] = useState<LocalPlayer[]>([]); const [mayorId, setMayorId] = useState<string | null>(null); const [night, setNight] = useState(0); const [revealIndex, setRevealIndex] = useState(0); const [ready, setReady] = useState(false); const [queue, setQueue] = useState<LocalTurn[]>([]); const [turnIndex, setTurnIndex] = useState(0); const [purpose, setPurpose] = useState<"mayor" | "initial" | "night" | "day" | "runoff" | "hunter">("initial"); const [draft, setDraft] = useState<LocalDraft>(EMPTY_DRAFT); const [first, setFirst] = useState(""); const [second, setSecond] = useState(""); const [witchHeal, setWitchHeal] = useState(false); const [resolutionSource, setResolutionSource] = useState<"night" | "day">("night"); const [winner, setWinner] = useState<string | null>(null); const [infoOpen, setInfoOpen] = useState(false); const [infoPlayer, setInfoPlayer] = useState("");
-  const [audioReady, setAudioReady] = useState(false); const localCue = useRef(""); const localAnnouncedNight = useRef(""); const localInitialSleep = useRef(false);
+  const [players, setPlayers] = useState<LocalPlayer[]>([]); const [mayorId, setMayorId] = useState<string | null>(null); const [night, setNight] = useState(0); const [revealIndex, setRevealIndex] = useState(0); const [ready, setReady] = useState(false); const [queue, setQueue] = useState<LocalTurn[]>([]); const [turnIndex, setTurnIndex] = useState(0); const [purpose, setPurpose] = useState<"mayor" | "initial" | "night" | "day" | "runoff" | "hunter">("initial"); const [draft, setDraft] = useState<LocalDraft>(EMPTY_DRAFT); const [first, setFirst] = useState(""); const [second, setSecond] = useState(""); const [witchHeal, setWitchHeal] = useState(false); const [resolutionSource, setResolutionSource] = useState<"night" | "day">("night"); const [winner, setWinner] = useState<Winner>(null); const [infoOpen, setInfoOpen] = useState(false); const [infoPlayer, setInfoPlayer] = useState("");
+  const [audioReady, setAudioReady] = useState(false); const localCue = useRef(""); const localWinnerCue = useRef(""); const localAnnouncedNight = useRef(""); const localInitialSleep = useRef(false);
   useEffect(() => { const timer = setTimeout(() => { try { const stored = localStorage.getItem("gameson:werewolf:local-names"); if (stored) { const parsed = JSON.parse(stored); if (Array.isArray(parsed) && parsed.length >= 3) setNames(parsed); } } catch { /* ignore */ } }, 0); return () => clearTimeout(timer); }, []);
   useEffect(() => { localStorage.setItem("gameson:werewolf:local-names", JSON.stringify(names)); }, [names]);
   useEffect(() => {
@@ -258,10 +267,17 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
     }
     playWerewolfPhaseCue(cue, 120, transition);
   }, [audioReady, night, phase, purpose, queue, turnIndex]);
+  useEffect(() => {
+    if (!audioReady || phase !== "results" || !winner) return;
+    const cueKey = `${night}:${winner}`;
+    if (localWinnerCue.current === cueKey) return;
+    localWinnerCue.current = cueKey;
+    playWerewolfWinnerCue(winner, 120);
+  }, [audioReady, night, phase, winner]);
   const validNames = names.map((name) => name.trim()).filter(Boolean); const maxWolves = maxWolfCount(Math.max(3, validNames.length)); const effectiveWolves = Math.min(wolves, maxWolves);
 
   const beginQueue = (turns: LocalTurn[], nextPurpose: typeof purpose, nextPlayers = players, nextDraft = EMPTY_DRAFT) => { setPlayers(nextPlayers); setQueue(turns); setPurpose(nextPurpose); setTurnIndex(0); setDraft(nextDraft); setFirst(""); setSecond(""); setReady(false); setPhase("turn"); if (!turns.length) finishQueue(nextPurpose, nextPlayers, nextDraft); };
-  const start = () => { if (validNames.length < 3) return showError(new Error("Füge mindestens drei Namen hinzu.")); if (new Set(validNames.map((name) => name.toLocaleLowerCase("de"))).size !== validNames.length) return showError(new Error("Jeder Name darf nur einmal vorkommen.")); const error = validateRoleSetup(validNames.length, effectiveWolves, roles); if (error) return showError(new Error(error)); void unlockWerewolfAudio().then(() => setAudioReady(true)).catch(showError); localCue.current = ""; localAnnouncedNight.current = ""; localInitialSleep.current = false; const deck = buildRoleDeck(validNames.length, effectiveWolves, roles, randomUnit); const next = validNames.map((name, index) => { const role = deck[index]; return { id: crypto.randomUUID(), name, role, team: roleTeam(role), alive: true, loverId: null, roleModelId: null, charmed: false, elderShield: role === "elder", healPotion: role === "witch", poisonPotion: role === "witch", lastProtectedId: null }; }); setPlayers(next); setMayorId(null); setNight(0); setWinner(null); setRevealIndex(0); setReady(false); setPhase("reveal"); };
+  const start = () => { if (validNames.length < 3) return showError(new Error("Füge mindestens drei Namen hinzu.")); if (new Set(validNames.map((name) => name.toLocaleLowerCase("de"))).size !== validNames.length) return showError(new Error("Jeder Name darf nur einmal vorkommen.")); const error = validateRoleSetup(validNames.length, effectiveWolves, roles); if (error) return showError(new Error(error)); void unlockWerewolfAudio().then(() => setAudioReady(true)).catch(showError); localCue.current = ""; localWinnerCue.current = ""; localAnnouncedNight.current = ""; localInitialSleep.current = false; const deck = buildRoleDeck(validNames.length, effectiveWolves, roles, randomIndex); const next = validNames.map((name, index) => { const role = deck[index]; return { id: crypto.randomUUID(), name, role, team: roleTeam(role), alive: true, loverId: null, roleModelId: null, charmed: false, elderShield: role === "elder", healPotion: role === "witch", poisonPotion: role === "witch", lastProtectedId: null }; }); setPlayers(next); setMayorId(null); setNight(0); setWinner(null); setRevealIndex(0); setReady(false); setPhase("reveal"); };
   const initialTurns = (list: LocalPlayer[]) => (["thief", "cupid", "wild_child"] as WerewolfPhase[]).flatMap((kind) => list.filter((player) => player.alive && player.role === kind).map((player) => ({ kind, actorId: player.id })));
   const mayorTurns = (list: LocalPlayer[]) => list.filter((player) => player.alive).map((player) => ({ kind: "mayor_vote" as const, actorId: player.id }));
   const startAfterReveal = () => mayorEnabled ? beginQueue(mayorTurns(players), "mayor", players) : beginQueue(initialTurns(players), "initial", players);

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   ROLE_INFO,
@@ -13,7 +13,7 @@ import {
   validateRoleSetup,
   weightedVoteLeaders,
 } from "../lib/werewolf.ts";
-import { WEREWOLF_AUDIO_CUES, WEREWOLF_RECORDED_CUES, WEREWOLF_TRANSITION_CUES } from "../lib/werewolf-audio.ts";
+import { AUDIO_ANNOUNCEMENT_GAP_SECONDS, WEREWOLF_AUDIO_CUES, WEREWOLF_RECORDED_CUES, WEREWOLF_TRANSITION_CUES, WEREWOLF_WINNER_CUES } from "../lib/werewolf-audio.ts";
 
 test("balanciert Wolfsslots auch für kleine Gruppen", () => {
   assert.equal(defaultWolfCount(3), 1);
@@ -33,12 +33,29 @@ test("validiert Rollenplätze und Abhängigkeiten", () => {
 });
 
 test("erstellt vollständige Decks mit mindestens einem einfachen Dorfbewohner", () => {
-  const deck = buildRoleDeck(8, 2, ["seer", "witch", "white_werewolf"], () => 0.25);
+  const deck = buildRoleDeck(8, 2, ["seer", "witch", "white_werewolf"], () => 0);
   assert.equal(deck.length, 8);
   assert.equal(deck.filter((role) => role === "werewolf").length, 1);
   assert.equal(deck.filter((role) => role === "white_werewolf").length, 1);
   assert.ok(deck.includes("villager"));
   assert.ok(deck.includes("seer"));
+});
+
+test("mischt den Werwolf unabhängig von der Hostposition bei jeder Partie neu", async () => {
+  const shuffledDeck = (choices) => {
+    let cursor = 0;
+    return buildRoleDeck(3, 1, [], (length) => {
+      const choice = choices[cursor++];
+      assert.ok(Number.isInteger(choice) && choice >= 0 && choice < length);
+      return choice;
+    });
+  };
+  const decks = [shuffledDeck([2, 1]), shuffledDeck([2, 0]), shuffledDeck([0, 1])];
+  assert.deepEqual(new Set(decks.map((deck) => deck.indexOf("werewolf"))), new Set([0, 1, 2]));
+  assert.notDeepEqual(decks[0], decks[1]);
+
+  const route = await readFile(new URL("../app/api/werwolf/route.ts", import.meta.url), "utf8");
+  assert.match(route, /buildRoleDeck\(players\.length, lobby\.wolf_count, roles, secureIndex\)/);
 });
 
 test("führt alle auswählbaren Rollen mit eigener Erklärung", () => {
@@ -91,9 +108,22 @@ test("verwendet die gelieferten Werwolf-Ansagen nur für passende aktive Phasen"
   assert.equal(WEREWOLF_RECORDED_CUES.witch, "/audio/werwolf/witch.mp3");
   assert.equal(WEREWOLF_RECORDED_CUES.elder, undefined);
   assert.equal(WEREWOLF_RECORDED_CUES.scapegoat, undefined);
-  for (const path of [...Object.values(WEREWOLF_RECORDED_CUES), ...Object.values(WEREWOLF_TRANSITION_CUES)]) {
+  for (const path of [...Object.values(WEREWOLF_RECORDED_CUES), ...Object.values(WEREWOLF_TRANSITION_CUES), ...Object.values(WEREWOLF_WINNER_CUES)]) {
     await access(new URL(`../public${path}`, import.meta.url));
   }
+});
+
+test("lässt fünf Sekunden zwischen zwei aufeinanderfolgenden Ansagen", async () => {
+  assert.equal(AUDIO_ANNOUNCEMENT_GAP_SECONDS, 5);
+  const audioSource = await readFile(new URL("../lib/werewolf-audio.ts", import.meta.url), "utf8");
+  assert.match(audioSource, /transitionDuration \+ AUDIO_ANNOUNCEMENT_GAP_SECONDS/);
+});
+
+test("spielt die neuen Ansagen nur für Dorf- und Rudelsieg", () => {
+  assert.equal(WEREWOLF_WINNER_CUES.village, "/audio/werwolf/victory-village.mp3");
+  assert.equal(WEREWOLF_WINNER_CUES.wolves, "/audio/werwolf/victory-wolves.mp3");
+  assert.equal(WEREWOLF_WINNER_CUES.piper, undefined);
+  assert.equal(WEREWOLF_WINNER_CUES.white_werewolf, undefined);
 });
 
 test("enthält beide Übergänge zwischen Nacht und Tag", () => {

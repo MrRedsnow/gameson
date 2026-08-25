@@ -1,4 +1,4 @@
-import type { WerewolfPhase } from "./werewolf";
+import type { WerewolfPhase, Winner } from "./werewolf";
 
 type Wave = OscillatorType;
 type Tone = { frequency: number; endFrequency?: number; offset: number; duration: number; gain: number; wave: Wave };
@@ -37,6 +37,13 @@ export const WEREWOLF_TRANSITION_CUES = {
   "day-start": "/audio/werwolf/day-start.mp3",
 } as const;
 
+export const WEREWOLF_WINNER_CUES: Partial<Record<Exclude<Winner, null>, string>> = {
+  village: "/audio/werwolf/victory-village.mp3",
+  wolves: "/audio/werwolf/victory-wolves.mp3",
+};
+
+export const AUDIO_ANNOUNCEMENT_GAP_SECONDS = 5;
+
 export type WerewolfAudioTransition = keyof typeof WEREWOLF_TRANSITION_CUES | null;
 export const SECRET_AUDIO_PHASES = Object.freeze(Object.keys(WEREWOLF_AUDIO_CUES) as WerewolfPhase[]);
 
@@ -73,10 +80,11 @@ function schedulePattern(audio: AudioContext, pattern: readonly Tone[], startAt:
     oscillator.start(starts);
     oscillator.stop(ends + 0.04);
   }
+  return Math.max(0, ...pattern.map((note) => note.offset + note.duration));
 }
 
 function recordingPaths() {
-  return [...new Set([...Object.values(WEREWOLF_RECORDED_CUES), ...Object.values(WEREWOLF_TRANSITION_CUES)].filter((path): path is string => Boolean(path)))];
+  return [...new Set([...Object.values(WEREWOLF_RECORDED_CUES), ...Object.values(WEREWOLF_TRANSITION_CUES), ...Object.values(WEREWOLF_WINNER_CUES)].filter((path): path is string => Boolean(path)))];
 }
 
 async function preloadRecordings(audio: AudioContext) {
@@ -120,9 +128,16 @@ export function playWerewolfPhaseCue(phase: WerewolfPhase, delayMs = 0, transiti
     if (!scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins)) schedulePattern(audio, cue, begins);
     return true;
   }
-  const transitionDuration = transition ? scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins) : 0;
-  if (transition && !transitionDuration) schedulePattern(audio, CLOSE_EYES_CUE, begins);
-  const cueStarts = begins + (transition ? Math.max(0.72, transitionDuration + 0.18) : 0);
+  let transitionDuration = transition ? scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins) : 0;
+  if (transition && !transitionDuration) transitionDuration = schedulePattern(audio, CLOSE_EYES_CUE, begins);
+  const cueStarts = begins + (transition ? transitionDuration + AUDIO_ANNOUNCEMENT_GAP_SECONDS : 0);
   if (!scheduleRecording(audio, WEREWOLF_RECORDED_CUES[phase], cueStarts)) schedulePattern(audio, cue, cueStarts);
   return true;
+}
+
+export function playWerewolfWinnerCue(winner: Winner, delayMs = 0) {
+  const audio = getContext();
+  const path = winner ? WEREWOLF_WINNER_CUES[winner] : undefined;
+  if (!audio || audio.state !== "running" || !path) return false;
+  return scheduleRecording(audio, path, audio.currentTime + Math.max(0, delayMs) / 1000) > 0;
 }
