@@ -63,3 +63,14 @@ test("macht Werwolf-Schalter vollständig antippbar", async () => {
   assert.match(werewolfSource, /online-witch-heal/);
   assert.match(werewolfSource, /audioMode/);
 });
+
+test("nutzt lesbare Typografie und vermeidet erzwungene Werwolf-Umbrüche", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const werewolfSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
+  assert.match(css, /h1,h2,h3\s*\{[^}]*text-wrap:balance;/);
+  assert.match(css, /\.page-intro p,[^{]+\{[^}]*line-height:1\.65;/);
+  assert.match(css, /\.wolf-phase\s*\{[^}]*margin-inline:-20px;/);
+  assert.match(css, /@media\(max-width:420px\)/);
+  assert.match(werewolfSource, /<h1>WERWOLF<\/h1>/);
+  assert.doesNotMatch(werewolfSource, /WER<br\s*\/>WOLF/);
+});

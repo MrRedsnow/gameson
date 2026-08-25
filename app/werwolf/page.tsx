@@ -123,7 +123,7 @@ export default function WerewolfHome() {
     {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
     <a className="collection-back light-back" href="/">← Gameson</a>
     <header className="wolf-brand-row"><div className="wolf-brand"><WolfMark /><span>WERWOLF<small>Ein Gameson-Spiel</small></span></div><Connection online={online} /></header>
-    <section className="wolf-hero"><span className="wolf-kicker">Wenn das Dorf schläft, beginnt die Jagd.</span><h1>WER<br />WOLF</h1><p>Findet das Rudel, bevor die Nacht euch verschlingt. Die App führt euch durch jede Rolle.</p></section>
+    <section className="wolf-hero"><span className="wolf-kicker">Wenn das Dorf schläft, beginnt die Jagd.</span><h1>WERWOLF</h1><p>Findet das Rudel, bevor die Nacht euch verschlingt. Die App führt euch durch jede Rolle.</p></section>
     <section className="wolf-mode-panel" aria-label="Spielmodus auswählen">
       <button onClick={() => setScreen("create")}><i>◉</i><span><strong>Lobby erstellen</strong><small>Jede Person mit eigenem Handy</small></span><b>→</b></button>
       <button onClick={() => setScreen("join")}><i>↗</i><span><strong>Lobby beitreten</strong><small>{nearby.length ? `${nearby.length} ${nearby.length === 1 ? "Dorf" : "Dörfer"} in deiner Nähe` : "Per Name, Link oder QR-Code"}</small></span><b>→</b></button>
