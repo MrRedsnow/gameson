@@ -17,6 +17,7 @@ test("rendert die Gameson-Spielauswahl", async () => {
   assert.match(html, /Was spielt ihr heute\?/);
   assert.match(html, /IMPOSTER/);
   assert.match(html, /WERWOLF/);
+  assert.match(html, /App installieren/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|SkeletonPreview/);
 });
 
