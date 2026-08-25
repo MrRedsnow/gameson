@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://imposter-partyspiel.gadia545.chatgpt.site"),
   title: "Imposter – Wer blufft?",
   description: "Das mobile Partyspiel für eine oder mehrere Geräte.",
   manifest: "/manifest.webmanifest",

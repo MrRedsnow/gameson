@@ -93,7 +93,7 @@ export default function Home() {
   const [nearby, setNearby] = useState<NearbyLobby[]>([]);
   const [inviteLobbyId, setInviteLobbyId] = useState("");
   const [notice, setNotice] = useState("");
-  const [online, setOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
+  const [online, setOnline] = useState(true);
   const [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -105,6 +105,7 @@ export default function Home() {
     window.addEventListener("online", update); window.addEventListener("offline", update); window.addEventListener("beforeinstallprompt", install);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     const hydrate = window.setTimeout(() => {
+      setOnline(navigator.onLine);
       const params = new URLSearchParams(window.location.search);
       const invited = params.get("lobby");
       if (invited) { setInviteLobbyId(invited); setScreen("join"); }
