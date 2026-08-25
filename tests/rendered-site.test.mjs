@@ -55,3 +55,11 @@ test("nutzt robuste Spielnavigation und getrennte Offline-Seiten", async () => {
   assert.match(serviceWorker, /cache\.put\(url\.pathname, copy\)/);
   assert.match(serviceWorker, /caches\.match\(url\.pathname\)/);
 });
+
+test("macht Werwolf-Schalter vollständig antippbar", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.switch-row input \{[^}]*inset:0;[^}]*width:100%;[^}]*height:100%;/);
+  const werewolfSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
+  assert.match(werewolfSource, /online-witch-heal/);
+  assert.match(werewolfSource, /audioMode/);
+});

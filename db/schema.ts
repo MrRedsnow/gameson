@@ -40,7 +40,7 @@ export const werewolfLobbies = sqliteTable("werewolf_lobbies", {
   id: text("id").primaryKey(), name: text("name").notNull(), normalizedName: text("normalized_name").notNull(),
   status: text("status", { enum: ["waiting", "playing", "results"] }).notNull().default("waiting"), phase: text("phase").notNull().default("waiting"),
   hostPlayerId: text("host_player_id").notNull(), wolfCount: integer("wolf_count").notNull().default(1), selectedRoles: text("selected_roles").notNull().default("[]"),
-  mayorEnabled: integer("mayor_enabled", { mode: "boolean" }).notNull().default(true), mayorPlayerId: text("mayor_player_id"), discoverable: integer("discoverable", { mode: "boolean" }).notNull().default(true),
+  mayorEnabled: integer("mayor_enabled", { mode: "boolean" }).notNull().default(true), mayorPlayerId: text("mayor_player_id"), discoverable: integer("discoverable", { mode: "boolean" }).notNull().default(true), audioMode: text("audio_mode", { enum: ["all", "host"] }).notNull().default("all"),
   revision: integer("revision").notNull().default(1), matchNumber: integer("match_number").notNull().default(0), night: integer("night").notNull().default(0), runoffRound: integer("runoff_round").notNull().default(0),
   pendingWolfVictimId: text("pending_wolf_victim_id"), pendingHealId: text("pending_heal_id"), pendingPoisonId: text("pending_poison_id"), pendingHunterId: text("pending_hunter_id"), winner: text("winner"), resolutionSource: text("resolution_source"),
   reserveRoles: text("reserve_roles").notNull().default("[]"), phaseStartedAt: integer("phase_started_at").notNull(), networkHash: text("network_hash").notNull(),

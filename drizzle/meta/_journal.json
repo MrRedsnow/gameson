@@ -15,6 +15,13 @@
       "when": 1787661691832,
       "tag": "0001_aberrant_aaron_stack",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787664424640,
+      "tag": "0002_youthful_adam_destine",
+      "breakpoints": true
     }
   ]
 }

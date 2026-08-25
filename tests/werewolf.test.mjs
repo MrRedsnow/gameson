@@ -11,6 +11,7 @@ import {
   validateRoleSetup,
   weightedVoteLeaders,
 } from "../lib/werewolf.ts";
+import { WEREWOLF_AUDIO_CUES } from "../lib/werewolf-audio.ts";
 
 test("balanciert Wolfsslots auch für kleine Gruppen", () => {
   assert.equal(defaultWolfCount(3), 1);
@@ -71,4 +72,14 @@ test("ordnet die Nachtphasen inklusive Weißer Werwölfin", () => {
   assert.deepEqual(odd, ["healer", "seer", "wolves", "witch", "piper"]);
   const even = nextNightPhase(["healer", "seer", "witch", "white_werewolf", "piper"], 2);
   assert.deepEqual(even, ["healer", "seer", "wolves", "witch", "white_werewolf", "piper"]);
+});
+
+test("gibt jeder aktiven Rolle ein unverwechselbares Audiosignal", () => {
+  const phases = ["thief", "cupid", "wild_child", "healer", "seer", "wolves", "witch", "white_werewolf", "piper", "hunter"];
+  const signatures = phases.map((phase) => {
+    const cue = WEREWOLF_AUDIO_CUES[phase];
+    assert.ok(cue?.length >= 2, `${phase} braucht ein mehrteiliges Signal`);
+    return JSON.stringify(cue);
+  });
+  assert.equal(new Set(signatures).size, phases.length);
 });

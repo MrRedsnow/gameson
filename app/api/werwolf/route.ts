@@ -19,7 +19,7 @@ export const runtime = "edge";
 
 type LobbyRow = {
   id: string; name: string; normalized_name: string; status: "waiting" | "playing" | "results"; phase: WerewolfPhase; host_player_id: string;
-  wolf_count: number; selected_roles: string; mayor_enabled: number; mayor_player_id: string | null; discoverable: number; revision: number; match_number: number;
+  wolf_count: number; selected_roles: string; mayor_enabled: number; mayor_player_id: string | null; discoverable: number; audio_mode: "all" | "host"; revision: number; match_number: number;
   night: number; runoff_round: number; pending_wolf_victim_id: string | null; pending_heal_id: string | null; pending_poison_id: string | null;
   pending_hunter_id: string | null; winner: string | null; resolution_source: "night" | "day" | null; reserve_roles: string; phase_started_at: number;
   network_hash: string; created_at: number; updated_at: number;
@@ -312,7 +312,7 @@ export async function GET(request: Request) {
     const myWolfView = player.team === "wolf" || player.role === "white_werewolf";
     const reserveRoles = player.role === "thief" && lobby.phase === "thief" ? JSON.parse(lobby.reserve_roles || "[]") : undefined;
     return reply({
-      lobby: { id: lobby.id, name: lobby.name, status: lobby.status, phase: lobby.phase, wolfCount: lobby.wolf_count, selectedRoles: parseRoles(lobby.selected_roles), mayorEnabled: Boolean(lobby.mayor_enabled), mayorPlayerId: lobby.mayor_player_id, discoverable: Boolean(lobby.discoverable), revision: lobby.revision, matchNumber: lobby.match_number, night: lobby.night, winner: lobby.winner, phaseStartedAt: lobby.phase_started_at },
+      lobby: { id: lobby.id, name: lobby.name, status: lobby.status, phase: lobby.phase, wolfCount: lobby.wolf_count, selectedRoles: parseRoles(lobby.selected_roles), mayorEnabled: Boolean(lobby.mayor_enabled), mayorPlayerId: lobby.mayor_player_id, discoverable: Boolean(lobby.discoverable), audioMode: lobby.audio_mode === "host" ? "host" : "all", revision: lobby.revision, matchNumber: lobby.match_number, night: lobby.night, winner: lobby.winner, phaseStartedAt: lobby.phase_started_at },
       me: { id: player.id, name: player.name, isHost: Boolean(player.is_host), alive: Boolean(player.alive) },
       players: players.map((item) => ({ id: item.id, name: item.name, isHost: Boolean(item.is_host), alive: Boolean(item.alive), online: now - item.last_seen < 45000, role: item.id === player.id || item.revealed || lobby.status === "results" ? item.role : undefined, knownRole: myWolfView && item.alive && (item.team === "wolf" || item.role === "white_werewolf") ? (item.role === "white_werewolf" && item.id !== player.id ? "werewolf" : item.role) : undefined, charmed: item.id === player.id ? Boolean(item.charmed) : undefined })),
       privateRole: player.role ? { role: player.role, label: ROLE_INFO[player.role].label, description: ROLE_INFO[player.role].description, team: player.team, lover: lover?.name ?? null, roleModel: model?.name ?? null, charmed: Boolean(player.charmed), elderShield: Boolean(player.elder_shield), healPotion: Boolean(player.heal_potion), poisonPotion: Boolean(player.poison_potion), reserveRoles } : null,
@@ -322,6 +322,7 @@ export async function GET(request: Request) {
       progress: { submitted, required: actors.length },
       canSkip: Boolean(player.is_host && lobby.status === "playing" && now - lobby.phase_started_at >= 60000),
       canClaimHost: !player.is_host && Boolean(host) && now - (host?.last_seen ?? now) > 60000,
+      serverTime: now,
     });
   } catch (error) { console.error(error); return fail("Die Werwolf-Lobby konnte gerade nicht geladen werden.", 500); }
 }
@@ -402,7 +403,8 @@ export async function POST(request: Request) {
     if (action === "settings") {
       if (lobby.status !== "waiting" && lobby.status !== "results") return fail("Einstellungen können nur zwischen Partien geändert werden.", 409); const players = await activePlayers(lobbyId); const roles = Array.isArray(body.selectedRoles) ? body.selectedRoles.filter((role): role is WerewolfRole => typeof role === "string" && SELECTABLE_ROLES.includes(role as WerewolfRole)) : [];
       const wolves = Number(body.wolfCount); const error = validateRoleSetup(Math.max(3, players.length), wolves, roles); if (error) return fail(error);
-      await db.prepare("UPDATE werewolf_lobbies SET wolf_count = ?, selected_roles = ?, mayor_enabled = ?, discoverable = ?, revision = revision + 1, updated_at = ? WHERE id = ?").bind(wolves, JSON.stringify(roles), body.mayorEnabled === false ? 0 : 1, body.discoverable === false ? 0 : 1, Date.now(), lobbyId).run(); return reply({ ok: true });
+      const audioMode = body.audioMode === "host" || body.audioMode === "all" ? body.audioMode : lobby.audio_mode;
+      await db.prepare("UPDATE werewolf_lobbies SET wolf_count = ?, selected_roles = ?, mayor_enabled = ?, discoverable = ?, audio_mode = ?, revision = revision + 1, updated_at = ? WHERE id = ?").bind(wolves, JSON.stringify(roles), body.mayorEnabled === false ? 0 : 1, body.discoverable === false ? 0 : 1, audioMode, Date.now(), lobbyId).run(); return reply({ ok: true });
     }
     if (action === "remove") {
       if (lobby.status !== "waiting" && lobby.status !== "results") return fail("Spieler können nur zwischen Partien entfernt werden.", 409); const playerId = cleanText(body.playerId, 64); if (!playerId || playerId === auth.player.id) return fail("Du kannst dich nicht selbst entfernen."); await db.prepare("UPDATE werewolf_players SET removed = 1 WHERE id = ? AND lobby_id = ?").bind(playerId, lobbyId).run(); return reply({ ok: true });
