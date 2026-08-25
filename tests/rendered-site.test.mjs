@@ -85,3 +85,12 @@ test("zeigt den Werwolf-Lobbystatus als getrennte, responsive Anzeige", async ()
   assert.match(css, /\.player-presence\.is-ready/);
   assert.match(css, /\.player-presence\.is-offline/);
 });
+
+test("macht nur den Host auf manuelle Phasenwechsel aufmerksam", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const werewolfSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
+  assert.match(werewolfSource, /state\.me\.isHost && \(state\.lobby\.phase === "dawn" \|\| state\.lobby\.phase === "discussion"\)/);
+  assert.match(werewolfSource, /host-phase-frame/);
+  assert.match(css, /\.host-phase-frame\s*\{[^}]*border:4px solid #ff8a24;/);
+  assert.match(css, /@keyframes host-phase-pulse/);
+});

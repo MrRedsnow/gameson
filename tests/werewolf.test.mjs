@@ -13,7 +13,7 @@ import {
   validateRoleSetup,
   weightedVoteLeaders,
 } from "../lib/werewolf.ts";
-import { AUDIO_ANNOUNCEMENT_GAP_SECONDS, SECRET_AUDIO_PHASES, WEREWOLF_AUDIO_CUES, WEREWOLF_RECORDED_CUES, WEREWOLF_TRANSITION_CUES, WEREWOLF_WINNER_CUES } from "../lib/werewolf-audio.ts";
+import { AUDIO_ANNOUNCEMENT_GAP_SECONDS, WEREWOLF_AUDIO_CUES, WEREWOLF_RECORDED_CUES, WEREWOLF_TRANSITION_CUES, WEREWOLF_WINNER_CUES } from "../lib/werewolf-audio.ts";
 
 test("balanciert Wolfsslots auch für kleine Gruppen", () => {
   assert.equal(defaultWolfCount(3), 1);
@@ -111,20 +111,6 @@ test("verwendet die gelieferten Werwolf-Ansagen nur für passende aktive Phasen"
   for (const path of [...Object.values(WEREWOLF_RECORDED_CUES), ...Object.values(WEREWOLF_TRANSITION_CUES), ...Object.values(WEREWOLF_WINNER_CUES)]) {
     await access(new URL(`../public${path}`, import.meta.url));
   }
-});
-
-test("spielt die neue Ansage einmal je Dorfabstimmungsphase", async () => {
-  const votePath = "/audio/werwolf/village-vote.mp3";
-  assert.equal(WEREWOLF_RECORDED_CUES.day_vote, votePath);
-  assert.equal(WEREWOLF_RECORDED_CUES.runoff, votePath);
-  assert.ok(SECRET_AUDIO_PHASES.includes("day_vote"));
-  assert.ok(SECRET_AUDIO_PHASES.includes("runoff"));
-  await access(new URL(`../public${votePath}`, import.meta.url));
-  const pageSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
-  assert.match(pageSource, /\["mayor_vote", "day_vote", "runoff", "hunter"\]\.includes/);
-  const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /gameson-shell-v6/);
-  assert.match(serviceWorker, /\/audio\/werwolf\/village-vote\.mp3/);
 });
 
 test("lässt fünf Sekunden zwischen zwei aufeinanderfolgenden Ansagen", async () => {

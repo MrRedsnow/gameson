@@ -28,8 +28,6 @@ export const WEREWOLF_RECORDED_CUES: Partial<Record<WerewolfPhase, string>> = {
   wolves: "/audio/werwolf/wolves.mp3",
   witch: "/audio/werwolf/witch.mp3",
   hunter: "/audio/werwolf/hunter.mp3",
-  day_vote: "/audio/werwolf/village-vote.mp3",
-  runoff: "/audio/werwolf/village-vote.mp3",
 };
 
 export const WEREWOLF_TRANSITION_CUES = {
@@ -47,10 +45,7 @@ export const WEREWOLF_WINNER_CUES: Partial<Record<Exclude<Winner, null>, string>
 export const AUDIO_ANNOUNCEMENT_GAP_SECONDS = 5;
 
 export type WerewolfAudioTransition = keyof typeof WEREWOLF_TRANSITION_CUES | null;
-export const SECRET_AUDIO_PHASES = Object.freeze([...new Set([
-  ...Object.keys(WEREWOLF_AUDIO_CUES),
-  ...Object.keys(WEREWOLF_RECORDED_CUES),
-])] as WerewolfPhase[]);
+export const SECRET_AUDIO_PHASES = Object.freeze(Object.keys(WEREWOLF_AUDIO_CUES) as WerewolfPhase[]);
 
 const CLOSE_EYES_CUE: readonly Tone[] = [
   tone(494, 0, 0.22, "sine", 0.065),
@@ -127,23 +122,16 @@ export async function unlockWerewolfAudio() {
 export function playWerewolfPhaseCue(phase: WerewolfPhase, delayMs = 0, transition: WerewolfAudioTransition = "sleep-again") {
   const audio = getContext();
   const cue = WEREWOLF_AUDIO_CUES[phase];
-  const recordedCue = WEREWOLF_RECORDED_CUES[phase];
-  if (!audio || audio.state !== "running" || (!cue && !recordedCue)) return false;
+  if (!audio || audio.state !== "running" || !cue) return false;
   const begins = audio.currentTime + Math.max(0, delayMs) / 1000;
   if (transition === "day-start") {
-    if (!scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins)) {
-      if (!cue) return false;
-      schedulePattern(audio, cue, begins);
-    }
+    if (!scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins)) schedulePattern(audio, cue, begins);
     return true;
   }
   let transitionDuration = transition ? scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins) : 0;
   if (transition && !transitionDuration) transitionDuration = schedulePattern(audio, CLOSE_EYES_CUE, begins);
   const cueStarts = begins + (transition ? transitionDuration + AUDIO_ANNOUNCEMENT_GAP_SECONDS : 0);
-  if (!scheduleRecording(audio, recordedCue, cueStarts)) {
-    if (!cue) return false;
-    schedulePattern(audio, cue, cueStarts);
-  }
+  if (!scheduleRecording(audio, WEREWOLF_RECORDED_CUES[phase], cueStarts)) schedulePattern(audio, cue, cueStarts);
   return true;
 }
 
