@@ -32,9 +32,12 @@ cd /opt/gameson
 sudo ./scripts/setup-ubuntu.sh games.example.com admin@example.com
 ```
 
-The setup script is idempotent and can be rerun after pulling an update. Lobby
-data is stored outside the repository in `/var/lib/gameson`, so deployments and
-rebuilds do not erase active games.
+The setup script is an idempotent installer and updater. On every later run it
+fetches the current branch from `origin`, accepts only a clean fast-forward
+update, installs changed dependencies, rebuilds when required, and restarts the
+service. Lobby data is stored outside the repository in `/var/lib/gameson`, so
+deployments and rebuilds do not erase active games. Existing Let's Encrypt
+certificates are reused and only renewed when they enter the renewal window.
 
 Useful operations:
 
@@ -49,9 +52,14 @@ To update the installation:
 
 ```bash
 cd /opt/gameson
-git pull --ff-only
 sudo ./scripts/setup-ubuntu.sh games.example.com admin@example.com
 ```
+
+When upgrading a server that still has an older version of the setup script,
+run `git pull --ff-only` once before the command above. From then on the script
+updates its repository by itself. Set `GAMESON_UPDATE_REPO=0` only when you
+intentionally want to deploy the currently checked-out revision without
+contacting the remote repository.
 
 ### Database backup
 
