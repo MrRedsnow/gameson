@@ -143,7 +143,7 @@ function OnlineGame({ state, session, online, busy, post, leave, showError }: { 
     const nightKey = `${state.lobby.matchNumber}:${state.lobby.night}`;
     let transition: "sleep-all" | "sleep-again" | "night-start" | "day-start" | null = null;
     if (state.lobby.phase === "dawn") transition = "day-start";
-    else if (state.lobby.phase !== "mayor_vote" && state.lobby.phase !== "hunter") {
+    else if (!["mayor_vote", "day_vote", "runoff", "hunter"].includes(state.lobby.phase)) {
       if (state.lobby.night > 0 && announcedNight.current !== nightKey) {
         announcedNight.current = nightKey;
         transition = "night-start";
@@ -271,7 +271,7 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
     const nightKey = `local:${night}`;
     let transition: "sleep-all" | "sleep-again" | "night-start" | "day-start" | null = null;
     if (cue === "dawn") transition = "day-start";
-    else if (cue !== "mayor_vote" && cue !== "hunter") {
+    else if (!["mayor_vote", "day_vote", "runoff", "hunter"].includes(cue)) {
       if (night > 0 && localAnnouncedNight.current !== nightKey) {
         localAnnouncedNight.current = nightKey;
         transition = "night-start";
