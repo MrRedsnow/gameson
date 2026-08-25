@@ -1,0 +1,1 @@
+ALTER TABLE `werewolf_lobbies` ADD `audio_mode` text DEFAULT 'all' NOT NULL;

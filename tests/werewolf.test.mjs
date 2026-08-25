@@ -1,0 +1,85 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  ROLE_INFO,
+  SELECTABLE_ROLES,
+  buildRoleDeck,
+  defaultWolfCount,
+  determineWinner,
+  maxWolfCount,
+  nextNightPhase,
+  validateRoleSetup,
+  weightedVoteLeaders,
+} from "../lib/werewolf.ts";
+import { WEREWOLF_AUDIO_CUES } from "../lib/werewolf-audio.ts";
+
+test("balanciert Wolfsslots auch für kleine Gruppen", () => {
+  assert.equal(defaultWolfCount(3), 1);
+  assert.equal(defaultWolfCount(8), 2);
+  assert.equal(defaultWolfCount(12), 3);
+  assert.equal(maxWolfCount(3), 1);
+  assert.equal(maxWolfCount(5), 2);
+  assert.equal(maxWolfCount(22), 10);
+});
+
+test("validiert Rollenplätze und Abhängigkeiten", () => {
+  assert.equal(validateRoleSetup(3, 1, []), null);
+  assert.match(validateRoleSetup(4, 1, ["thief", "seer", "witch"]), /Dorfbewohner/);
+  assert.match(validateRoleSetup(4, 1, ["piper"]), /erst ab 5/);
+  assert.match(validateRoleSetup(6, 1, ["white_werewolf"]), /zwei Wolfsslots/);
+  assert.equal(validateRoleSetup(6, 2, ["white_werewolf", "seer"]), null);
+});
+
+test("erstellt vollständige Decks mit mindestens einem einfachen Dorfbewohner", () => {
+  const deck = buildRoleDeck(8, 2, ["seer", "witch", "white_werewolf"], () => 0.25);
+  assert.equal(deck.length, 8);
+  assert.equal(deck.filter((role) => role === "werewolf").length, 1);
+  assert.equal(deck.filter((role) => role === "white_werewolf").length, 1);
+  assert.ok(deck.includes("villager"));
+  assert.ok(deck.includes("seer"));
+});
+
+test("führt alle auswählbaren Rollen mit eigener Erklärung", () => {
+  assert.ok(!SELECTABLE_ROLES.includes("werewolf"));
+  assert.ok(!SELECTABLE_ROLES.includes("villager"));
+  assert.ok(!SELECTABLE_ROLES.includes("little_girl"));
+  for (const role of SELECTABLE_ROLES) {
+    assert.ok(ROLE_INFO[role].label.length >= 4);
+    assert.ok(ROLE_INFO[role].description.length >= 24);
+  }
+});
+
+test("zählt Bürgermeisterstimmen doppelt und erkennt Gleichstände", () => {
+  const result = weightedVoteLeaders([
+    { voterId: "mayor", targetId: "a" },
+    { voterId: "b", targetId: "c" },
+    { voterId: "c", targetId: "c" },
+  ], "mayor");
+  assert.deepEqual(new Set(result.leaders), new Set(["a", "c"]));
+  assert.equal(result.totals.a, 2);
+});
+
+test("prüft die priorisierten Siegbedingungen", () => {
+  const state = (id, role, team, alive = true, charmed = false) => ({ id, role, team, alive, charmed });
+  assert.equal(determineWinner([state("w", "werewolf", "wolf", false), state("v", "villager", "village")]), "village");
+  assert.equal(determineWinner([state("w", "werewolf", "wolf"), state("v", "villager", "village")]), "wolves");
+  assert.equal(determineWinner([state("x", "white_werewolf", "solo")]), "white_werewolf");
+  assert.equal(determineWinner([state("p", "piper", "solo"), state("v", "villager", "village", true, true), state("w", "werewolf", "wolf", true, true)]), "piper");
+});
+
+test("ordnet die Nachtphasen inklusive Weißer Werwölfin", () => {
+  const odd = nextNightPhase(["healer", "seer", "witch", "white_werewolf", "piper"], 1);
+  assert.deepEqual(odd, ["healer", "seer", "wolves", "witch", "piper"]);
+  const even = nextNightPhase(["healer", "seer", "witch", "white_werewolf", "piper"], 2);
+  assert.deepEqual(even, ["healer", "seer", "wolves", "witch", "white_werewolf", "piper"]);
+});
+
+test("gibt jeder aktiven Rolle ein unverwechselbares Audiosignal", () => {
+  const phases = ["thief", "cupid", "wild_child", "healer", "seer", "wolves", "witch", "white_werewolf", "piper", "hunter"];
+  const signatures = phases.map((phase) => {
+    const cue = WEREWOLF_AUDIO_CUES[phase];
+    assert.ok(cue?.length >= 2, `${phase} braucht ein mehrteiliges Signal`);
+    return JSON.stringify(cue);
+  });
+  assert.equal(new Set(signatures).size, phases.length);
+});
