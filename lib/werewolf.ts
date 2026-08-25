@@ -91,7 +91,7 @@ export function validateRoleSetup(players: number, wolfCount: number, roles: Wer
   return null;
 }
 
-export function buildRoleDeck(players: number, wolfCount: number, roles: WerewolfRole[], random: () => number = Math.random) {
+export function buildRoleDeck(players: number, wolfCount: number, roles: WerewolfRole[], randomIndex: (length: number) => number = (length) => Math.floor(Math.random() * length)) {
   const error = validateRoleSetup(players, wolfCount, roles);
   if (error) throw new Error(error);
   const deck: WerewolfRole[] = [];
@@ -104,7 +104,8 @@ export function buildRoleDeck(players: number, wolfCount: number, roles: Werewol
   deck.push(...roles.filter((role) => role !== "white_werewolf"));
   while (deck.length < players) deck.push("villager");
   for (let index = deck.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(random() * (index + 1));
+    const swap = randomIndex(index + 1);
+    if (!Number.isInteger(swap) || swap < 0 || swap > index) throw new Error("Die Zufallsauswahl lieferte einen ungültigen Index.");
     [deck[index], deck[swap]] = [deck[swap], deck[index]];
   }
   return deck;

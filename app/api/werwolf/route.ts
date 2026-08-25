@@ -63,10 +63,6 @@ function secureIndex(length: number) {
   return values[0] % length;
 }
 
-function secureRandom() {
-  const values = new Uint32Array(1); crypto.getRandomValues(values); return values[0] / 0x100000000;
-}
-
 function networkPrefix(request: Request) {
   const value = (request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "local-preview").trim();
   return value.includes(":") ? value.split(":").slice(0, 4).join(":") : value;
@@ -411,7 +407,7 @@ export async function POST(request: Request) {
     }
     if (action === "start") {
       if (lobby.status !== "waiting" && lobby.status !== "results") return fail("Diese Partie läuft bereits.", 409); const players = await activePlayers(lobbyId); if (players.length < 3) return fail("Ihr braucht mindestens drei Personen.", 409); const roles = parseRoles(lobby.selected_roles); const error = validateRoleSetup(players.length, lobby.wolf_count, roles); if (error) return fail(error);
-      const deck = buildRoleDeck(players.length, lobby.wolf_count, roles, secureRandom); const reserveRoles: WerewolfRole[] = roles.includes("thief") ? ["villager", secureIndex(2) ? "werewolf" : "villager"] : [];
+      const deck = buildRoleDeck(players.length, lobby.wolf_count, roles, secureIndex); const reserveRoles: WerewolfRole[] = roles.includes("thief") ? ["villager", secureIndex(2) ? "werewolf" : "villager"] : [];
       const now = Date.now(); await db.batch(players.map((player, index) => { const role = deck[index]; return db.prepare("UPDATE werewolf_players SET alive = 1, role = ?, team = ?, revealed = 0, lover_id = NULL, role_model_id = NULL, charmed = 0, elder_shield = ?, heal_potion = ?, poison_potion = ?, last_protected_id = NULL, transformed_night = NULL WHERE id = ?").bind(role, roleTeam(role), role === "elder" ? 1 : 0, role === "witch" ? 1 : 0, role === "witch" ? 1 : 0, player.id); }));
       await db.batch([db.prepare("DELETE FROM werewolf_actions WHERE lobby_id = ?").bind(lobbyId), db.prepare("DELETE FROM werewolf_votes WHERE lobby_id = ?").bind(lobbyId), db.prepare("UPDATE werewolf_lobbies SET status = 'playing', phase = 'waiting', match_number = match_number + 1, night = 0, runoff_round = 0, mayor_player_id = NULL, pending_wolf_victim_id = NULL, pending_heal_id = NULL, pending_poison_id = NULL, pending_hunter_id = NULL, winner = NULL, resolution_source = NULL, reserve_roles = ?, phase_started_at = ?, revision = revision + 1, updated_at = ? WHERE id = ?").bind(JSON.stringify(reserveRoles), now, now, lobbyId)]);
       const refreshed = await db.prepare("SELECT * FROM werewolf_lobbies WHERE id = ?").bind(lobbyId).first<LobbyRow>(); if (refreshed) { if (refreshed.mayor_enabled) await updatePhase(lobbyId, "mayor_vote"); else await nextInitialPhase(refreshed); } return reply({ ok: true });
