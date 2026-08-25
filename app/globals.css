@@ -481,3 +481,169 @@ button,a,input,select,summary {
     display:none;
   }
 }
+
+/* Werwolf lobby presence */
+.wolf-player-section {
+  margin-top:12px;
+}
+.wolf-player-section .section-heading {
+  align-items:center;
+  margin-bottom:12px;
+}
+.wolf-player-section .section-heading>strong {
+  font-size:.9rem;
+  letter-spacing:-.01em;
+}
+.lobby-progress {
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-height:30px;
+  padding:0 10px;
+  border:1px solid #d8ccc9;
+  border-radius:999px;
+  background:rgba(255,255,255,.58);
+  font-size:.64rem!important;
+  font-weight:850;
+  line-height:1;
+  letter-spacing:.06em!important;
+}
+.lobby-progress i,.player-presence i {
+  width:7px;
+  height:7px;
+  flex:0 0 auto;
+  border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 0 3px color-mix(in srgb,currentColor 14%,transparent);
+}
+.lobby-progress.is-ready {
+  color:#356b49;
+  border-color:#b9d3c0;
+  background:#eaf4ea;
+}
+.lobby-progress.is-waiting {
+  color:#8a573f;
+  border-color:#e3c9ba;
+  background:#faeee5;
+}
+.player-grid {
+  display:grid;
+  gap:9px;
+}
+.player-chip {
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:11px;
+  min-height:70px;
+  padding:10px 11px;
+  border:1px solid #ddcfcc;
+  border-radius:17px;
+  background:rgba(255,252,247,.78);
+  box-shadow:0 8px 24px rgba(54,28,42,.045);
+}
+.player-chip.is-offline {
+  border-color:#ded8d4;
+  background:rgba(246,242,238,.72);
+}
+.player-chip .avatar {
+  box-shadow:inset 0 0 0 1px rgba(44,26,36,.06);
+}
+.player-chip-copy {
+  display:grid;
+  min-width:0;
+  gap:4px;
+}
+.player-chip-copy strong {
+  display:flex;
+  align-items:center;
+  min-width:0;
+  gap:7px;
+  font-size:.91rem;
+  line-height:1.2;
+  overflow-wrap:anywhere;
+}
+.player-chip-copy strong em {
+  flex:0 0 auto;
+  padding:4px 7px;
+  border-radius:999px;
+  background:#eee0e6;
+  color:#67344c;
+  font-size:.57rem;
+  font-style:normal;
+  font-weight:900;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.player-chip-copy small {
+  color:#8a777e;
+  font-size:.67rem;
+  line-height:1.25;
+}
+.player-presence {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:32px;
+  padding:0 10px;
+  border:1px solid;
+  border-radius:999px;
+  font-size:.64rem;
+  font-weight:850;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.player-presence.is-ready {
+  color:#326b48;
+  border-color:#b7d1be;
+  background:#e7f3e8;
+}
+.player-presence.is-offline {
+  color:#746c70;
+  border-color:#d5cdca;
+  background:#eeeae7;
+}
+.player-remove {
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  padding:0;
+  border:1px solid #e6c9c4;
+  border-radius:50%;
+  background:#f8e5e1;
+  color:#914b45;
+  font-size:1.18rem;
+  cursor:pointer;
+}
+.player-remove:hover {
+  border-color:#d8aba3;
+  background:#f3d6d0;
+}
+
+@media(max-width:380px) {
+  .player-chip {
+    grid-template-columns:44px minmax(0,1fr) 36px;
+    row-gap:4px;
+  }
+  .player-chip>.avatar {
+    grid-row:1 / 3;
+  }
+  .player-chip-copy {
+    grid-column:2;
+    grid-row:1;
+  }
+  .player-presence {
+    grid-column:2;
+    grid-row:2;
+    justify-self:start;
+    min-height:27px;
+    padding-inline:8px;
+  }
+  .player-remove {
+    grid-column:3;
+    grid-row:1 / 3;
+  }
+}

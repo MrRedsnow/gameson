@@ -177,7 +177,34 @@ function OnlineGame({ state, session, online, busy, post, leave, showError }: { 
 
 function WaitingRoom({ state, busy, post, invite, settings, audioReady, enableAudio }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; invite: () => void; settings: () => void; audioReady: boolean; enableAudio: () => Promise<void> }) {
   const playsHere = state.lobby.audioMode === "all" || state.me.isHost;
-  return <><section className="lobby-hero wolf-lobby-hero"><span className="step-label wolf-step">Warteraum</span><h2>Das Dorf füllt sich.</h2><p>Mindestens drei Personen – kleine Runden sind ausdrücklich willkommen.</p><button className="invite-button" onClick={invite}>+ Personen einladen</button></section><section className="player-section"><div className="section-heading"><strong>{state.players.length} Personen</strong><span>{state.players.length < 3 ? `${3 - state.players.length} fehlen noch` : "bereit"}</span></div><div className="player-grid">{state.players.map((player, index) => <div className="player-chip" key={player.id}><span className={`avatar avatar-${index % 5}`}>{player.name.charAt(0)}</span><span><strong>{player.name}</strong><small>{player.isHost ? "Host" : player.online ? "bereit" : "offline"}</small></span>{state.me.isHost && !player.isHost && <button onClick={() => post("remove", { playerId: player.id })}>×</button>}</div>)}</div></section><section className={`wolf-audio-card ${audioReady ? "ready" : ""}`}><span aria-hidden="true">♪</span><div><strong>Akustische Spielleitung</strong><small>{playsHere ? audioReady ? "Spielton ist bereit · jede Rolle hat ein eigenes Signal" : "Einmal antippen, damit dein Browser Spieltöne erlaubt" : "Der Host spielt die Signale für diese Runde ab"}</small></div>{playsHere && <button type="button" disabled={audioReady} onClick={() => void enableAudio()}>{audioReady ? "Bereit ✓" : "Ton aktivieren"}</button>}</section>{state.me.isHost ? <div className="host-actions"><button className="secondary-button" onClick={settings}>Rollen &amp; Regeln</button><button className="primary-button wolf-primary" disabled={busy || state.players.length < 3} onClick={() => post("start")}>Partie starten →</button></div> : <p className="waiting-copy">Der Host stellt die Rollen zusammen.</p>}</>;
+  const lobbyReady = state.players.length >= 3;
+  return <>
+    <section className="lobby-hero wolf-lobby-hero">
+      <span className="step-label wolf-step">Warteraum</span>
+      <h2>Das Dorf füllt sich.</h2>
+      <p>Mindestens drei Personen – kleine Runden sind ausdrücklich willkommen.</p>
+      <button className="invite-button" onClick={invite}>+ Personen einladen</button>
+    </section>
+    <section className="player-section wolf-player-section">
+      <div className="section-heading">
+        <strong>{state.players.length} Personen</strong>
+        <span className={`lobby-progress ${lobbyReady ? "is-ready" : "is-waiting"}`}><i />{lobbyReady ? "Runde bereit" : `${3 - state.players.length} fehlen noch`}</span>
+      </div>
+      <div className="player-grid">
+        {state.players.map((player, index) => <div className={`player-chip ${player.online ? "is-online" : "is-offline"}`} key={player.id}>
+          <span className={`avatar avatar-${index % 5}`}>{player.name.charAt(0)}</span>
+          <span className="player-chip-copy">
+            <strong>{player.name}{player.isHost && <em>Host</em>}</strong>
+            <small>{player.id === state.me.id ? "Das bist du" : "Mitspieler"}</small>
+          </span>
+          <span className={`player-presence ${player.online ? "is-ready" : "is-offline"}`}><i />{player.online ? "Bereit" : "Offline"}</span>
+          {state.me.isHost && !player.isHost && <button className="player-remove" aria-label={`${player.name} aus dem Dorf entfernen`} title="Person entfernen" onClick={() => post("remove", { playerId: player.id })}>×</button>}
+        </div>)}
+      </div>
+    </section>
+    <section className={`wolf-audio-card ${audioReady ? "ready" : ""}`}><span aria-hidden="true">♪</span><div><strong>Akustische Spielleitung</strong><small>{playsHere ? audioReady ? "Spielton ist bereit · jede Rolle hat ein eigenes Signal" : "Einmal antippen, damit dein Browser Spieltöne erlaubt" : "Der Host spielt die Signale für diese Runde ab"}</small></div>{playsHere && <button type="button" disabled={audioReady} onClick={() => void enableAudio()}>{audioReady ? "Bereit ✓" : "Ton aktivieren"}</button>}</section>
+    {state.me.isHost ? <div className="host-actions"><button className="secondary-button" onClick={settings}>Rollen &amp; Regeln</button><button className="primary-button wolf-primary" disabled={busy || state.players.length < 3} onClick={() => post("start")}>Partie starten →</button></div> : <p className="waiting-copy">Der Host stellt die Rollen zusammen.</p>}
+  </>;
 }
 
 function GamePhase({ state, busy, post, openRole, mayorName }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; openRole: () => void; mayorName: string | null }) {

@@ -74,3 +74,14 @@ test("nutzt lesbare Typografie und vermeidet erzwungene Werwolf-Umbrüche", asyn
   assert.match(werewolfSource, /<h1>WERWOLF<\/h1>/);
   assert.doesNotMatch(werewolfSource, /WER<br\s*\/>WOLF/);
 });
+
+test("zeigt den Werwolf-Lobbystatus als getrennte, responsive Anzeige", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const werewolfSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
+  assert.match(werewolfSource, /player-presence/);
+  assert.match(werewolfSource, /player\.online \? "Bereit" : "Offline"/);
+  assert.match(werewolfSource, /aria-label={`\$\{player\.name\} aus dem Dorf entfernen`}/);
+  assert.match(css, /\.player-chip\s*\{[^}]*grid-template-columns:44px minmax\(0,1fr\) auto auto;/);
+  assert.match(css, /\.player-presence\.is-ready/);
+  assert.match(css, /\.player-presence\.is-offline/);
+});
