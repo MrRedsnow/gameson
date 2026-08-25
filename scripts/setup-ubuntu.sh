@@ -103,6 +103,9 @@ install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 "$DATA_DIR" "$SERVICE_TMP_DIR"
 install -d -o "$BUILD_USER" -g "$APP_GROUP" -m 0770 "$APP_DIR/.wrangler"
 
 echo "[4/7] Installing dependencies and building Gameson"
+if systemctl is-active --quiet "$SERVICE_NAME.service"; then
+  systemctl stop "$SERVICE_NAME.service"
+fi
 runuser -u "$BUILD_USER" -- env HOME="$BUILD_HOME" npm --prefix "$APP_DIR" ci
 runuser -u "$BUILD_USER" -- env HOME="$BUILD_HOME" npm --prefix "$APP_DIR" run build
 [[ -f "$APP_DIR/dist/server/index.js" && -f "$APP_DIR/dist/server/wrangler.json" ]] || fail "the production build is incomplete."
