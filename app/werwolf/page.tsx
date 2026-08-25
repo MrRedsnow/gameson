@@ -155,7 +155,7 @@ function OnlineGame({ state, session, online, busy, post, leave, showError }: { 
     const nightKey = `${state.lobby.matchNumber}:${state.lobby.night}`;
     let transition: "sleep-all" | "sleep-again" | "night-start" | "day-start" | null = null;
     if (state.lobby.phase === "dawn") transition = "day-start";
-    else if (!["mayor_vote", "day_vote", "runoff", "hunter"].includes(state.lobby.phase)) {
+    else if (state.lobby.phase !== "mayor_vote" && state.lobby.phase !== "hunter") {
       if (state.lobby.night > 0 && announcedNight.current !== nightKey) {
         announcedNight.current = nightKey;
         transition = "night-start";
@@ -221,7 +221,10 @@ function WaitingRoom({ state, busy, post, invite, settings, audioReady, enableAu
 
 function GamePhase({ state, busy, post, close, openRole, mayorName }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; close: () => void; openRole: () => void; mayorName: string | null }) {
   const copy = PHASE_COPY[state.lobby.phase]; const dead = state.players.filter((player) => !player.alive); const isPassive = ["dawn", "discussion", "results"].includes(state.lobby.phase);
-  return <section className={`wolf-phase phase-${state.lobby.phase}`}><div className="phase-moon" aria-hidden="true">{state.lobby.phase === "discussion" || state.lobby.phase === "day_vote" ? "☀" : "☾"}</div><div className="page-intro"><span className="step-label wolf-step">{state.lobby.night ? `Nacht ${state.lobby.night}` : "Vor der ersten Nacht"} · {state.progress.submitted}/{state.progress.required}</span><h2>{copy.title}</h2><p>{copy.text}</p></div>{state.privateRole && <button className="my-role-button" onClick={openRole}><span>{ROLE_INFO[state.privateRole.role].label.charAt(0)}</span><b>Meine Rolle</b><small>{state.me.alive ? "privat ansehen" : "ausgeschieden"}</small><i>→</i></button>}{mayorName && <p className="public-status">Bürgermeister: <strong>{mayorName}</strong> · doppelte Stimme</p>}
+  const hostMustAdvance = state.me.isHost && (state.lobby.phase === "dawn" || state.lobby.phase === "discussion");
+  return <section className={`wolf-phase phase-${state.lobby.phase}`}>
+    {hostMustAdvance && <div className="host-phase-frame" aria-hidden="true" />}
+    <div className="phase-moon" aria-hidden="true">{state.lobby.phase === "discussion" || state.lobby.phase === "day_vote" ? "☀" : "☾"}</div><div className="page-intro"><span className="step-label wolf-step">{state.lobby.night ? `Nacht ${state.lobby.night}` : "Vor der ersten Nacht"} · {state.progress.submitted}/{state.progress.required}</span><h2>{copy.title}</h2><p>{copy.text}</p></div>{state.privateRole && <button className="my-role-button" onClick={openRole}><span>{ROLE_INFO[state.privateRole.role].label.charAt(0)}</span><b>Meine Rolle</b><small>{state.me.alive ? "privat ansehen" : "ausgeschieden"}</small><i>→</i></button>}{mayorName && <p className="public-status">Bürgermeister: <strong>{mayorName}</strong> · doppelte Stimme</p>}
     {state.lobby.phase === "dawn" && <DeathBoard players={dead} />}
     {state.lobby.phase === "results" ? <ResultsBoard state={state} post={post} close={close} busy={busy} /> : state.action ? <ActionPanel key={state.lobby.phase} state={state} busy={busy} post={post} /> : !isPassive ? <div className="night-wait"><i /><p>{state.me.alive ? "Eine andere Rolle ist gerade an der Reihe." : "Du schaust dieser Partie als Geist zu."}</p><small>{state.progress.submitted} von {state.progress.required} Aktionen abgeschlossen</small></div> : null}
     {state.me.isHost && state.lobby.phase === "dawn" && <button className="primary-button wolf-primary" onClick={() => post("advance")}>Weiter →</button>}{state.me.isHost && state.lobby.phase === "discussion" && <button className="primary-button wolf-primary" onClick={() => post("advance")}>Abstimmung starten →</button>}{state.canSkip && <button className="secondary-button skip-phase" onClick={() => post("skip")}>Ausstehende Aktion überspringen</button>}
@@ -283,7 +286,7 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
     const nightKey = `local:${night}`;
     let transition: "sleep-all" | "sleep-again" | "night-start" | "day-start" | null = null;
     if (cue === "dawn") transition = "day-start";
-    else if (!["mayor_vote", "day_vote", "runoff", "hunter"].includes(cue)) {
+    else if (cue !== "mayor_vote" && cue !== "hunter") {
       if (night > 0 && localAnnouncedNight.current !== nightKey) {
         localAnnouncedNight.current = nightKey;
         transition = "night-start";
