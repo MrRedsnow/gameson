@@ -22,7 +22,8 @@ npm test
 The included setup supports Ubuntu 22.04 and 24.04. It installs Node.js 22,
 Nginx, systemd, Certbot, and a persistent local Worker/D1 runtime. Before
 starting, point the domain's `A`/`AAAA` records to the server and allow inbound
-TCP ports 80 and 443.
+TCP ports 80 and 443. The application runtime listens only on
+`127.0.0.1:3000`; Nginx is the public endpoint and serves HTTPS on port 443.
 
 ```bash
 sudo install -d -o "$USER" -g "$(id -gn)" /opt/gameson

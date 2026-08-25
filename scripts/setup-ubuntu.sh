@@ -55,6 +55,9 @@ readonly BUILD_USER="$(stat -c '%U' "$APP_DIR")"
 readonly BUILD_HOME="$(getent passwd "$BUILD_USER" | cut -d: -f6)"
 readonly NGINX_SITE="/etc/nginx/sites-available/$SERVICE_NAME"
 readonly SYSTEMD_UNIT="/etc/systemd/system/$SERVICE_NAME.service"
+readonly WRANGLER_TMP_DIR="$APP_DIR/dist/server/.wrangler/tmp"
+readonly MINIFLARE_CACHE_DIR="$APP_DIR/node_modules/.mf"
+readonly SERVICE_TMP_DIR="$DATA_DIR/tmp"
 
 [[ -f /etc/os-release ]] || fail "this setup requires Ubuntu."
 # shellcheck disable=SC1091
@@ -96,16 +99,20 @@ echo "[3/7] Preparing the service account and persistent storage"
 if ! id "$APP_USER" >/dev/null 2>&1; then
   useradd --system --user-group --home-dir "$DATA_DIR" --shell /usr/sbin/nologin "$APP_USER"
 fi
-install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 "$DATA_DIR"
+install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 "$DATA_DIR" "$SERVICE_TMP_DIR"
 install -d -o "$BUILD_USER" -g "$APP_GROUP" -m 0770 "$APP_DIR/.wrangler"
 
 echo "[4/7] Installing dependencies and building Gameson"
 runuser -u "$BUILD_USER" -- env HOME="$BUILD_HOME" npm --prefix "$APP_DIR" ci
 runuser -u "$BUILD_USER" -- env HOME="$BUILD_HOME" npm --prefix "$APP_DIR" run build
 [[ -f "$APP_DIR/dist/server/index.js" && -f "$APP_DIR/dist/server/wrangler.json" ]] || fail "the production build is incomplete."
+install -d -o "$BUILD_USER" -g "$APP_GROUP" -m 0770 \
+  "$WRANGLER_TMP_DIR" \
+  "$MINIFLARE_CACHE_DIR"
 chgrp -R "$APP_GROUP" "$APP_DIR"
 chmod -R g+rX "$APP_DIR"
 chmod -R g+rwX "$APP_DIR/.wrangler"
+chmod -R g+rwX "$APP_DIR/dist/server/.wrangler" "$MINIFLARE_CACHE_DIR"
 
 echo "[5/7] Installing the 24/7 systemd service"
 cat > "$SYSTEMD_UNIT" <<EOF
@@ -121,6 +128,7 @@ Group=$APP_GROUP
 WorkingDirectory=$APP_DIR
 Environment=NODE_ENV=production
 Environment=HOME=$DATA_DIR
+Environment=TMPDIR=$SERVICE_TMP_DIR
 Environment=WRANGLER_SEND_METRICS=false
 Environment=WRANGLER_WRITE_LOGS=false
 ExecStart=$APP_DIR/node_modules/.bin/wrangler dev --config $APP_DIR/dist/server/wrangler.json --local --persist-to $DATA_DIR --ip 127.0.0.1 --port $APP_PORT --inspector-ip 127.0.0.1 --inspector-port 9230 --log-level warn --show-interactive-dev-session=false
@@ -132,7 +140,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=read-only
 ProtectSystem=full
-ReadWritePaths=$DATA_DIR $APP_DIR/.wrangler
+ReadWritePaths=$DATA_DIR $APP_DIR/.wrangler $APP_DIR/dist/server/.wrangler $MINIFLARE_CACHE_DIR
 UMask=0077
 
 [Install]
@@ -143,7 +151,7 @@ systemctl daemon-reload
 systemctl enable --now "$SERVICE_NAME.service"
 
 for attempt in {1..30}; do
-  if curl -fsS --max-time 3 "http://127.0.0.1:$APP_PORT/" >/dev/null; then
+  if curl -fs --max-time 3 "http://127.0.0.1:$APP_PORT/" >/dev/null 2>&1; then
     break
   fi
   if (( attempt == 30 )); then
