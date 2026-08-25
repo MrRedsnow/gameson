@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -75,7 +74,7 @@ export default function GamesonHome() {
       </section>
 
       <section className="game-library" aria-label="Spiel auswählen">
-        <Link className="library-card imposter-library-card" href="/imposter">
+        <a className="library-card imposter-library-card" href="/imposter">
           <div className="library-card-art" aria-hidden="true"><i /><i /><b>?</b></div>
           <div className="library-card-copy">
             <span className="library-eyebrow">Bluff &amp; Wortspiel</span>
@@ -84,9 +83,9 @@ export default function GamesonHome() {
             <div><span>3–22 Spieler</span><span>Online &amp; 1 Gerät</span></div>
           </div>
           <strong>Spielen <span>→</span></strong>
-        </Link>
+        </a>
 
-        <Link className="library-card werewolf-library-card" href="/werwolf">
+        <a className="library-card werewolf-library-card" href="/werwolf">
           <div className="library-card-art moon-art" aria-hidden="true"><i /><b>☾</b></div>
           <div className="library-card-copy">
             <span className="library-eyebrow">Täuschung &amp; Rollen</span>
@@ -95,7 +94,7 @@ export default function GamesonHome() {
             <div><span>Ab 3 Spielern</span><span>Online &amp; 1 Gerät</span></div>
           </div>
           <strong>Spielen <span>→</span></strong>
-        </Link>
+        </a>
       </section>
 
       <footer className="gameson-footer">

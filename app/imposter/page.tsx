@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import QRCode from "qrcode";
 import { CATEGORIES, WORD_PAIRS, defaultImposterCount, maxImposterCount, type ContentMode } from "../../lib/game";
 
@@ -176,7 +175,10 @@ export default function Home() {
   return (
     <main className="home-shell">
       <div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" />
-      <Link className="collection-back" href="/">← Gameson</Link><header className="brand-row"><Brand /><span className={`connection-pill ${online ? "" : "offline"}`}><i />{online ? "online" : "offline"}</span></header>
+      {/* Hosted vinext navigation currently requires a full page load between game routes. */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+      <a className="collection-back" href="/">← Gameson</a>
+      <header className="brand-row"><Brand /><span className={`connection-pill ${online ? "" : "offline"}`}><i />{online ? "online" : "offline"}</span></header>
       <section className="hero-copy" aria-labelledby="home-title"><p className="kicker">Einer kennt nur die halbe Wahrheit.</p><h1 id="home-title">IMPOSTER</h1><p className="hero-subtitle">Finde heraus, wer blufft – bevor die Gruppe dir auf die Schliche kommt.</p></section>
       <section className="mode-panel" aria-label="Spielmodus auswählen">
         <button className="mode-card mode-card-primary" onClick={() => setScreen("create")}><span className="mode-icon">◎</span><span className="mode-copy"><strong>Lobby erstellen</strong><small>Mit mehreren Handys spielen</small></span><span className="arrow">→</span></button>

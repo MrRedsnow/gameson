@@ -43,3 +43,15 @@ test("liefert ein installierbares deutsches PWA-Manifest", async () => {
   assert.deepEqual(manifest.icons.map((icon) => icon.sizes), ["192x192", "512x512"]);
   assert.deepEqual(manifest.shortcuts.map((shortcut) => shortcut.url), ["/imposter", "/werwolf"]);
 });
+
+test("nutzt robuste Spielnavigation und getrennte Offline-Seiten", async () => {
+  const homeSource = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const imposterSource = await readFile(new URL("../app/imposter/page.tsx", import.meta.url), "utf8");
+  const werewolfSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
+  const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+  assert.doesNotMatch(homeSource + imposterSource + werewolfSource, /from ["']next\/link["']/);
+  assert.match(homeSource, /<a className="library-card imposter-library-card" href="\/imposter">/);
+  assert.match(homeSource, /<a className="library-card werewolf-library-card" href="\/werwolf">/);
+  assert.match(serviceWorker, /cache\.put\(url\.pathname, copy\)/);
+  assert.match(serviceWorker, /caches\.match\(url\.pathname\)/);
+});

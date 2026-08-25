@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -104,7 +103,10 @@ export default function WerewolfHome() {
   if (screen === "local") return <LocalWerewolf onBack={() => setScreen("home")} showError={showError} />;
 
   return <main className="werewolf-home">
-    <div className="night-haze" aria-hidden="true" /><Link className="collection-back light-back" href="/">← Gameson</Link>
+    <div className="night-haze" aria-hidden="true" />
+    {/* Hosted vinext navigation currently requires a full page load between game routes. */}
+    {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+    <a className="collection-back light-back" href="/">← Gameson</a>
     <header className="wolf-brand-row"><div className="wolf-brand"><WolfMark /><span>WERWOLF<small>Ein Gameson-Spiel</small></span></div><Connection online={online} /></header>
     <section className="wolf-hero"><span className="wolf-kicker">Wenn das Dorf schläft, beginnt die Jagd.</span><h1>WER<br />WOLF</h1><p>Findet das Rudel, bevor die Nacht euch verschlingt. Die App führt euch durch jede Rolle.</p></section>
     <section className="wolf-mode-panel" aria-label="Spielmodus auswählen">
