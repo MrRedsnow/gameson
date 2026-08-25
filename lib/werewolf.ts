@@ -147,3 +147,6 @@ export function nextNightPhase(roles: WerewolfRole[], night: number): WerewolfPh
   return phases;
 }
 
+export function phaseAfterDawn(resolutionSource: "night" | "day") {
+  return resolutionSource === "night" ? "discussion" as const : "night" as const;
+}
