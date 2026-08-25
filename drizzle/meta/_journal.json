@@ -8,6 +8,13 @@
       "when": 1787658231774,
       "tag": "0000_skinny_shard",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787661691832,
+      "tag": "0001_aberrant_aaron_stack",
+      "breakpoints": true
     }
   ]
 }

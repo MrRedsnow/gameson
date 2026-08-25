@@ -35,3 +35,31 @@ export const customPairs = sqliteTable("custom_pairs", {
 }, (t) => [index("idx_custom_pairs_lobby").on(t.lobbyId)]);
 
 export const rateLimits = sqliteTable("rate_limits", { key: text("key").primaryKey(), count: integer("count").notNull(), expiresAt: integer("expires_at").notNull() });
+
+export const werewolfLobbies = sqliteTable("werewolf_lobbies", {
+  id: text("id").primaryKey(), name: text("name").notNull(), normalizedName: text("normalized_name").notNull(),
+  status: text("status", { enum: ["waiting", "playing", "results"] }).notNull().default("waiting"), phase: text("phase").notNull().default("waiting"),
+  hostPlayerId: text("host_player_id").notNull(), wolfCount: integer("wolf_count").notNull().default(1), selectedRoles: text("selected_roles").notNull().default("[]"),
+  mayorEnabled: integer("mayor_enabled", { mode: "boolean" }).notNull().default(true), mayorPlayerId: text("mayor_player_id"), discoverable: integer("discoverable", { mode: "boolean" }).notNull().default(true),
+  revision: integer("revision").notNull().default(1), matchNumber: integer("match_number").notNull().default(0), night: integer("night").notNull().default(0), runoffRound: integer("runoff_round").notNull().default(0),
+  pendingWolfVictimId: text("pending_wolf_victim_id"), pendingHealId: text("pending_heal_id"), pendingPoisonId: text("pending_poison_id"), pendingHunterId: text("pending_hunter_id"), winner: text("winner"), resolutionSource: text("resolution_source"),
+  reserveRoles: text("reserve_roles").notNull().default("[]"), phaseStartedAt: integer("phase_started_at").notNull(), networkHash: text("network_hash").notNull(),
+  createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+}, (t) => [uniqueIndex("idx_werewolf_lobbies_normalized_name").on(t.normalizedName), index("idx_werewolf_lobbies_nearby").on(t.networkHash, t.status, t.updatedAt)]);
+
+export const werewolfPlayers = sqliteTable("werewolf_players", {
+  id: text("id").primaryKey(), lobbyId: text("lobby_id").notNull(), name: text("name").notNull(), normalizedName: text("normalized_name").notNull(), tokenHash: text("token_hash").notNull(),
+  isHost: integer("is_host", { mode: "boolean" }).notNull().default(false), removed: integer("removed", { mode: "boolean" }).notNull().default(false), alive: integer("alive", { mode: "boolean" }).notNull().default(true),
+  role: text("role"), team: text("team"), revealed: integer("revealed", { mode: "boolean" }).notNull().default(false), loverId: text("lover_id"), roleModelId: text("role_model_id"), charmed: integer("charmed", { mode: "boolean" }).notNull().default(false),
+  elderShield: integer("elder_shield", { mode: "boolean" }).notNull().default(false), healPotion: integer("heal_potion", { mode: "boolean" }).notNull().default(false), poisonPotion: integer("poison_potion", { mode: "boolean" }).notNull().default(false),
+  lastProtectedId: text("last_protected_id"), transformedNight: integer("transformed_night"), joinedAt: integer("joined_at").notNull(), lastSeen: integer("last_seen").notNull(),
+}, (t) => [uniqueIndex("idx_werewolf_players_token").on(t.tokenHash), uniqueIndex("idx_werewolf_players_lobby_name").on(t.lobbyId, t.normalizedName), index("idx_werewolf_players_lobby_active").on(t.lobbyId, t.removed)]);
+
+export const werewolfActions = sqliteTable("werewolf_actions", {
+  id: text("id").primaryKey(), lobbyId: text("lobby_id").notNull(), matchNumber: integer("match_number").notNull(), cycle: integer("cycle").notNull(), phase: text("phase").notNull(),
+  actorId: text("actor_id").notNull(), kind: text("kind").notNull(), targetId: text("target_id"), target2Id: text("target2_id"), payload: text("payload"), createdAt: integer("created_at").notNull(),
+}, (t) => [uniqueIndex("idx_werewolf_actions_once").on(t.lobbyId, t.matchNumber, t.cycle, t.phase, t.actorId, t.kind), index("idx_werewolf_actions_phase").on(t.lobbyId, t.matchNumber, t.cycle, t.phase)]);
+
+export const werewolfVotes = sqliteTable("werewolf_votes", {
+  lobbyId: text("lobby_id").notNull(), matchNumber: integer("match_number").notNull(), cycle: integer("cycle").notNull(), phase: text("phase").notNull(), voterId: text("voter_id").notNull(), targetId: text("target_id").notNull(), createdAt: integer("created_at").notNull(),
+}, (t) => [primaryKey({ columns: [t.lobbyId, t.matchNumber, t.cycle, t.phase, t.voterId] }), index("idx_werewolf_votes_phase_target").on(t.lobbyId, t.matchNumber, t.cycle, t.phase, t.targetId)]);

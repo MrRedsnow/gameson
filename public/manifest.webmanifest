@@ -1,12 +1,12 @@
 {
-  "name": "Imposter – Wer blufft?",
-  "short_name": "Imposter",
-  "description": "Das mobile Partyspiel für eine oder mehrere Geräte.",
+  "name": "Gameson – Spieleabend. Sofort.",
+  "short_name": "Gameson",
+  "description": "Imposter und Werwolf als mobile Gesellschaftsspiele.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f4f0e7",
-  "theme_color": "#f4f0e7",
+  "background_color": "#11130f",
+  "theme_color": "#11130f",
   "lang": "de",
   "categories": ["games", "entertainment"],
   "prefer_related_applications": false,
@@ -15,7 +15,7 @@
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
   "shortcuts": [
-    { "name": "Lobby beitreten", "short_name": "Beitreten", "url": "/?join=1" },
-    { "name": "Ein Gerät", "short_name": "Offline spielen", "url": "/?local=1" }
+    { "name": "Imposter spielen", "short_name": "Imposter", "url": "/imposter" },
+    { "name": "Werwolf spielen", "short_name": "Werwolf", "url": "/werwolf" }
   ]
 }
