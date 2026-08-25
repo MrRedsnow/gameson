@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { access } from "node:fs/promises";
 import test from "node:test";
 import {
   ROLE_INFO,
@@ -8,10 +9,11 @@ import {
   determineWinner,
   maxWolfCount,
   nextNightPhase,
+  phaseAfterDawn,
   validateRoleSetup,
   weightedVoteLeaders,
 } from "../lib/werewolf.ts";
-import { WEREWOLF_AUDIO_CUES } from "../lib/werewolf-audio.ts";
+import { WEREWOLF_AUDIO_CUES, WEREWOLF_RECORDED_CUES, WEREWOLF_TRANSITION_CUES } from "../lib/werewolf-audio.ts";
 
 test("balanciert Wolfsslots auch für kleine Gruppen", () => {
   assert.equal(defaultWolfCount(3), 1);
@@ -82,4 +84,21 @@ test("gibt jeder aktiven Rolle ein unverwechselbares Audiosignal", () => {
     return JSON.stringify(cue);
   });
   assert.equal(new Set(signatures).size, phases.length);
+});
+
+test("verwendet die gelieferten Werwolf-Ansagen nur für passende aktive Phasen", async () => {
+  assert.equal(WEREWOLF_RECORDED_CUES.wolves, "/audio/werwolf/wolves.mp3");
+  assert.equal(WEREWOLF_RECORDED_CUES.witch, "/audio/werwolf/witch.mp3");
+  assert.equal(WEREWOLF_RECORDED_CUES.elder, undefined);
+  assert.equal(WEREWOLF_RECORDED_CUES.scapegoat, undefined);
+  for (const path of [...Object.values(WEREWOLF_RECORDED_CUES), ...Object.values(WEREWOLF_TRANSITION_CUES)]) {
+    await access(new URL(`../public${path}`, import.meta.url));
+  }
+});
+
+test("enthält beide Übergänge zwischen Nacht und Tag", () => {
+  assert.equal(phaseAfterDawn("night"), "discussion");
+  assert.equal(phaseAfterDawn("day"), "night");
+  assert.equal(WEREWOLF_TRANSITION_CUES["night-start"], "/audio/werwolf/night-start.mp3");
+  assert.equal(WEREWOLF_TRANSITION_CUES["day-start"], "/audio/werwolf/day-start.mp3");
 });
