@@ -1,0 +1,21 @@
+{
+  "name": "Imposter – Wer blufft?",
+  "short_name": "Imposter",
+  "description": "Das mobile Partyspiel für eine oder mehrere Geräte.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f0e7",
+  "theme_color": "#f4f0e7",
+  "lang": "de",
+  "categories": ["games", "entertainment"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Lobby beitreten", "short_name": "Beitreten", "url": "/?join=1" },
+    { "name": "Ein Gerät", "short_name": "Offline spielen", "url": "/?local=1" }
+  ]
+}
