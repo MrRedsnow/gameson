@@ -73,7 +73,7 @@ export const DEATH_CAUSE_INFO: Record<DeathCause, { label: string; shortLabel: s
   wolf_attack: { label: "Vom Werwolfrudel gerissen", shortLabel: "Wolfsangriff" },
   witch_poison: { label: "Vom Gifttrank der Hexe vergiftet", shortLabel: "Hexengift" },
   white_werewolf: { label: "Von der Weißen Werwölfin getötet", shortLabel: "Weiße Werwölfin" },
-  village_vote: { label: "Vom Dorf zum Tode verurteilt", shortLabel: "Dorfabstimmung" },
+  village_vote: { label: "Durch die Entscheidung des Dorfs gestorben", shortLabel: "Dorfentscheidung" },
   scapegoat: { label: "Als Sündenbock für den Gleichstand gestorben", shortLabel: "Sündenbock" },
   hunter_shot: { label: "Vom letzten Schuss des Jägers getroffen", shortLabel: "Jägerschuss" },
   heartbreak: { label: "Aus Liebeskummer gestorben", shortLabel: "Liebeskummer" },
@@ -87,6 +87,15 @@ export function parseDeathCauses(value: unknown): DeathCause[] {
   } catch {
     return [];
   }
+}
+
+export function countVillageDecisionDeaths(players: { deathCauses: readonly DeathCause[] }[]) {
+  return players.filter((player) => player.deathCauses.some((cause) => cause === "village_vote" || cause === "scapegoat")).length;
+}
+
+export function villageGuiltIntensity(deathCount: number) {
+  if (!Number.isFinite(deathCount) || deathCount < 1) return 0;
+  return 1 + Math.log2(deathCount) * 1.75;
 }
 
 export const SELECTABLE_ROLES: WerewolfRole[] = [

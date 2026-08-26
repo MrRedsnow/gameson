@@ -167,15 +167,36 @@ test("signalisiert Opfern ihre Todesart und zeigt sie öffentlich als Symbol", a
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(werewolfSource, /function VictimDeathAlert/);
-  assert.match(werewolfSource, /setTimeout\(\(\) => setVisible\(false\), 5000\)/);
+  assert.match(werewolfSource, /setTimeout\(\(\) => setVisible\(false\), 10000\)/);
   assert.match(werewolfSource, /cause-\$\{cause\}/);
   assert.match(werewolfSource, /cause === "wolf_attack"/);
   assert.match(werewolfSource, /cause === "witch_poison"/);
   assert.match(werewolfSource, /<DeathCauseList causes=\{player\.deathCauses\} compact/);
+  assert.match(css, /\.role-reveal-list>div>span\{display:grid;place-items:center;/);
+  assert.doesNotMatch(css, /\.role-reveal-list span\{display:grid;place-items:center;/);
+  assert.match(css, /\.result-player-meta\s*\{[^}]*display:flex;[^}]*align-items:center;/);
   assert.match(routeSource, /cause: "hunter_shot"/);
-  assert.match(routeSource, /new Set\(\["heartbreak"\]\)/);
+  assert.match(routeSource, /villageConsequence \? \["heartbreak", "village_vote"\] : \["heartbreak"\]/);
+  assert.match(werewolfSource, /villageConsequence \? \["heartbreak", "village_vote"\] : \["heartbreak"\]/);
   assert.match(routeSource, /deathMatchNumber: item\.death_match_number/);
   assert.match(schemaSource, /deathCauses: text\("death_causes"\)/);
   assert.match(css, /@keyframes victim-death-pulse/);
   assert.match(css, /\.victim-death-frame\s*\{[^}]*border:5px solid #ff293d;/);
+});
+
+test("verdichtet den blutigen Dorfrand nach jedem gemeinschaftlich verursachten Tod", async () => {
+  const [werewolfSource, css] = await Promise.all([
+    readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(werewolfSource, /function VillageGuiltFrame/);
+  assert.match(werewolfSource, /data-village-kills=\{count\}/);
+  assert.match(werewolfSource, /aria-hidden="true"/);
+  assert.match(werewolfSource, /role="status" aria-live="polite" aria-atomic="true"/);
+  assert.equal(werewolfSource.match(/<VillageGuiltFrame count=\{villageKillCount\} \/>/g)?.length, 3);
+  assert.match(werewolfSource, /village-guilt-summary/);
+  assert.match(css, /\.village-guilt-frame\s*\{[^}]*position:fixed;[^}]*pointer-events:none;/);
+  assert.match(css, /--village-blood-depth/);
+  assert.doesNotMatch(css, /--village-blood[^;]*(?:calc\([^)]*\*|\*[^)]*\))/);
+  assert.match(css, /@media\(forced-colors:active\)/);
 });

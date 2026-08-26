@@ -6,6 +6,7 @@ import {
   ROLE_INFO,
   SELECTABLE_ROLES,
   buildRoleDeck,
+  countVillageDecisionDeaths,
   defaultWolfCount,
   determineWinner,
   maxWolfCount,
@@ -13,6 +14,7 @@ import {
   parseDeathCauses,
   phaseAfterDawn,
   validateRoleSetup,
+  villageGuiltIntensity,
   weightedVoteLeaders,
 } from "../lib/werewolf.ts";
 import { AUDIO_ANNOUNCEMENT_GAP_SECONDS, WEREWOLF_AUDIO_CUES, WEREWOLF_AUDIO_PHASES, WEREWOLF_RECORDED_CUES, WEREWOLF_TRANSITION_CUES, WEREWOLF_WINNER_CUES } from "../lib/werewolf-audio.ts";
@@ -76,6 +78,39 @@ test("führt jede Todesart mit öffentlicher Erklärung und sicherer Persistenz"
   assert.ok(causes.every((cause) => DEATH_CAUSE_INFO[cause].label.length >= 18));
   assert.deepEqual(parseDeathCauses(JSON.stringify(["wolf_attack", "witch_poison", "unknown"])), ["wolf_attack", "witch_poison"]);
   assert.deepEqual(parseDeathCauses("kein JSON"), []);
+});
+
+test("zählt die gemeinschaftlich verursachten Dorf-Tode genau einmal pro Opfer", () => {
+  assert.equal(countVillageDecisionDeaths([]), 0);
+  assert.equal(countVillageDecisionDeaths([
+    { deathCauses: ["village_vote"] },
+    { deathCauses: ["scapegoat", "heartbreak"] },
+    { deathCauses: ["village_vote", "scapegoat"] },
+    { deathCauses: ["wolf_attack"] },
+    { deathCauses: ["witch_poison", "hunter_shot"] },
+  ]), 3);
+});
+
+test("rechnet nur die durch ein Dorfurteil ausgelösten Liebestode der Dorfschuld zu", () => {
+  assert.equal(countVillageDecisionDeaths([
+    { deathCauses: ["village_vote"] },
+    { deathCauses: ["heartbreak", "village_vote"] },
+    { deathCauses: ["heartbreak"] },
+  ]), 2);
+  assert.equal(countVillageDecisionDeaths([
+    { deathCauses: ["wolf_attack"] },
+    { deathCauses: ["heartbreak"] },
+  ]), 0);
+});
+
+test("steigert die Blutschuld mit jedem weiteren Dorf-Tod ohne harte Obergrenze", () => {
+  assert.equal(villageGuiltIntensity(0), 0);
+  let previous = villageGuiltIntensity(1);
+  for (let deaths = 2; deaths <= 22; deaths += 1) {
+    const current = villageGuiltIntensity(deaths);
+    assert.ok(current > previous, `Tod ${deaths} muss den Rand weiter verdichten`);
+    previous = current;
+  }
 });
 
 test("zählt Bürgermeisterstimmen doppelt und erkennt Gleichstände", () => {

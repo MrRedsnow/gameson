@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import QRCode from "qrcode";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { resolveOnlineGameStartup } from "../../lib/game-session";
 import {
   DEATH_CAUSE_INFO,
   ROLE_INFO,
   SELECTABLE_ROLES,
   buildRoleDeck,
+  countVillageDecisionDeaths,
   defaultWolfCount,
   determineWinner,
   maxWolfCount,
@@ -16,6 +17,7 @@ import {
   phaseAfterDawn,
   roleTeam,
   validateRoleSetup,
+  villageGuiltIntensity,
   weightedVoteLeaders,
   type DeathCause,
   type Winner,
@@ -109,7 +111,7 @@ function Stepper({ value, min, max, onChange }: { value: number; min: number; ma
 
 function DeathCauseIcon({ cause }: { cause: DeathCause }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    {cause === "wolf_attack" && <><path d="M7 3 3 20M14 2 10 21M21 5l-5 17" /><path d="m2 17 3 3 3-1m1-2 3 4 3-2m1-1 3 4 3-2" /></>}
+    {cause === "wolf_attack" && <path d="M8 4 5 19M14 3l-3 18m8-15-3 14" />}
     {cause === "witch_poison" && <><path d="M9 2h6m-5 0v5l-4 5v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8l-4-5V2" /><path d="M7 14c3-2 7 2 10 0m-7-7h4" /></>}
     {cause === "white_werewolf" && <><path d="M15 3a7 7 0 1 0 6 11 8 8 0 0 1-6-11Z" /><path d="m6 12-2 8m7-8-2 9m7-7-2 8" /></>}
     {cause === "village_vote" && <><path d="M4 10h16v11H4zM8 14h8" /><path d="m8 3 9 3-2 6-9-3z" /></>}
@@ -130,7 +132,7 @@ function VictimDeathAlert({ causes }: { causes: DeathCause[] }) {
   const [visible, setVisible] = useState(true);
   useEffect(() => {
     if ("vibrate" in navigator) navigator.vibrate([180, 100, 180, 100, 300]);
-    const timer = window.setTimeout(() => setVisible(false), 5000);
+    const timer = window.setTimeout(() => setVisible(false), 10000);
     return () => window.clearTimeout(timer);
   }, []);
   if (!visible) return null;
@@ -143,6 +145,49 @@ function VictimDeathAlert({ causes }: { causes: DeathCause[] }) {
       <p>{causes.length ? causes.map((cause) => DEATH_CAUSE_INFO[cause].label).join(" · ") : "Die Todesursache ist unbekannt."}</p>
     </div>
   </div>;
+}
+
+function VillageGuiltFrame({ count }: { count: number }) {
+  const intensity = villageGuiltIntensity(count);
+  const bloodStyle = {
+    "--village-blood-depth": `${16 + intensity * 7}px`,
+    "--village-blood-shadow-size": `${8 + intensity * 4}px`,
+    "--village-blood-edge-alpha": Math.min(.72, .12 + intensity * .035),
+    "--village-blood-bottom-alpha": Math.min(.66, .1 + intensity * .03),
+    "--village-blood-side-alpha": Math.min(.68, .1 + intensity * .032),
+    "--village-blood-shadow-alpha": Math.min(.7, .12 + intensity * .035),
+    "--village-blood-growth-two": `${intensity * 2}px`,
+    "--village-blood-growth-three": `${intensity * 3}px`,
+    "--village-blood-stain-opacity": Math.min(.94, .24 + intensity * .1),
+    "--village-blood-drip-width": `${4 + intensity * .55}px`,
+    "--village-blood-drip-height": `${10 + intensity * 5}px`,
+    "--village-blood-short-drip-height": `${7 + intensity * 4}px`,
+    "--village-blood-drip-one-opacity": Math.min(.82, Math.max(0, intensity * .19)),
+    "--village-blood-drip-two-opacity": Math.min(.82, Math.max(0, (intensity - 1) * .19)),
+    "--village-blood-drip-three-opacity": Math.min(.82, Math.max(0, (intensity - 2) * .19)),
+    "--village-blood-drip-four-opacity": Math.min(.82, Math.max(0, (intensity - 3) * .19)),
+    "--village-blood-drip-five-opacity": Math.min(.82, Math.max(0, (intensity - 4) * .19)),
+    "--village-blood-drip-six-opacity": Math.min(.82, Math.max(0, (intensity - 5) * .19)),
+  } as CSSProperties;
+  return <>
+    {count > 0 && <div
+      className="village-guilt-frame"
+      data-village-kills={count}
+      style={bloodStyle}
+      aria-hidden="true"
+    >
+      <span className="village-guilt-surface">
+        <span className="village-blood-stains" />
+        <i className="village-blood-drip drip-one" />
+        <i className="village-blood-drip drip-two" />
+        <i className="village-blood-drip drip-three" />
+        <i className="village-blood-drip drip-four" />
+        <i className="village-blood-drip drip-five" />
+        <i className="village-blood-drip drip-six" />
+      </span>
+    </div>}
+    <span className="sr-only village-guilt-summary" role="status" aria-live="polite" aria-atomic="true">{count < 1 ? "" : count === 1 ? "Das Dorf trägt Verantwortung für einen Tod durch seine Entscheidungen." : `Das Dorf trägt Verantwortung für ${count} Tode durch seine Entscheidungen.`}</span>
+  </>;
 }
 
 function WolfTopbar({ title, onBack, online = true }: { title: string; onBack?: () => void; online?: boolean }) {
@@ -256,7 +301,9 @@ function OnlineGame({ state, session, online, busy, post, leave, showError }: { 
   const me = state.players.find((player) => player.id === state.me.id);
   const showsFreshDeath = Boolean(me && !me.alive && (state.lobby.phase === "dawn" || state.lobby.phase === "results") && me.deathMatchNumber === state.lobby.matchNumber && me.deathCycle === state.lobby.night && me.deathSource === state.lobby.resolutionSource);
   const shouldPlayHere = state.lobby.audioMode === "all" || state.me.isHost;
+  const villageKillCount = countVillageDecisionDeaths(state.players);
   return <main className="app-shell werewolf-shell"><WolfTopbar title={state.lobby.name} onBack={leave} online={online} />
+    <VillageGuiltFrame count={villageKillCount} />
     {showsFreshDeath && me && <VictimDeathAlert key={`${me.deathMatchNumber}:${me.deathCycle}:${me.deathSource}`} causes={me.deathCauses} />}
     {state.lobby.status === "waiting" ? <WaitingRoom state={state} busy={busy} post={post} invite={() => setInviteOpen(true)} settings={() => setSettingsOpen(true)} audioReady={audioReady} enableAudio={enableAudio} /> : <><GamePhase state={state} busy={busy} post={post} close={leave} openRole={() => setRoleOpen(true)} mayorName={mayor?.name ?? null} />{shouldPlayHere && !audioReady && <button className="game-audio-enable" type="button" onClick={() => void enableAudio()}>♪ Spielton aktivieren</button>}</>}
     {state.canClaimHost && <button className="claim-host" onClick={() => post("claim_host")}>Host ist weg · Leitung übernehmen</button>}
@@ -427,6 +474,7 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
     playWerewolfWinnerCue(winner, 120);
   }, [audioReady, night, phase, winner]);
   const validNames = names.map((name) => name.trim()).filter(Boolean); const maxWolves = maxWolfCount(Math.max(3, validNames.length)); const effectiveWolves = Math.min(wolves, maxWolves);
+  const villageKillCount = countVillageDecisionDeaths(players);
 
   const beginQueue = (turns: LocalTurn[], nextPurpose: typeof purpose, nextPlayers = players, nextDraft = EMPTY_DRAFT) => { setPlayers(nextPlayers); setQueue(turns); setPurpose(nextPurpose); setTurnIndex(0); setDraft(nextDraft); setFirst(""); setSecond(""); setReady(false); setPhase("turn"); if (!turns.length) finishQueue(nextPurpose, nextPlayers, nextDraft); };
   const start = () => { if (validNames.length < 3) return showError(new Error("Füge mindestens drei Namen hinzu.")); if (new Set(validNames.map((name) => name.toLocaleLowerCase("de"))).size !== validNames.length) return showError(new Error("Jeder Name darf nur einmal vorkommen.")); const error = validateRoleSetup(validNames.length, effectiveWolves, roles); if (error) return showError(new Error(error)); void unlockWerewolfAudio().then(() => setAudioReady(true)).catch(showError); localCue.current = ""; localWinnerCue.current = ""; localAnnouncedNight.current = 0; localInitialSleep.current = false; const deck = buildRoleDeck(validNames.length, effectiveWolves, roles, randomIndex); const next = validNames.map((name, index) => { const role = deck[index]; return { id: crypto.randomUUID(), name, role, team: roleTeam(role), alive: true, loverId: null, roleModelId: null, charmed: false, elderShield: role === "elder", healPotion: role === "witch", poisonPotion: role === "witch", lastProtectedId: null, deathCauses: [] }; }); setPlayers(next); setMayorId(null); setNight(0); setWinner(null); setVoteHistory([]); setRevealIndex(0); setReady(false); setPhase("reveal"); };
@@ -436,7 +484,7 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
   const startNight = (list = players) => { const nextNight = night + 1; setNight(nextNight); const living = list.filter((player) => player.alive); const turns: LocalTurn[] = []; const addRole = (kind: WerewolfPhase, role: WerewolfRole) => { const actor = living.find((player) => player.role === role); if (actor) turns.push({ kind, actorId: actor.id }); }; addRole("healer", "healer"); addRole("seer", "seer"); living.filter((player) => player.team === "wolf" || player.role === "white_werewolf").forEach((player) => turns.push({ kind: "wolves", actorId: player.id })); addRole("witch", "witch"); if (nextNight % 2 === 0) addRole("white_werewolf", "white_werewolf"); addRole("piper", "piper"); beginQueue(turns, "night", list, EMPTY_DRAFT); };
   const startDayVote = (list = players, runoffCandidates?: string[]) => { const living = list.filter((player) => player.alive); beginQueue(living.map((player) => ({ kind: runoffCandidates ? "runoff" as const : "day_vote" as const, actorId: player.id, candidates: runoffCandidates })), runoffCandidates ? "runoff" : "day", list, EMPTY_DRAFT); };
   const finalizeDeaths = (list: LocalPlayer[], source: "night" | "day") => { const dead = new Set(list.filter((player) => !player.alive).map((player) => player.id)); const transformed = list.map((player) => player.alive && player.role === "wild_child" && player.roleModelId && dead.has(player.roleModelId) ? { ...player, team: "wolf" as const } : player); if (mayorId && dead.has(mayorId)) setMayorId(null); const outcome = determineWinner(transformed); setPlayers(transformed); if (outcome) { setWinner(outcome); setPhase("results"); } else { setResolutionSource(source); setPhase("dawn"); } };
-  const killLocal = (list: LocalPlayer[], initialDeaths: { id: string; cause: DeathCause }[], source: "night" | "day", afterHunter = false) => { const deaths = new Map<string, Set<DeathCause>>(); for (const death of initialDeaths) { if (!list.find((player) => player.id === death.id)?.alive) continue; const causes = deaths.get(death.id) ?? new Set<DeathCause>(); causes.add(death.cause); deaths.set(death.id, causes); } let changed = true; while (changed) { changed = false; for (const id of deaths.keys()) { const lover = list.find((player) => player.id === id)?.loverId; if (lover && list.find((player) => player.id === lover)?.alive && !deaths.has(lover)) { deaths.set(lover, new Set(["heartbreak"])); changed = true; } } } const next = list.map((player) => deaths.has(player.id) ? { ...player, alive: false, deathCauses: [...deaths.get(player.id)!] } : player); const hunter = [...deaths.keys()].map((id) => next.find((player) => player.id === id)).find((player) => player?.role === "hunter"); if (hunter && !afterHunter) { setResolutionSource(source); beginQueue([{ kind: "hunter", actorId: hunter.id }], "hunter", next, EMPTY_DRAFT); } else finalizeDeaths(next, source); };
+  const killLocal = (list: LocalPlayer[], initialDeaths: { id: string; cause: DeathCause }[], source: "night" | "day", afterHunter = false) => { const deaths = new Map<string, Set<DeathCause>>(); for (const death of initialDeaths) { if (!list.find((player) => player.id === death.id)?.alive) continue; const causes = deaths.get(death.id) ?? new Set<DeathCause>(); causes.add(death.cause); deaths.set(death.id, causes); } let changed = true; while (changed) { changed = false; for (const id of deaths.keys()) { const lover = list.find((player) => player.id === id)?.loverId; const villageConsequence = deaths.get(id)?.has("village_vote") || deaths.get(id)?.has("scapegoat"); if (lover && list.find((player) => player.id === lover)?.alive && !deaths.has(lover)) { deaths.set(lover, new Set(villageConsequence ? ["heartbreak", "village_vote"] : ["heartbreak"])); changed = true; } } } const next = list.map((player) => deaths.has(player.id) ? { ...player, alive: false, deathCauses: [...deaths.get(player.id)!] } : player); const hunter = [...deaths.keys()].map((id) => next.find((player) => player.id === id)).find((player) => player?.role === "hunter"); if (hunter && !afterHunter) { setResolutionSource(source); beginQueue([{ kind: "hunter", actorId: hunter.id }], "hunter", next, EMPTY_DRAFT); } else finalizeDeaths(next, source); };
   const resolveNight = (list: LocalPlayer[], result: LocalDraft) => { const leaders = weightedVoteLeaders(result.wolfVotes, null).leaders; const victimId = leaders.length ? leaders[randomIndex(leaders.length)] : null; let next = list; const deaths: { id: string; cause: DeathCause }[] = []; if (victimId && victimId !== result.healId && !result.witchHeal) { const victim = next.find((player) => player.id === victimId); if (victim?.role === "elder" && victim.elderShield) next = next.map((player) => player.id === victimId ? { ...player, elderShield: false } : player); else deaths.push({ id: victimId, cause: "wolf_attack" }); } if (result.poisonId) deaths.push({ id: result.poisonId, cause: "witch_poison" }); if (result.whiteId) deaths.push({ id: result.whiteId, cause: "white_werewolf" }); killLocal(next, deaths, "night"); };
   function finishQueue(donePurpose: typeof purpose, list: LocalPlayer[], result: LocalDraft) {
     const votePhase: PublicVotePhase | null = donePurpose === "mayor" ? "mayor_vote" : donePurpose === "day" ? "day_vote" : donePurpose === "runoff" ? "runoff" : null;
@@ -468,10 +516,10 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
 
   if (phase === "setup") return <main className="app-shell werewolf-shell"><WolfTopbar title="Ein Gerät" onBack={onBack} online={false} /><section className="page-intro"><span className="step-label wolf-step">Offline · Vorbereitung</span><h2>Wer lebt im Dorf?</h2><p>Das Handy wird für Rollen und Entscheidungen weitergereicht.</p></section><section className="local-setup"><div className="name-list">{names.map((name, index) => <div key={index}><span>{index + 1}</span><input value={name} onChange={(event) => setNames(names.map((item, position) => position === index ? event.target.value : item))} placeholder="Name eingeben" maxLength={24} aria-label={`Name ${index + 1}`} />{names.length > 3 && <button onClick={() => setNames(names.filter((_, position) => position !== index))}>×</button>}</div>)}</div>{names.length < 22 && <button className="add-person" onClick={() => setNames([...names, ""])}>+ Person hinzufügen</button>}<div className="local-options wolf-local-options"><div className="settings-row"><span><strong>Wolfsslots</strong><small>Standard: {defaultWolfCount(Math.max(3, validNames.length))}</small></span><Stepper value={effectiveWolves} min={1} max={maxWolves} onChange={setWolves} /></div><span className="settings-label">Zusatzrollen</span><RoleSelector count={validNames.length} wolves={effectiveWolves} roles={roles} setRoles={setRoles} /><div className="settings-row"><span><strong>Redepause</strong><small>Zwischen einzelnen Audio-Ansagen · Sekunden</small></span><Stepper value={audioGapSeconds} min={MIN_AUDIO_ANNOUNCEMENT_GAP_SECONDS} max={MAX_AUDIO_ANNOUNCEMENT_GAP_SECONDS} onChange={setAudioGapSeconds} /></div><div className="switch-row"><span><strong>Bürgermeister wählen</strong><small>Öffentliche Zusatzfunktion</small></span><input id="local-mayor" aria-label="Bürgermeister wählen" type="checkbox" checked={mayorEnabled} onChange={(event) => setMayorEnabled(event.target.checked)} /><i /></div><p className="local-audio-note">♪ Beim Start werden die akustischen Rollensignale aktiviert.</p></div><button className="primary-button wolf-primary" onClick={start}>Rollen verteilen →</button></section></main>;
   if (phase === "reveal") { const player = players[revealIndex]; const pack = players.filter((item) => item.id !== player.id && (item.team === "wolf" || item.role === "white_werewolf")).map((item) => item.name).join(", "); return <main className="app-shell werewolf-shell pass-shell"><WolfTopbar title={`Rolle ${revealIndex + 1}/${players.length}`} online={false} /><section className="handover wolf-handover"><span className="step-label wolf-step">Gerät weitergeben</span><h2>{ready ? `${player.name}, nur du darfst schauen.` : `Gib das Handy an ${player.name}.`}</h2>{!ready ? <button className="primary-button wolf-primary" onClick={() => setReady(true)}>Ich bin {player.name}</button> : <LocalSecret player={player} pack={pack} onDone={() => { setReady(false); if (revealIndex === players.length - 1) startAfterReveal(); else setRevealIndex(revealIndex + 1); }} />}</section></main>; }
-  if (phase === "turn") { const turn = queue[turnIndex]; const actor = players.find((player) => player.id === turn.actorId)!; const living = players.filter((player) => player.alive); let candidates = living.filter((player) => player.id !== actor.id); if (turn.kind === "mayor_vote") candidates = living; if (turn.kind === "wolves") candidates = living.filter((player) => player.team !== "wolf" && player.role !== "white_werewolf"); if (turn.kind === "healer") candidates = living.filter((player) => player.id !== actor.lastProtectedId); if (turn.kind === "white_werewolf") candidates = living.filter((player) => player.team === "wolf" && player.id !== actor.id); if (turn.kind === "piper") candidates = candidates.filter((player) => !player.charmed); if (turn.candidates) candidates = candidates.filter((player) => turn.candidates!.includes(player.id)); const multi = turn.kind === "cupid" || turn.kind === "piper"; const reserve = turn.kind === "thief" ? (["thief", "villager", randomIndex(2) ? "werewolf" : "villager"] as WerewolfRole[]) : null; const wolfVictim = weightedVoteLeaders(draft.wolfVotes, null).leaders[0]; return <main className="app-shell werewolf-shell pass-shell"><WolfTopbar title={`${PHASE_COPY[turn.kind].title}`} online={false} /><section className="handover wolf-handover"><span className="step-label wolf-step">Geheime Aktion {turnIndex + 1}/{queue.length}</span><h2>{ready ? `${actor.name}, du bist dran.` : `Gib das Handy an ${actor.name}.`}</h2>{!ready ? <button className="primary-button wolf-primary" onClick={() => setReady(true)}>Ich bin {actor.name}</button> : <div className="local-action-panel"><p>{PHASE_COPY[turn.kind].text}</p>{turn.kind === "witch" ? <><p>{wolfVictim ? `Das Rudel wählte ${players.find((player) => player.id === wolfVictim)?.name}.` : "Noch kein Wolfsopfer."}</p>{actor.healPotion && wolfVictim && <div className="switch-row"><span><strong>Heiltrank einsetzen</strong></span><input id="local-witch-heal" aria-label="Heiltrank einsetzen" type="checkbox" checked={witchHeal} onChange={(event) => setWitchHeal(event.target.checked)} /><i /></div>}{actor.poisonPotion && <div className="select-field"><span>Gifttrank</span><select id="local-witch-poison" aria-label="Ziel für den Gifttrank" value={second} onChange={(event) => setSecond(event.target.value)}><option value="">Niemand</option>{candidates.filter((player) => !witchHeal || player.id !== wolfVictim).map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select></div>}</> : reserve ? <div className="target-list">{reserve.map((role, index) => <button key={`${role}-${index}`} className={first === role ? "selected" : ""} onClick={() => setFirst(role)}><span>{ROLE_INFO[role].label.charAt(0)}</span><strong>{ROLE_INFO[role].label}</strong><i>{first === role ? "✓" : ""}</i></button>)}</div> : <div className="target-list">{candidates.map((player) => <button key={player.id} className={first === player.id || second === player.id ? "selected" : ""} onClick={() => { if (first === player.id) { setFirst(second); setSecond(""); } else if (multi && first) setSecond(player.id); else setFirst(player.id); }}><span>{player.name.charAt(0)}</span><strong>{player.name}</strong><i>{first === player.id || second === player.id ? "✓" : ""}</i></button>)}</div>}<button className="primary-button wolf-primary" disabled={!first && !["witch", "white_werewolf"].includes(turn.kind)} onClick={submitTurn}>{turn.kind === "white_werewolf" && !first ? "Diese Nacht passen" : "Geheim bestätigen"}</button></div>}</section></main>; }
+  if (phase === "turn") { const turn = queue[turnIndex]; const actor = players.find((player) => player.id === turn.actorId)!; const living = players.filter((player) => player.alive); let candidates = living.filter((player) => player.id !== actor.id); if (turn.kind === "mayor_vote") candidates = living; if (turn.kind === "wolves") candidates = living.filter((player) => player.team !== "wolf" && player.role !== "white_werewolf"); if (turn.kind === "healer") candidates = living.filter((player) => player.id !== actor.lastProtectedId); if (turn.kind === "white_werewolf") candidates = living.filter((player) => player.team === "wolf" && player.id !== actor.id); if (turn.kind === "piper") candidates = candidates.filter((player) => !player.charmed); if (turn.candidates) candidates = candidates.filter((player) => turn.candidates!.includes(player.id)); const multi = turn.kind === "cupid" || turn.kind === "piper"; const reserve = turn.kind === "thief" ? (["thief", "villager", randomIndex(2) ? "werewolf" : "villager"] as WerewolfRole[]) : null; const wolfVictim = weightedVoteLeaders(draft.wolfVotes, null).leaders[0]; return <main className="app-shell werewolf-shell pass-shell"><VillageGuiltFrame count={villageKillCount} /><WolfTopbar title={`${PHASE_COPY[turn.kind].title}`} online={false} /><section className="handover wolf-handover"><span className="step-label wolf-step">Geheime Aktion {turnIndex + 1}/{queue.length}</span><h2>{ready ? `${actor.name}, du bist dran.` : `Gib das Handy an ${actor.name}.`}</h2>{!ready ? <button className="primary-button wolf-primary" onClick={() => setReady(true)}>Ich bin {actor.name}</button> : <div className="local-action-panel"><p>{PHASE_COPY[turn.kind].text}</p>{turn.kind === "witch" ? <><p>{wolfVictim ? `Das Rudel wählte ${players.find((player) => player.id === wolfVictim)?.name}.` : "Noch kein Wolfsopfer."}</p>{actor.healPotion && wolfVictim && <div className="switch-row"><span><strong>Heiltrank einsetzen</strong></span><input id="local-witch-heal" aria-label="Heiltrank einsetzen" type="checkbox" checked={witchHeal} onChange={(event) => setWitchHeal(event.target.checked)} /><i /></div>}{actor.poisonPotion && <div className="select-field"><span>Gifttrank</span><select id="local-witch-poison" aria-label="Ziel für den Gifttrank" value={second} onChange={(event) => setSecond(event.target.value)}><option value="">Niemand</option>{candidates.filter((player) => !witchHeal || player.id !== wolfVictim).map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select></div>}</> : reserve ? <div className="target-list">{reserve.map((role, index) => <button key={`${role}-${index}`} className={first === role ? "selected" : ""} onClick={() => setFirst(role)}><span>{ROLE_INFO[role].label.charAt(0)}</span><strong>{ROLE_INFO[role].label}</strong><i>{first === role ? "✓" : ""}</i></button>)}</div> : <div className="target-list">{candidates.map((player) => <button key={player.id} className={first === player.id || second === player.id ? "selected" : ""} onClick={() => { if (first === player.id) { setFirst(second); setSecond(""); } else if (multi && first) setSecond(player.id); else setFirst(player.id); }}><span>{player.name.charAt(0)}</span><strong>{player.name}</strong><i>{first === player.id || second === player.id ? "✓" : ""}</i></button>)}</div>}<button className="primary-button wolf-primary" disabled={!first && !["witch", "white_werewolf"].includes(turn.kind)} onClick={submitTurn}>{turn.kind === "white_werewolf" && !first ? "Diese Nacht passen" : "Geheim bestätigen"}</button></div>}</section></main>; }
   const dead = players.filter((player) => !player.alive);
   const publicPlayers: PlayerView[] = players.map((player) => ({ ...player, isHost: false, online: false }));
-  return <main className="app-shell werewolf-shell"><WolfTopbar title={phase === "results" ? "Ergebnis" : phase === "discussion" ? "Dorfversammlung" : "Auflösung"} onBack={phase === "results" ? onBack : undefined} online={false} /><section className="wolf-phase"><div className="phase-moon">{phase === "discussion" ? "☀" : "☾"}</div><div className="page-intro"><span className="step-label wolf-step">{night ? `Nacht ${night}` : "Dorf"}</span><h2>{phase === "results" ? WINNER_COPY[winner ?? ""] : phase === "discussion" ? "Wem könnt ihr trauen?" : "Der Morgen graut."}</h2><p>{phase === "discussion" ? "Diskutiert gemeinsam. Wenn ihr bereit seid, beginnt die geheime Abstimmung." : phase === "results" ? "Alle Rollen werden aufgedeckt." : "Seht nach, wer das Dorf verlassen musste."}</p></div>
+  return <main className="app-shell werewolf-shell"><VillageGuiltFrame count={villageKillCount} /><WolfTopbar title={phase === "results" ? "Ergebnis" : phase === "discussion" ? "Dorfversammlung" : "Auflösung"} onBack={phase === "results" ? onBack : undefined} online={false} /><section className="wolf-phase"><div className="phase-moon">{phase === "discussion" ? "☀" : "☾"}</div><div className="page-intro"><span className="step-label wolf-step">{night ? `Nacht ${night}` : "Dorf"}</span><h2>{phase === "results" ? WINNER_COPY[winner ?? ""] : phase === "discussion" ? "Wem könnt ihr trauen?" : "Der Morgen graut."}</h2><p>{phase === "discussion" ? "Diskutiert gemeinsam. Wenn ihr bereit seid, beginnt die geheime Abstimmung." : phase === "results" ? "Alle Rollen werden aufgedeckt." : "Seht nach, wer das Dorf verlassen musste."}</p></div>
     {phase !== "discussion" && <DeathBoard players={dead.map((player) => ({ ...player, isHost: false, online: false }))} />}
     {phase === "results" ? <div className="role-reveal-list">{players.map((player) => <div key={player.id}><span>{player.name.charAt(0)}</span><strong>{player.name}</strong><small>{ROLE_INFO[player.role].label}</small></div>)}</div> : <VillageOverview players={publicPlayers} mayorPlayerId={mayorId} />}
     <VoteHistoryBoard rounds={voteHistory} />

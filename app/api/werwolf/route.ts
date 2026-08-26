@@ -187,7 +187,8 @@ async function killPlayers(lobby: LobbyRow, initialDeaths: PlayerDeath[], source
     changed = false;
     for (const id of deaths.keys()) {
       const loverId = byId.get(id)?.lover_id;
-      if (loverId && byId.get(loverId)?.alive && !deaths.has(loverId)) { deaths.set(loverId, new Set(["heartbreak"])); changed = true; }
+      const villageConsequence = deaths.get(id)?.has("village_vote") || deaths.get(id)?.has("scapegoat");
+      if (loverId && byId.get(loverId)?.alive && !deaths.has(loverId)) { deaths.set(loverId, new Set(villageConsequence ? ["heartbreak", "village_vote"] : ["heartbreak"])); changed = true; }
     }
   }
   if (deaths.size) await db.batch([...deaths].map(([id, causes]) => db.prepare("UPDATE werewolf_players SET alive = 0, revealed = 1, death_causes = ?, death_match_number = ?, death_cycle = ?, death_source = ? WHERE id = ?").bind(JSON.stringify([...causes]), lobby.match_number, lobby.night, source, id)));
