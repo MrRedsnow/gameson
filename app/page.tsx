@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -11,6 +11,8 @@ export default function GamesonHome() {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const installButtonRef = useRef<HTMLButtonElement>(null);
+  const installSheetRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -45,6 +47,23 @@ export default function GamesonHome() {
       window.removeEventListener("appinstalled", rememberInstallation);
     };
   }, []);
+
+  useEffect(() => {
+    if (!installHelpOpen) return;
+    const installButton = installButtonRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    installSheetRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setInstallHelpOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      installButton?.focus();
+    };
+  }, [installHelpOpen]);
 
   const installApp = async () => {
     if (!installPrompt) {
@@ -100,7 +119,14 @@ export default function GamesonHome() {
       <footer className="gameson-footer">
         <div className="gameson-footer-copy"><span />Keine Konten. Keine Vorbereitung. Einfach spielen.</div>
         {!installed && (
-          <button className="gameson-install-button" type="button" onClick={() => void installApp()}>
+          <button
+            ref={installButtonRef}
+            className="gameson-install-button"
+            type="button"
+            aria-expanded={installHelpOpen}
+            aria-controls="gameson-install-dialog"
+            onClick={() => void installApp()}
+          >
             <span aria-hidden="true">↓</span> App installieren
           </button>
         )}
@@ -108,17 +134,21 @@ export default function GamesonHome() {
 
       {installHelpOpen && (
         <div className="sheet-backdrop gameson-install-backdrop">
-          <button className="gameson-install-dismiss" type="button" aria-label="Installationshinweise schließen" onClick={() => setInstallHelpOpen(false)} />
+          <button className="sheet-dismiss" type="button" tabIndex={-1} aria-label="Installationshinweise schließen" onClick={() => setInstallHelpOpen(false)} />
           <section
+            ref={installSheetRef}
+            id="gameson-install-dialog"
             className="bottom-sheet gameson-install-sheet"
             role="dialog"
             aria-modal="true"
             aria-labelledby="gameson-install-title"
+            aria-describedby="gameson-install-description"
+            tabIndex={-1}
           >
             <button className="sheet-close" type="button" aria-label="Schließen" onClick={() => setInstallHelpOpen(false)}>×</button>
             <span className="gameson-kicker">Gameson für deinen Startbildschirm</span>
             <h3 id="gameson-install-title">App installieren</h3>
-            <div className="gameson-install-steps">
+            <div id="gameson-install-description" className="gameson-install-steps">
               <div><strong>iPhone &amp; iPad</strong><p>Öffne Gameson in Safari, tippe auf „Teilen“ und dann auf „Zum Home-Bildschirm“.</p></div>
               <div><strong>Android &amp; Chrome</strong><p>Öffne das Browsermenü und wähle „App installieren“ oder „Zum Startbildschirm hinzufügen“.</p></div>
             </div>

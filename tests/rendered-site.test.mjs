@@ -200,3 +200,29 @@ test("verdichtet den blutigen Dorfrand nach jedem gemeinschaftlich verursachten 
   assert.doesNotMatch(css, /--village-blood[^;]*(?:calc\([^)]*\*|\*[^)]*\))/);
   assert.match(css, /@media\(forced-colors:active\)/);
 });
+
+test("hält zentrale UI-Rückmeldungen, Dialoge und mobile Aktionen zugänglich", async () => {
+  const [homeSource, imposterSource, werewolfSource, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/imposter/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(homeSource, /aria-controls="gameson-install-dialog"/);
+  assert.match(homeSource, /event\.key === "Escape"/);
+  assert.match(imposterSource, /const activeNotice = notice/);
+  assert.match(werewolfSource, /const activeNotice = notice/);
+  assert.match(imposterSource + werewolfSource, /role="alert" aria-live="assertive"/);
+  assert.match(imposterSource, /function ModalSheet/);
+  assert.match(werewolfSource, /function ModalSheet/);
+  assert.match(imposterSource + werewolfSource, /aria-labelledby=\{labelledBy\}/);
+  assert.match(imposterSource + werewolfSource, /Lokales Spiel – kein Internet nötig/);
+  assert.match(werewolfSource, /game-floating-actions/);
+  assert.match(werewolfSource, /game-status-details/);
+  assert.match(werewolfSource, /victim-death-dismiss/);
+  assert.match(werewolfSource, /survival-badge/);
+  assert.match(css, /\.connection-pill\.local/);
+  assert.match(css, /\.wolf-sticky-action/);
+  assert.match(css, /\.settings-sheet \.role-selector\s*\{[^}]*max-height:none;/);
+  assert.match(css, /\.library-card\s*\{[^}]*min-height:330px;/);
+});
