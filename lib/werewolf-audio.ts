@@ -21,12 +21,20 @@ export const WEREWOLF_AUDIO_CUES: Partial<Record<WerewolfPhase, readonly Tone[]>
 };
 
 export const WEREWOLF_RECORDED_CUES: Partial<Record<WerewolfPhase, string>> = {
+  role_reveal: "/audio/werwolf/role-reveal.mp3",
+  mayor_vote: "/audio/werwolf/mayor-vote.mp3",
   thief: "/audio/werwolf/thief.mp3",
   cupid: "/audio/werwolf/cupid.mp3",
   wild_child: "/audio/werwolf/wild-child.mp3",
+  healer: "/audio/werwolf/healer.mp3",
   seer: "/audio/werwolf/seer.mp3",
   wolves: "/audio/werwolf/wolves.mp3",
   witch: "/audio/werwolf/witch.mp3",
+  white_werewolf: "/audio/werwolf/white-werewolf.mp3",
+  piper: "/audio/werwolf/piper.mp3",
+  discussion: "/audio/werwolf/discussion-start.mp3",
+  day_vote: "/audio/werwolf/day-vote.mp3",
+  runoff: "/audio/werwolf/runoff.mp3",
   hunter: "/audio/werwolf/hunter.mp3",
 };
 
@@ -35,17 +43,22 @@ export const WEREWOLF_TRANSITION_CUES = {
   "sleep-again": "/audio/werwolf/sleep-again.mp3",
   "night-start": "/audio/werwolf/night-start.mp3",
   "day-start": "/audio/werwolf/day-start.mp3",
+  "day-resolution": "/audio/werwolf/day-resolution.mp3",
 } as const;
 
 export const WEREWOLF_WINNER_CUES: Partial<Record<Exclude<Winner, null>, string>> = {
   village: "/audio/werwolf/victory-village.mp3",
   wolves: "/audio/werwolf/victory-wolves.mp3",
+  piper: "/audio/werwolf/victory-piper.mp3",
+  white_werewolf: "/audio/werwolf/victory-white-werewolf.mp3",
 };
 
-export const AUDIO_ANNOUNCEMENT_GAP_SECONDS = 5;
+export const AUDIO_ANNOUNCEMENT_GAP_SECONDS = 3;
+export const MIN_AUDIO_ANNOUNCEMENT_GAP_SECONDS = 0;
+export const MAX_AUDIO_ANNOUNCEMENT_GAP_SECONDS = 10;
 
 export type WerewolfAudioTransition = keyof typeof WEREWOLF_TRANSITION_CUES | null;
-export const SECRET_AUDIO_PHASES = Object.freeze(Object.keys(WEREWOLF_AUDIO_CUES) as WerewolfPhase[]);
+export const WEREWOLF_AUDIO_PHASES = Object.freeze([...new Set([...Object.keys(WEREWOLF_AUDIO_CUES), ...Object.keys(WEREWOLF_RECORDED_CUES)])] as WerewolfPhase[]);
 
 const CLOSE_EYES_CUE: readonly Tone[] = [
   tone(494, 0, 0.22, "sine", 0.065),
@@ -119,19 +132,26 @@ export async function unlockWerewolfAudio() {
   schedulePattern(audio, [tone(523, 0, 0.1, "sine", 0.045), tone(784, 0.12, 0.16, "sine", 0.045)], audio.currentTime + 0.02);
 }
 
-export function playWerewolfPhaseCue(phase: WerewolfPhase, delayMs = 0, transition: WerewolfAudioTransition = "sleep-again") {
+export function playWerewolfPhaseCue(
+  phase: WerewolfPhase,
+  delayMs = 0,
+  transition: WerewolfAudioTransition = "sleep-again",
+  announcementGapSeconds = AUDIO_ANNOUNCEMENT_GAP_SECONDS,
+) {
   const audio = getContext();
   const cue = WEREWOLF_AUDIO_CUES[phase];
-  if (!audio || audio.state !== "running" || !cue) return false;
+  const recording = WEREWOLF_RECORDED_CUES[phase];
+  if (!audio || audio.state !== "running" || (!cue && !recording)) return false;
   const begins = audio.currentTime + Math.max(0, delayMs) / 1000;
-  if (transition === "day-start") {
-    if (!scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins)) schedulePattern(audio, cue, begins);
+  if (transition === "day-start" || transition === "day-resolution") {
+    if (!scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins) && cue) schedulePattern(audio, cue, begins);
     return true;
   }
   let transitionDuration = transition ? scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins) : 0;
   if (transition && !transitionDuration) transitionDuration = schedulePattern(audio, CLOSE_EYES_CUE, begins);
-  const cueStarts = begins + (transition ? transitionDuration + AUDIO_ANNOUNCEMENT_GAP_SECONDS : 0);
-  if (!scheduleRecording(audio, WEREWOLF_RECORDED_CUES[phase], cueStarts)) schedulePattern(audio, cue, cueStarts);
+  const gapSeconds = Math.min(MAX_AUDIO_ANNOUNCEMENT_GAP_SECONDS, Math.max(MIN_AUDIO_ANNOUNCEMENT_GAP_SECONDS, announcementGapSeconds));
+  const cueStarts = begins + (transition ? transitionDuration + gapSeconds : 0);
+  if (!scheduleRecording(audio, recording, cueStarts) && cue) schedulePattern(audio, cue, cueStarts);
   return true;
 }
 

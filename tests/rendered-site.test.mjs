@@ -75,12 +75,25 @@ test("nutzt lesbare Typografie und vermeidet erzwungene Werwolf-Umbrüche", asyn
   assert.doesNotMatch(werewolfSource, /WER<br\s*\/>WOLF/);
 });
 
-test("zeigt den Werwolf-Lobbystatus als getrennte, responsive Anzeige", async () => {
+test("gruppiert die Online-Lobbys nach spielbereiten und nicht bereiten Personen", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const imposterSource = await readFile(new URL("../app/imposter/page.tsx", import.meta.url), "utf8");
   const werewolfSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
+  assert.match(imposterSource, /const readyPlayers = indexedPlayers\.filter/);
+  assert.match(imposterSource, /const waitingPlayers = indexedPlayers\.filter/);
+  assert.match(imposterSource, /Online &amp; spielbereit/);
+  assert.match(imposterSource, /Nicht bereit/);
+  assert.match(werewolfSource, /const readyPlayers = indexedPlayers\.filter/);
+  assert.match(werewolfSource, /const waitingPlayers = indexedPlayers\.filter/);
+  assert.match(werewolfSource, /Online &amp; spielbereit/);
+  assert.match(werewolfSource, /Nicht bereit/);
   assert.match(werewolfSource, /player-presence/);
-  assert.match(werewolfSource, /player\.online \? "Bereit" : "Offline"/);
+  assert.match(werewolfSource, /player\.online \? "Bereit" : "Nicht bereit"/);
   assert.match(werewolfSource, /aria-label={`\$\{player\.name\} aus dem Dorf entfernen`}/);
+  assert.match(css, /\.player-groups\s*\{/);
+  assert.match(css, /\.player-group-heading\.is-ready/);
+  assert.match(css, /\.player-group-heading\.is-waiting/);
+  assert.match(css, /\.player-group-empty\s*\{/);
   assert.match(css, /\.player-chip\s*\{[^}]*grid-template-columns:44px minmax\(0,1fr\) auto auto;/);
   assert.match(css, /\.player-presence\.is-ready/);
   assert.match(css, /\.player-presence\.is-offline/);
@@ -123,4 +136,46 @@ test("zeigt der Seherin die erkannte Rolle vor der nächsten Nachtphase", async 
   assert.match(werewolfSource, /post\("acknowledge_seer_result"/);
   assert.match(routeSource, /if \(lobby\.phase === "seer"\) return reply\(\{ ok: true \}\)/);
   assert.match(routeSource, /action === "acknowledge_seer_result"/);
+});
+
+test("zeigt vollständige öffentliche Abstimmungen und Rollen ausgeschiedener Personen im Werwolf-Dashboard", async () => {
+  const [werewolfSource, routeSource, schemaSource, css] = await Promise.all([
+    readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/werwolf/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const beginNightSource = routeSource.slice(routeSource.indexOf("async function beginNight"), routeSource.indexOf("async function nextNightPhase"));
+  assert.doesNotMatch(beginNightSource, /DELETE FROM werewolf_votes/);
+  assert.match(routeSource, /publicVoteHistory/);
+  assert.match(routeSource, /v\.phase IN \('mayor_vote', 'day_vote', 'runoff'\)/);
+  assert.match(routeSource, /weight = excluded\.weight/);
+  assert.match(schemaSource, /weight: integer\("weight"\)\.notNull\(\)\.default\(1\)/);
+  assert.match(werewolfSource, /Dorfübersicht/);
+  assert.match(werewolfSource, /Ausgeschieden · \$\{ROLE_INFO\[player\.role\]\.label\}/);
+  assert.match(werewolfSource, /Wer hat wen gewählt\?/);
+  assert.match(werewolfSource, /vote\.weight > 1/);
+  assert.match(css, /\.vote-statistics\s*\{/);
+  assert.match(css, /\.village-roster>div\.is-dead/);
+});
+
+test("signalisiert Opfern ihre Todesart und zeigt sie öffentlich als Symbol", async () => {
+  const [werewolfSource, routeSource, schemaSource, css] = await Promise.all([
+    readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/werwolf/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(werewolfSource, /function VictimDeathAlert/);
+  assert.match(werewolfSource, /setTimeout\(\(\) => setVisible\(false\), 5000\)/);
+  assert.match(werewolfSource, /cause-\$\{cause\}/);
+  assert.match(werewolfSource, /cause === "wolf_attack"/);
+  assert.match(werewolfSource, /cause === "witch_poison"/);
+  assert.match(werewolfSource, /<DeathCauseList causes=\{player\.deathCauses\} compact/);
+  assert.match(routeSource, /cause: "hunter_shot"/);
+  assert.match(routeSource, /new Set\(\["heartbreak"\]\)/);
+  assert.match(routeSource, /deathMatchNumber: item\.death_match_number/);
+  assert.match(schemaSource, /deathCauses: text\("death_causes"\)/);
+  assert.match(css, /@keyframes victim-death-pulse/);
+  assert.match(css, /\.victim-death-frame\s*\{[^}]*border:5px solid #ff293d;/);
 });

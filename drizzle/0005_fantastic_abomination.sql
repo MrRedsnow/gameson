@@ -1,0 +1,1 @@
+ALTER TABLE `werewolf_votes` ADD `weight` integer DEFAULT 1 NOT NULL;

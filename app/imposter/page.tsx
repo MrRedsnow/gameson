@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import QRCode from "qrcode";
 import { CATEGORIES, WORD_PAIRS, defaultImposterCount, maxImposterCount, type ContentMode } from "../../lib/game";
+import { resolveOnlineGameStartup } from "../../lib/game-session";
 
 type Screen = "home" | "create" | "join" | "local";
 type Session = { lobbyId: string; token: string };
@@ -106,12 +107,15 @@ export default function Home() {
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     const hydrate = window.setTimeout(() => {
       setOnline(navigator.onLine);
-      const params = new URLSearchParams(window.location.search);
-      const invited = params.get("lobby");
-      if (invited) { setInviteLobbyId(invited); setScreen("join"); }
-      else if (params.get("local") === "1") setScreen("local");
-      else if (params.get("join") === "1") setScreen("join");
-      else { try { const stored = localStorage.getItem("gameson:imposter:session") ?? localStorage.getItem("imposter-session"); if (stored) { localStorage.setItem("gameson:imposter:session", stored); localStorage.removeItem("imposter-session"); setSession(JSON.parse(stored) as Session); } } catch { /* empty */ } }
+      let stored: string | null = null;
+      try { stored = localStorage.getItem("gameson:imposter:session") ?? localStorage.getItem("imposter-session"); } catch { /* storage unavailable */ }
+      const startup = resolveOnlineGameStartup(window.location.search, stored);
+      if (startup.kind === "resume") {
+        try { localStorage.setItem("gameson:imposter:session", JSON.stringify(startup.session)); localStorage.removeItem("imposter-session"); } catch { /* storage unavailable */ }
+        setSession(startup.session);
+      } else if (startup.kind === "join") {
+        setInviteLobbyId(startup.lobbyId); setScreen("join");
+      } else if (startup.kind === "local") setScreen("local");
     }, 0);
     return () => { window.clearTimeout(hydrate); window.removeEventListener("online", update); window.removeEventListener("offline", update); window.removeEventListener("beforeinstallprompt", install); };
   }, []);
@@ -235,7 +239,15 @@ function MultiGame({ state, assignment, session, online, busy, post, onBack, sho
 
 function LobbyRoom({ state, qr, shareUrl, busy, post, showError }: { state: LobbyState; qr: string; shareUrl: string; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; showError: (error: unknown) => void }) {
   const [settingsOpen, setSettingsOpen] = useState(false); const [inviteOpen, setInviteOpen] = useState(false);
-  return <><section className="lobby-hero"><span className="live-badge"><i /> Lobby offen</span><h2>{state.players.length}<small>/22</small></h2><p>{state.players.length === 1 ? "Du bist zuerst da" : "Spieler sind bereit"}</p><div className="lobby-actions"><button onClick={() => setInviteOpen(true)}>QR &amp; Link</button>{state.me.isHost && <button onClick={() => setSettingsOpen(true)}>Einstellungen</button>}</div></section><section className="player-section"><div className="section-heading"><strong>Mitspieler</strong><span>mindestens 3</span></div><div className="player-list">{state.players.map((player, index) => <div className="player-row" key={player.id}><span className={`avatar avatar-${index % 5}`}>{player.name.charAt(0).toUpperCase()}</span><span><strong>{player.name}{player.id === state.me.id && " (du)"}</strong><small>{player.isHost ? "Host" : player.online ? "bereit" : "offline"}</small></span>{state.me.isHost && player.id !== state.me.id ? <button aria-label={`${player.name} entfernen`} onClick={() => post("remove", { playerId: player.id })}>×</button> : <i className={player.online ? "online-dot" : "offline-dot"} />}</div>)}</div></section>{state.me.isHost ? <div className="sticky-action"><div><span>Wortpool</span><strong>{CATEGORIES.find((item) => item.id === state.lobby.pool)?.label ?? "Zufällig"} · {state.lobby.imposterCount} Imposter</strong></div><button className="primary-button coral" disabled={busy || state.players.length < 3} onClick={() => post("start")}>{state.players.length < 3 ? `Noch ${3 - state.players.length} ${3 - state.players.length === 1 ? "Person" : "Personen"}` : "Runde starten →"}</button></div> : <div className="sticky-action waiting"><div className="loader small" /><span>Der Host stellt die Runde ein …</span></div>}{inviteOpen && <InviteSheet name={state.lobby.name} qr={qr} shareUrl={shareUrl} close={() => setInviteOpen(false)} showError={showError} />}{settingsOpen && <SettingsSheet state={state} busy={busy} post={post} close={() => setSettingsOpen(false)} />}</>;
+  const indexedPlayers = state.players.map((player, index) => ({ player, index }));
+  const readyPlayers = indexedPlayers.filter(({ player }) => player.online);
+  const waitingPlayers = indexedPlayers.filter(({ player }) => !player.online);
+  const renderPlayer = ({ player, index }: (typeof indexedPlayers)[number]) => <div className={`player-row ${player.online ? "is-online" : "is-offline"}`} key={player.id}>
+    <span className={`avatar avatar-${index % 5}`}>{player.name.charAt(0).toUpperCase()}</span>
+    <span><strong>{player.name}{player.id === state.me.id && " (du)"}</strong><small>{player.isHost ? "Host" : player.online ? "bereit" : "nicht bereit"}</small></span>
+    {state.me.isHost && player.id !== state.me.id ? <button aria-label={`${player.name} entfernen`} onClick={() => post("remove", { playerId: player.id })}>×</button> : <i className={player.online ? "online-dot" : "offline-dot"} />}
+  </div>;
+  return <><section className="lobby-hero"><span className="live-badge"><i /> Lobby offen</span><h2>{state.players.length}<small>/22</small></h2><p>{state.players.length === 1 ? "Du bist zuerst da" : "Spieler sind bereit"}</p><div className="lobby-actions"><button onClick={() => setInviteOpen(true)}>QR &amp; Link</button>{state.me.isHost && <button onClick={() => setSettingsOpen(true)}>Einstellungen</button>}</div></section><section className="player-section"><div className="section-heading"><strong>Mitspieler</strong><span>mindestens 3</span></div><div className="player-groups"><section className="player-group" aria-labelledby="imposter-ready-players"><header className="player-group-heading is-ready"><h3 id="imposter-ready-players"><i />Online &amp; spielbereit</h3><span>{readyPlayers.length}</span></header><div className="player-list">{readyPlayers.map(renderPlayer)}</div></section><section className="player-group" aria-labelledby="imposter-waiting-players"><header className="player-group-heading is-waiting"><h3 id="imposter-waiting-players"><i />Nicht bereit</h3><span>{waitingPlayers.length}</span></header>{waitingPlayers.length ? <div className="player-list">{waitingPlayers.map(renderPlayer)}</div> : <p className="player-group-empty">Alle in der Lobby sind spielbereit.</p>}</section></div></section>{state.me.isHost ? <div className="sticky-action"><div><span>Wortpool</span><strong>{CATEGORIES.find((item) => item.id === state.lobby.pool)?.label ?? "Zufällig"} · {state.lobby.imposterCount} Imposter</strong></div><button className="primary-button coral" disabled={busy || state.players.length < 3} onClick={() => post("start")}>{state.players.length < 3 ? `Noch ${3 - state.players.length} ${3 - state.players.length === 1 ? "Person" : "Personen"}` : "Runde starten →"}</button></div> : <div className="sticky-action waiting"><div className="loader small" /><span>Der Host stellt die Runde ein …</span></div>}{inviteOpen && <InviteSheet name={state.lobby.name} qr={qr} shareUrl={shareUrl} close={() => setInviteOpen(false)} showError={showError} />}{settingsOpen && <SettingsSheet state={state} busy={busy} post={post} close={() => setSettingsOpen(false)} />}</>;
 }
 
 function InviteSheet({ name, qr, shareUrl, close, showError }: { name: string; qr: string; shareUrl: string; close: () => void; showError: (error: unknown) => void }) {

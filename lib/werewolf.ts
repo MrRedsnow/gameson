@@ -14,6 +14,14 @@ export type WerewolfRole =
   | "white_werewolf";
 
 export type WerewolfTeam = "village" | "wolf" | "solo";
+export type DeathCause =
+  | "wolf_attack"
+  | "witch_poison"
+  | "white_werewolf"
+  | "village_vote"
+  | "scapegoat"
+  | "hunter_shot"
+  | "heartbreak";
 export type WerewolfPhase =
   | "waiting"
   | "role_reveal"
@@ -60,6 +68,26 @@ export const ROLE_INFO: Record<WerewolfRole, { label: string; team: WerewolfTeam
   scapegoat: { label: "Sündenbock", team: "village", description: "Stirbt, wenn auch der Stichentscheid der Dorfabstimmung unentschieden endet." },
   white_werewolf: { label: "Weiße Werwölfin", team: "solo", description: "Jagt mit dem Rudel, tötet in jeder zweiten Nacht zusätzlich einen Wolf und gewinnt nur allein." },
 };
+
+export const DEATH_CAUSE_INFO: Record<DeathCause, { label: string; shortLabel: string }> = {
+  wolf_attack: { label: "Vom Werwolfrudel gerissen", shortLabel: "Wolfsangriff" },
+  witch_poison: { label: "Vom Gifttrank der Hexe vergiftet", shortLabel: "Hexengift" },
+  white_werewolf: { label: "Von der Weißen Werwölfin getötet", shortLabel: "Weiße Werwölfin" },
+  village_vote: { label: "Vom Dorf zum Tode verurteilt", shortLabel: "Dorfabstimmung" },
+  scapegoat: { label: "Als Sündenbock für den Gleichstand gestorben", shortLabel: "Sündenbock" },
+  hunter_shot: { label: "Vom letzten Schuss des Jägers getroffen", shortLabel: "Jägerschuss" },
+  heartbreak: { label: "Aus Liebeskummer gestorben", shortLabel: "Liebeskummer" },
+};
+
+export function parseDeathCauses(value: unknown): DeathCause[] {
+  const valid = new Set(Object.keys(DEATH_CAUSE_INFO));
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? parsed.filter((cause): cause is DeathCause => typeof cause === "string" && valid.has(cause)) : [];
+  } catch {
+    return [];
+  }
+}
 
 export const SELECTABLE_ROLES: WerewolfRole[] = [
   "seer", "witch", "hunter", "cupid", "thief", "healer", "piper", "wild_child", "elder", "scapegoat", "white_werewolf",

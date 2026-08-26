@@ -1,11 +1,16 @@
-const CACHE = "gameson-shell-v7";
+const CACHE = "gameson-shell-v8";
 const SHELL = [
   "/", "/imposter", "/werwolf", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
-  "/audio/werwolf/wolves.mp3", "/audio/werwolf/cupid.mp3", "/audio/werwolf/wild-child.mp3",
-  "/audio/werwolf/thief.mp3", "/audio/werwolf/hunter.mp3", "/audio/werwolf/witch.mp3",
-  "/audio/werwolf/seer.mp3", "/audio/werwolf/night-start.mp3", "/audio/werwolf/day-start.mp3",
+  "/audio/werwolf/role-reveal.mp3", "/audio/werwolf/mayor-vote.mp3",
+  "/audio/werwolf/thief.mp3", "/audio/werwolf/cupid.mp3", "/audio/werwolf/wild-child.mp3",
+  "/audio/werwolf/healer.mp3", "/audio/werwolf/seer.mp3", "/audio/werwolf/wolves.mp3",
+  "/audio/werwolf/witch.mp3", "/audio/werwolf/white-werewolf.mp3", "/audio/werwolf/piper.mp3",
+  "/audio/werwolf/discussion-start.mp3", "/audio/werwolf/day-vote.mp3", "/audio/werwolf/runoff.mp3",
+  "/audio/werwolf/hunter.mp3", "/audio/werwolf/night-start.mp3", "/audio/werwolf/day-start.mp3",
+  "/audio/werwolf/day-resolution.mp3",
   "/audio/werwolf/sleep-all.mp3", "/audio/werwolf/sleep-again.mp3",
   "/audio/werwolf/victory-village.mp3", "/audio/werwolf/victory-wolves.mp3",
+  "/audio/werwolf/victory-piper.mp3", "/audio/werwolf/victory-white-werewolf.mp3",
 ];
 
 self.addEventListener("install", (event) => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  DEATH_CAUSE_INFO,
   ROLE_INFO,
   SELECTABLE_ROLES,
   buildRoleDeck,
@@ -9,11 +10,12 @@ import {
   determineWinner,
   maxWolfCount,
   nextNightPhase,
+  parseDeathCauses,
   phaseAfterDawn,
   validateRoleSetup,
   weightedVoteLeaders,
 } from "../lib/werewolf.ts";
-import { AUDIO_ANNOUNCEMENT_GAP_SECONDS, WEREWOLF_AUDIO_CUES, WEREWOLF_RECORDED_CUES, WEREWOLF_TRANSITION_CUES, WEREWOLF_WINNER_CUES } from "../lib/werewolf-audio.ts";
+import { AUDIO_ANNOUNCEMENT_GAP_SECONDS, WEREWOLF_AUDIO_CUES, WEREWOLF_AUDIO_PHASES, WEREWOLF_RECORDED_CUES, WEREWOLF_TRANSITION_CUES, WEREWOLF_WINNER_CUES } from "../lib/werewolf-audio.ts";
 
 test("balanciert Wolfsslots auch für kleine Gruppen", () => {
   assert.equal(defaultWolfCount(3), 1);
@@ -68,6 +70,14 @@ test("führt alle auswählbaren Rollen mit eigener Erklärung", () => {
   }
 });
 
+test("führt jede Todesart mit öffentlicher Erklärung und sicherer Persistenz", () => {
+  const causes = ["wolf_attack", "witch_poison", "white_werewolf", "village_vote", "scapegoat", "hunter_shot", "heartbreak"];
+  assert.deepEqual(Object.keys(DEATH_CAUSE_INFO), causes);
+  assert.ok(causes.every((cause) => DEATH_CAUSE_INFO[cause].label.length >= 18));
+  assert.deepEqual(parseDeathCauses(JSON.stringify(["wolf_attack", "witch_poison", "unknown"])), ["wolf_attack", "witch_poison"]);
+  assert.deepEqual(parseDeathCauses("kein JSON"), []);
+});
+
 test("zählt Bürgermeisterstimmen doppelt und erkennt Gleichstände", () => {
   const result = weightedVoteLeaders([
     { voterId: "mayor", targetId: "a" },
@@ -104,8 +114,17 @@ test("gibt jeder aktiven Rolle ein unverwechselbares Audiosignal", () => {
 });
 
 test("verwendet die gelieferten Werwolf-Ansagen nur für passende aktive Phasen", async () => {
+  assert.equal(WEREWOLF_RECORDED_CUES.role_reveal, "/audio/werwolf/role-reveal.mp3");
+  assert.equal(WEREWOLF_RECORDED_CUES.mayor_vote, "/audio/werwolf/mayor-vote.mp3");
+  assert.equal(WEREWOLF_RECORDED_CUES.healer, "/audio/werwolf/healer.mp3");
   assert.equal(WEREWOLF_RECORDED_CUES.wolves, "/audio/werwolf/wolves.mp3");
   assert.equal(WEREWOLF_RECORDED_CUES.witch, "/audio/werwolf/witch.mp3");
+  assert.equal(WEREWOLF_RECORDED_CUES.white_werewolf, "/audio/werwolf/white-werewolf.mp3");
+  assert.equal(WEREWOLF_RECORDED_CUES.piper, "/audio/werwolf/piper.mp3");
+  assert.equal(WEREWOLF_RECORDED_CUES.discussion, "/audio/werwolf/discussion-start.mp3");
+  assert.equal(WEREWOLF_RECORDED_CUES.day_vote, "/audio/werwolf/day-vote.mp3");
+  assert.equal(WEREWOLF_RECORDED_CUES.runoff, "/audio/werwolf/runoff.mp3");
+  for (const phase of Object.keys(WEREWOLF_RECORDED_CUES)) assert.ok(WEREWOLF_AUDIO_PHASES.includes(phase), `${phase} muss automatisch abgespielt werden können`);
   assert.equal(WEREWOLF_RECORDED_CUES.elder, undefined);
   assert.equal(WEREWOLF_RECORDED_CUES.scapegoat, undefined);
   for (const path of [...Object.values(WEREWOLF_RECORDED_CUES), ...Object.values(WEREWOLF_TRANSITION_CUES), ...Object.values(WEREWOLF_WINNER_CUES)]) {
@@ -113,17 +132,29 @@ test("verwendet die gelieferten Werwolf-Ansagen nur für passende aktive Phasen"
   }
 });
 
-test("lässt fünf Sekunden zwischen zwei aufeinanderfolgenden Ansagen", async () => {
-  assert.equal(AUDIO_ANNOUNCEMENT_GAP_SECONDS, 5);
+test("verwendet standardmäßig drei Sekunden zwischen zwei aufeinanderfolgenden Ansagen", async () => {
+  assert.equal(AUDIO_ANNOUNCEMENT_GAP_SECONDS, 3);
   const audioSource = await readFile(new URL("../lib/werewolf-audio.ts", import.meta.url), "utf8");
-  assert.match(audioSource, /transitionDuration \+ AUDIO_ANNOUNCEMENT_GAP_SECONDS/);
+  assert.match(audioSource, /transitionDuration \+ gapSeconds/);
 });
 
-test("spielt die neuen Ansagen nur für Dorf- und Rudelsieg", () => {
+test("macht die Redepause in beiden Spielmodi einstellbar und speichert sie je Lobby", async () => {
+  const [pageSource, routeSource, schemaSource] = await Promise.all([
+    readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/werwolf/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+  ]);
+  assert.equal(pageSource.match(/<strong>Redepause<\/strong>/g)?.length, 2);
+  assert.match(pageSource, /audioGapSeconds/);
+  assert.match(routeSource, /audio_gap_seconds/);
+  assert.match(schemaSource, /audioGapSeconds: integer\("audio_gap_seconds"\)\.notNull\(\)\.default\(3\)/);
+});
+
+test("spielt für jede mögliche Siegerpartei eine eigene Ansage", () => {
   assert.equal(WEREWOLF_WINNER_CUES.village, "/audio/werwolf/victory-village.mp3");
   assert.equal(WEREWOLF_WINNER_CUES.wolves, "/audio/werwolf/victory-wolves.mp3");
-  assert.equal(WEREWOLF_WINNER_CUES.piper, undefined);
-  assert.equal(WEREWOLF_WINNER_CUES.white_werewolf, undefined);
+  assert.equal(WEREWOLF_WINNER_CUES.piper, "/audio/werwolf/victory-piper.mp3");
+  assert.equal(WEREWOLF_WINNER_CUES.white_werewolf, "/audio/werwolf/victory-white-werewolf.mp3");
 });
 
 test("enthält beide Übergänge zwischen Nacht und Tag", () => {
@@ -131,4 +162,5 @@ test("enthält beide Übergänge zwischen Nacht und Tag", () => {
   assert.equal(phaseAfterDawn("day"), "night");
   assert.equal(WEREWOLF_TRANSITION_CUES["night-start"], "/audio/werwolf/night-start.mp3");
   assert.equal(WEREWOLF_TRANSITION_CUES["day-start"], "/audio/werwolf/day-start.mp3");
+  assert.equal(WEREWOLF_TRANSITION_CUES["day-resolution"], "/audio/werwolf/day-resolution.mp3");
 });
