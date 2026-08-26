@@ -197,8 +197,530 @@ button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visi
 .werewolf-shell{--ink:#21141d;--muted:#78666e;--line:#ddd1ce;background:linear-gradient(#f7f1e9,#f1e7e2);color:var(--ink)}.wolf-topbar{background:rgba(247,241,233,.86);border-bottom-color:#dfd2ce}.wolf-topbar .wolf-mark{width:34px;height:34px;border-color:#d9cac5;background:#eee0da;color:#82465c;font-size:1.35rem}.wolf-lobby-hero{background:radial-gradient(circle at 90% 10%,rgba(221,117,91,.21),transparent 38%)}.wolf-form{border-top:4px solid #713650}.wolf-primary{background:#5c2945!important;color:#fff!important;box-shadow:0 9px 0 #321729!important}.wolf-primary:hover{background:#6c3150!important}.wolf-step{letter-spacing:.13em}.claim-host{position:fixed;z-index:10;bottom:18px;left:50%;transform:translateX(-50%);width:min(90%,500px);padding:12px;border:0;border-radius:13px;background:#21141d;color:#fff;font-weight:800}
 .wolf-phase{position:relative;min-height:calc(100svh - 72px);padding:34px 22px 32px;overflow:hidden}.phase-moon{position:absolute;right:-36px;top:15px;color:rgba(107,47,73,.1);font-family:Georgia,serif;font-size:150px;line-height:1}.wolf-phase>.page-intro{position:relative;z-index:1;padding:0 0 22px}.wolf-phase>.page-intro h2{max-width:440px}.public-status{position:relative;margin:14px 0;padding:11px 14px;border:1px solid #dac9c6;border-radius:13px;background:rgba(255,255,255,.52);font-size:.76rem}.my-role-button{position:relative;display:grid;grid-template-columns:42px 1fr auto 20px;align-items:center;gap:10px;width:100%;margin:2px 0 14px;padding:12px 14px;border:1px solid #d6c8c5;border-radius:17px;background:#fffaf4;text-align:left}.my-role-button>span{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#4f293e;color:#fff;font-family:Georgia,serif;font-size:1.3rem}.my-role-button b{font-size:.85rem}.my-role-button small{color:#8b777e;font-size:.66rem}.my-role-button i{color:#8c4a64;font-style:normal;font-size:1.1rem}
 .night-wait{display:grid;place-items:center;min-height:245px;padding:32px;text-align:center}.night-wait i{width:18px;height:18px;margin-bottom:16px;border-radius:50%;background:#6f344e;box-shadow:0 0 0 12px rgba(111,52,78,.08),0 0 0 25px rgba(111,52,78,.04)}.night-wait p{margin:10px 0 4px;font-family:Georgia,serif;font-size:1.2rem}.night-wait small{color:#8a777e}.action-card,.death-board,.wolf-results{position:relative;padding:19px;border:1px solid #dacdca;border-radius:22px;background:rgba(255,251,246,.78);box-shadow:0 15px 45px rgba(62,30,48,.07)}.action-card h3,.death-board h3,.wolf-results h3{margin:0 0 13px;font-family:Georgia,serif;font-size:1.35rem}.action-card>p{color:#74636a;line-height:1.45}.target-list{display:grid;gap:8px;margin:13px 0 18px;max-height:43svh;overflow:auto}.target-list>button{display:grid;grid-template-columns:38px 1fr 24px;align-items:center;gap:10px;padding:10px;border:1px solid #ddd1cd;border-radius:14px;background:#fffaf5;text-align:left}.target-list>button>span{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#e9d9d4;color:#6a354c;font-family:Georgia,serif;font-weight:900}.target-list>button i{font-style:normal;color:#fff}.target-list>button.selected{border-color:#783d58;background:#f2e2e2}.target-list>button.selected i{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#783d58}.submitted-action{text-align:center}.submitted-action>span{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 12px;border-radius:50%;background:#dcebdd;color:#27613c;font-size:1.35rem}.submitted-action small{color:#86747a}.role-choice-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}.role-choice-grid button{padding:16px 10px;border:1px solid #d9cbc7;border-radius:15px;background:#fffaf4}.role-choice-grid small{display:block;margin-top:4px;color:#8b777e}.skip-phase{margin-top:13px}.compact-switch{margin:12px 0}.wolf-audio-card{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:11px;margin:18px 0;padding:13px;border:1px solid #d7c8ce;border-radius:17px;background:#fff8f2}.wolf-audio-card>span{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:#ead9df;color:#67354c;font-size:1.3rem}.wolf-audio-card>div{display:grid;gap:3px}.wolf-audio-card strong{font-size:.82rem}.wolf-audio-card small{color:#806d75;font-size:.66rem;line-height:1.35}.wolf-audio-card button,.game-audio-enable{min-height:40px;padding:0 12px;border:1px solid #76425a;border-radius:12px;background:#6c354e;color:#fff;font-size:.7rem;font-weight:850}.wolf-audio-card.ready{border-color:#b9d2bf;background:#f2f8f0}.wolf-audio-card.ready>span{background:#d9eadc;color:#2b6538}.wolf-audio-card button:disabled{border-color:#9ab7a0;background:#dcebdd;color:#2b6538}.game-audio-enable{position:fixed;z-index:25;right:max(16px,calc((100vw - 620px)/2 + 16px));bottom:max(16px,env(safe-area-inset-bottom));box-shadow:0 10px 28px rgba(50,25,39,.25)}.audio-mode-choice button{display:grid;align-content:center;gap:3px;height:auto;min-height:58px}.audio-mode-choice small{font-size:.6rem;font-weight:600;line-height:1.25}.local-audio-note{margin:5px 0 0;color:#735f68;font-size:.72rem;line-height:1.4}
+.role-reveal-prompt,.role-reveal-card{text-align:center}.role-reveal-prompt .primary-button,.role-reveal-card .primary-button,.dawn-wake-card .primary-button{margin-top:14px}.role-reveal-card .role-facts{text-align:left}.dawn-wake-card>small{display:block;margin-top:12px;color:#86747a;text-align:center}
 .death-board{display:grid;gap:8px;margin-bottom:18px}.death-board>div,.role-reveal-list>div{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:10px;padding:9px;border-radius:13px;background:#f3e7e3}.death-board>div>span,.role-reveal-list span{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#3b2331;color:#fff;font-family:Georgia,serif}.death-board small,.role-reveal-list small{color:#7f6c74;font-size:.7rem}.wolf-results{text-align:center}.wolf-results h3{font-size:1.7rem}.role-reveal-list{display:grid;gap:7px;margin:18px 0;text-align:left}.role-reveal-list>div.survivor{outline:2px solid #8ca98c}.role-reveal-list strong{font-size:.83rem}.role-facts{display:grid;gap:8px;margin:18px 0}.role-facts span{display:flex;justify-content:space-between;gap:15px;padding:11px 0;border-bottom:1px solid #e0d2cd;color:#6c5962;font-size:.8rem}.role-facts b{color:#25151e}.role-sheet{text-align:center}.role-sheet>p{color:#746168;line-height:1.55}.role-orb{display:grid;place-items:center;width:92px;height:92px;margin:12px auto;border-radius:50%;background:linear-gradient(145deg,#61344c,#2c1725);color:#fff;font-family:Georgia,serif;font-size:3rem;box-shadow:0 12px 30px rgba(63,30,47,.2)}.role-orb.team-village{background:linear-gradient(145deg,#426b5b,#203c34)}.role-orb.team-wolf{background:linear-gradient(145deg,#7c3e48,#3b1825)}.wolf-sheet{background:#f7efe8}.wolf-sheet .group-code{border-color:#dbc8c4;color:#5b2c43}.wolf-sheet .invite-sheet img{background:#fff}
 .wolf-results>.primary-button+.secondary-button{margin-top:10px}
 .role-selector{display:grid;gap:7px;margin-top:9px}.role-selector>button{display:grid;grid-template-columns:34px 1fr auto 24px;align-items:center;gap:9px;padding:9px;border:1px solid #ddd0cd;border-radius:13px;background:#fffaf4;text-align:left}.role-selector>button>span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#eadbd7;color:#6c344e;font-family:Georgia,serif;font-weight:900}.role-selector b{font-size:.78rem}.role-selector small{color:#8b777e;font-size:.64rem}.role-selector i{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#eadfdc;color:#714058;font-style:normal}.role-selector>button.selected{border-color:#6f344e;background:#f0dfe2}.role-selector>button.selected i{background:#6f344e;color:#fff}.role-selector>button:disabled{opacity:.45}.settings-sheet .role-selector{max-height:36svh;overflow:auto}.wolf-local-options .role-selector{max-height:330px;overflow:auto}.wolf-local-options{background:rgba(255,255,255,.5)}
 .wolf-handover{padding-top:34px}.local-secret-card{display:flex;flex-direction:column;align-items:center;min-height:390px;padding:26px 18px;border-radius:25px;background:linear-gradient(155deg,#2b1824,#120f13);color:#f5e9df;text-align:center}.local-secret-card .role-orb{background:rgba(255,255,255,.08);box-shadow:none}.local-secret-card h3{margin:12px 0 8px;font-family:Georgia,serif;font-size:1.8rem}.local-secret-card p{max-width:360px;color:#c1b1b4;line-height:1.5}.local-secret-card>small{margin-bottom:14px;color:#e4a589}.local-secret-card>button:first-of-type{width:100%;margin-top:auto;padding:15px;border:1px solid rgba(255,255,255,.18);border-radius:15px;background:#6b334d;color:#fff;font-weight:900}.local-secret-card .text-button{margin-top:12px}.local-action-panel{width:100%;padding:17px;border:1px solid #d9cbc7;border-radius:20px;background:#fffaf4}.local-action-panel>p{color:#756269;line-height:1.45}.local-action-panel select{width:100%;margin-top:7px;padding:12px;border:1px solid #d6c9c6;border-radius:12px;background:#fff}.local-action-panel>.primary-button{margin-top:14px}
 @media(min-width:760px){.werewolf-home{padding-top:34px}.wolf-mode-panel{grid-template-columns:repeat(3,1fr);max-width:820px}.wolf-mode-panel>button{grid-template-columns:42px 1fr;align-content:center;min-height:116px}.wolf-mode-panel>button b{display:none}.wolf-hero{max-width:820px}.wolf-brand-row{max-width:820px}}
+
+/* Readability and responsive rhythm */
+html {
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+body {
+  line-height:1.5;
+}
+h1,h2,h3 {
+  text-wrap:balance;
+  overflow-wrap:normal;
+  hyphens:auto;
+}
+p,small,.privacy-note,.waiting-copy {
+  text-wrap:pretty;
+  overflow-wrap:break-word;
+  hyphens:auto;
+}
+button,a,input,select,summary {
+  line-height:1.25;
+}
+.page-intro {
+  padding-block:clamp(40px,7vh,66px) 30px;
+}
+.page-intro h2,.handover h2,.discussion-card h2 {
+  max-width:14ch;
+  margin-block:10px 14px;
+  font-size:clamp(2.05rem,9vw,3.35rem);
+  line-height:1.07;
+  letter-spacing:-.035em;
+}
+.page-intro p,.discussion-card p {
+  max-width:42ch;
+  font-size:clamp(.94rem,3.8vw,1rem);
+  line-height:1.65;
+}
+.mode-copy,.wolf-mode-panel span,.settings-row>span,.switch-row>span,
+.player-row>span:nth-child(2),.player-chip>span:nth-child(2) {
+  min-width:0;
+}
+.mode-copy strong,.wolf-mode-panel strong,.settings-row strong,.switch-row strong {
+  line-height:1.3;
+}
+.mode-copy small,.wolf-mode-panel small,.settings-row small,.switch-row small {
+  line-height:1.45;
+}
+.form-card {
+  gap:20px;
+}
+.form-card label,.local-options>label {
+  line-height:1.35;
+}
+.primary-button,.secondary-button,.hold-button {
+  padding-block:12px;
+  line-height:1.25;
+  text-align:center;
+}
+.bottom-sheet h3 {
+  max-width:16ch;
+  line-height:1.12;
+}
+.settings-row,.switch-row {
+  gap:16px;
+}
+.settings-row>span,.switch-row>span {
+  padding-right:4px;
+}
+.sticky-action strong,.sticky-action span,.claim-button,.notice {
+  line-height:1.35;
+}
+.secret-center small,.host-action p,.waiting-copy {
+  line-height:1.55;
+}
+.gameson-intro h1 {
+  max-width:15ch;
+  line-height:1.02;
+  letter-spacing:-.035em;
+}
+.gameson-intro p {
+  max-width:42ch;
+  line-height:1.65;
+}
+.library-card-copy h2 {
+  line-height:1.05;
+}
+.library-card-copy p {
+  max-width:38ch;
+  line-height:1.6;
+}
+.library-card-copy div span {
+  line-height:1.25;
+}
+.werewolf-home {
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+.wolf-hero h1 {
+  max-width:none;
+  font-size:clamp(3.25rem,17vw,6.8rem);
+  line-height:.9;
+  letter-spacing:-.065em;
+  white-space:nowrap;
+}
+.wolf-hero p {
+  max-width:40ch;
+  line-height:1.65;
+}
+.wolf-mode-panel>button {
+  grid-template-columns:42px minmax(0,1fr) auto;
+  min-height:76px;
+}
+.wolf-phase {
+  width:calc(100% + 40px);
+  margin-inline:-20px;
+  padding-inline:20px;
+}
+.wolf-phase>.page-intro h2 {
+  max-width:14ch;
+  line-height:1.07;
+}
+.wolf-phase>.page-intro p,.public-status,.action-card>p,.death-board>p,
+.local-action-panel>p,.role-sheet>p,.local-secret-card p {
+  line-height:1.6;
+}
+.public-status {
+  padding:13px 15px;
+}
+.my-role-button {
+  grid-template-columns:42px minmax(0,1fr) 20px;
+  grid-template-rows:auto auto;
+  row-gap:3px;
+}
+.my-role-button>span {
+  grid-row:1 / 3;
+}
+.my-role-button b {
+  grid-column:2;
+  line-height:1.25;
+}
+.my-role-button small {
+  grid-column:2;
+  line-height:1.35;
+}
+.my-role-button i {
+  grid-column:3;
+  grid-row:1 / 3;
+}
+.night-wait p,.night-wait small {
+  max-width:30ch;
+  line-height:1.5;
+}
+.action-card,.death-board,.wolf-results {
+  padding:clamp(18px,5vw,24px);
+}
+.action-card h3,.death-board h3,.wolf-results h3,.local-secret-card h3 {
+  line-height:1.2;
+  text-wrap:balance;
+}
+.target-list>button,.role-selector>button {
+  grid-template-columns:38px minmax(0,1fr) 24px;
+  min-height:58px;
+}
+.role-selector>button {
+  grid-template-columns:34px minmax(0,1fr) auto 24px;
+}
+.target-list strong,.role-selector b,.role-selector small,.death-board strong,
+.role-reveal-list strong,.death-board small,.role-reveal-list small {
+  min-width:0;
+  line-height:1.35;
+  overflow-wrap:break-word;
+}
+.role-choice-grid button {
+  line-height:1.3;
+}
+.wolf-audio-card>div {
+  min-width:0;
+}
+.wolf-audio-card strong {
+  line-height:1.3;
+}
+.wolf-audio-card small,.audio-mode-choice small,.local-audio-note {
+  line-height:1.5;
+}
+.role-facts span {
+  display:grid;
+  grid-template-columns:minmax(86px,.75fr) minmax(0,1.25fr);
+  align-items:start;
+  line-height:1.45;
+  text-align:left;
+}
+.role-facts b {
+  padding-right:8px;
+}
+
+@media(max-width:420px) {
+  .app-shell,.home-shell {
+    padding-inline:16px;
+  }
+  .page-intro {
+    padding-top:36px;
+  }
+  .gameson-home {
+    padding-inline:16px;
+  }
+  .gameson-intro {
+    padding-block:50px 28px;
+  }
+  .gameson-intro h1 {
+    font-size:clamp(2.55rem,13vw,3.35rem);
+  }
+  .library-card {
+    grid-template-rows:136px 1fr auto;
+    min-height:390px;
+    padding-inline:20px;
+  }
+  .library-card-art {
+    margin-inline:-20px;
+  }
+  .werewolf-home {
+    padding-inline:16px;
+  }
+  .wolf-hero {
+    padding-block:44px 30px;
+  }
+  .wolf-mode-panel>button {
+    gap:11px;
+    padding:14px;
+  }
+  .wolf-phase {
+    width:calc(100% + 32px);
+    margin-inline:-16px;
+    padding:30px 16px 28px;
+  }
+  .wolf-audio-card {
+    grid-template-columns:42px minmax(0,1fr);
+  }
+  .wolf-audio-card button {
+    grid-column:2;
+    width:100%;
+  }
+  .audio-mode-choice {
+    grid-template-columns:1fr;
+  }
+  .role-choice-grid {
+    grid-template-columns:1fr;
+  }
+  .death-board>div,.role-reveal-list>div {
+    grid-template-columns:40px minmax(0,1fr);
+  }
+  .death-board>div>span,.role-reveal-list>div>span {
+    grid-row:1 / 3;
+  }
+  .death-board small,.role-reveal-list small {
+    grid-column:2;
+  }
+  .sticky-action {
+    grid-template-columns:minmax(0,.8fr) minmax(145px,1.2fr);
+    gap:10px;
+    padding-inline:16px;
+  }
+}
+
+@media(max-width:350px) {
+  .wolf-hero h1 {
+    font-size:3rem;
+  }
+  .topbar {
+    grid-template-columns:auto minmax(0,1fr) auto;
+  }
+  .topbar-title {
+    max-width:none;
+  }
+  .sticky-action {
+    grid-template-columns:1fr;
+  }
+  .sticky-action>div {
+    display:none;
+  }
+}
+
+/* Werwolf lobby presence */
+.wolf-player-section {
+  margin-top:12px;
+}
+.wolf-player-section .section-heading {
+  align-items:center;
+  margin-bottom:12px;
+}
+.wolf-player-section .section-heading>strong {
+  font-size:.9rem;
+  letter-spacing:-.01em;
+}
+.lobby-progress {
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-height:30px;
+  padding:0 10px;
+  border:1px solid #d8ccc9;
+  border-radius:999px;
+  background:rgba(255,255,255,.58);
+  font-size:.64rem!important;
+  font-weight:850;
+  line-height:1;
+  letter-spacing:.06em!important;
+}
+.lobby-progress i,.player-presence i {
+  width:7px;
+  height:7px;
+  flex:0 0 auto;
+  border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 0 3px color-mix(in srgb,currentColor 14%,transparent);
+}
+.lobby-progress.is-ready {
+  color:#356b49;
+  border-color:#b9d3c0;
+  background:#eaf4ea;
+}
+.lobby-progress.is-waiting {
+  color:#8a573f;
+  border-color:#e3c9ba;
+  background:#faeee5;
+}
+.player-grid {
+  display:grid;
+  gap:9px;
+}
+.player-chip {
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:11px;
+  min-height:70px;
+  padding:10px 11px;
+  border:1px solid #ddcfcc;
+  border-radius:17px;
+  background:rgba(255,252,247,.78);
+  box-shadow:0 8px 24px rgba(54,28,42,.045);
+}
+.player-chip.is-offline {
+  border-color:#ded8d4;
+  background:rgba(246,242,238,.72);
+}
+.player-chip .avatar {
+  box-shadow:inset 0 0 0 1px rgba(44,26,36,.06);
+}
+.player-chip-copy {
+  display:grid;
+  min-width:0;
+  gap:4px;
+}
+.player-chip-copy strong {
+  display:flex;
+  align-items:center;
+  min-width:0;
+  gap:7px;
+  font-size:.91rem;
+  line-height:1.2;
+  overflow-wrap:anywhere;
+}
+.player-chip-copy strong em {
+  flex:0 0 auto;
+  padding:4px 7px;
+  border-radius:999px;
+  background:#eee0e6;
+  color:#67344c;
+  font-size:.57rem;
+  font-style:normal;
+  font-weight:900;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.player-chip-copy small {
+  color:#8a777e;
+  font-size:.67rem;
+  line-height:1.25;
+}
+.player-presence {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:32px;
+  padding:0 10px;
+  border:1px solid;
+  border-radius:999px;
+  font-size:.64rem;
+  font-weight:850;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.player-presence.is-ready {
+  color:#326b48;
+  border-color:#b7d1be;
+  background:#e7f3e8;
+}
+.player-presence.is-offline {
+  color:#746c70;
+  border-color:#d5cdca;
+  background:#eeeae7;
+}
+.player-remove {
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  padding:0;
+  border:1px solid #e6c9c4;
+  border-radius:50%;
+  background:#f8e5e1;
+  color:#914b45;
+  font-size:1.18rem;
+  cursor:pointer;
+}
+.player-remove:hover {
+  border-color:#d8aba3;
+  background:#f3d6d0;
+}
+
+@media(max-width:380px) {
+  .player-chip {
+    grid-template-columns:44px minmax(0,1fr) 36px;
+    row-gap:4px;
+  }
+  .player-chip>.avatar {
+    grid-row:1 / 3;
+  }
+  .player-chip-copy {
+    grid-column:2;
+    grid-row:1;
+  }
+  .player-presence {
+    grid-column:2;
+    grid-row:2;
+    justify-self:start;
+    min-height:27px;
+    padding-inline:8px;
+  }
+  .player-remove {
+    grid-column:3;
+    grid-row:1 / 3;
+  }
+}
+
+/* Host cues for phase transitions */
+.host-night-cue {
+  position:relative;
+  z-index:2;
+  display:grid;
+  gap:11px;
+  margin:0 0 18px;
+  padding:16px;
+  border:2px solid #f47718;
+  border-radius:19px;
+  background:linear-gradient(145deg,#fff4dc,#ffe2c1);
+  box-shadow:0 12px 30px rgba(153,67,12,.15);
+}
+.host-night-cue>span {
+  color:#9b3f0a;
+  font-size:.68rem;
+  font-weight:950;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.host-night-cue>div {
+  display:grid;
+  grid-template-columns:48px minmax(0,1fr);
+  align-items:start;
+  gap:12px;
+}
+.host-night-cue i {
+  display:grid;
+  place-items:center;
+  width:48px;
+  height:48px;
+  border-radius:15px;
+  background:#5c2945;
+  color:#fff3d5;
+  font-family:Georgia,serif;
+  font-size:1.65rem;
+  font-style:normal;
+}
+.host-night-cue h3 {
+  margin:0 0 5px;
+  font-family:Georgia,serif;
+  font-size:1.28rem;
+  line-height:1.1;
+}
+.host-night-cue p {
+  margin:0;
+  color:#70442e;
+  font-size:.82rem;
+  line-height:1.5;
+}
+.host-phase-frame {
+  position:fixed;
+  z-index:45;
+  top:max(5px,env(safe-area-inset-top));
+  bottom:max(5px,env(safe-area-inset-bottom));
+  left:50%;
+  width:min(calc(100vw - 10px),610px);
+  transform:translateX(-50%);
+  border:4px solid #ff8a24;
+  border-radius:24px;
+  box-shadow:inset 0 0 18px rgba(255,116,20,.3),0 0 0 1px rgba(117,48,8,.2);
+  pointer-events:none;
+  animation:host-phase-pulse 1.15s ease-in-out infinite;
+}
+@keyframes host-phase-pulse {
+  0%,100% {
+    border-color:#f47718;
+    box-shadow:inset 0 0 16px rgba(255,116,20,.28),0 0 0 0 rgba(255,138,36,0);
+  }
+  50% {
+    border-color:#ffad42;
+    box-shadow:inset 0 0 30px rgba(255,126,25,.52),0 0 0 6px rgba(255,138,36,.24),0 0 34px rgba(255,112,18,.5);
+  }
+}

@@ -1,4 +1,4 @@
-import type { WerewolfPhase } from "./werewolf";
+import type { WerewolfPhase, Winner } from "./werewolf";
 
 type Wave = OscillatorType;
 type Tone = { frequency: number; endFrequency?: number; offset: number; duration: number; gain: number; wave: Wave };
@@ -20,6 +20,31 @@ export const WEREWOLF_AUDIO_CUES: Partial<Record<WerewolfPhase, readonly Tone[]>
   dawn: [tone(392, 0, 0.28, "sine"), tone(523, 0.24, 0.3, "sine"), tone(659, 0.5, 0.5, "sine")],
 };
 
+export const WEREWOLF_RECORDED_CUES: Partial<Record<WerewolfPhase, string>> = {
+  thief: "/audio/werwolf/thief.mp3",
+  cupid: "/audio/werwolf/cupid.mp3",
+  wild_child: "/audio/werwolf/wild-child.mp3",
+  seer: "/audio/werwolf/seer.mp3",
+  wolves: "/audio/werwolf/wolves.mp3",
+  witch: "/audio/werwolf/witch.mp3",
+  hunter: "/audio/werwolf/hunter.mp3",
+};
+
+export const WEREWOLF_TRANSITION_CUES = {
+  "sleep-all": "/audio/werwolf/sleep-all.mp3",
+  "sleep-again": "/audio/werwolf/sleep-again.mp3",
+  "night-start": "/audio/werwolf/night-start.mp3",
+  "day-start": "/audio/werwolf/day-start.mp3",
+} as const;
+
+export const WEREWOLF_WINNER_CUES: Partial<Record<Exclude<Winner, null>, string>> = {
+  village: "/audio/werwolf/victory-village.mp3",
+  wolves: "/audio/werwolf/victory-wolves.mp3",
+};
+
+export const AUDIO_ANNOUNCEMENT_GAP_SECONDS = 5;
+
+export type WerewolfAudioTransition = keyof typeof WEREWOLF_TRANSITION_CUES | null;
 export const SECRET_AUDIO_PHASES = Object.freeze(Object.keys(WEREWOLF_AUDIO_CUES) as WerewolfPhase[]);
 
 const CLOSE_EYES_CUE: readonly Tone[] = [
@@ -28,6 +53,8 @@ const CLOSE_EYES_CUE: readonly Tone[] = [
 ];
 
 let context: AudioContext | null = null;
+const recordings = new Map<string, AudioBuffer>();
+let recordingsLoading: Promise<void> | null = null;
 
 function getContext() {
   if (typeof window === "undefined") return null;
@@ -53,21 +80,64 @@ function schedulePattern(audio: AudioContext, pattern: readonly Tone[], startAt:
     oscillator.start(starts);
     oscillator.stop(ends + 0.04);
   }
+  return Math.max(0, ...pattern.map((note) => note.offset + note.duration));
+}
+
+function recordingPaths() {
+  return [...new Set([...Object.values(WEREWOLF_RECORDED_CUES), ...Object.values(WEREWOLF_TRANSITION_CUES), ...Object.values(WEREWOLF_WINNER_CUES)].filter((path): path is string => Boolean(path)))];
+}
+
+async function preloadRecordings(audio: AudioContext) {
+  recordingsLoading ??= Promise.all(recordingPaths().map(async (path) => {
+    try {
+      const response = await fetch(path, { cache: "force-cache" });
+      if (!response.ok) return;
+      recordings.set(path, await audio.decodeAudioData(await response.arrayBuffer()));
+    } catch { /* synthesized cues remain available as a fallback */ }
+  })).then(() => undefined);
+  await recordingsLoading;
+}
+
+function scheduleRecording(audio: AudioContext, path: string | undefined, startAt: number) {
+  if (!path) return 0;
+  const buffer = recordings.get(path);
+  if (!buffer) return 0;
+  const source = audio.createBufferSource();
+  const volume = audio.createGain();
+  source.buffer = buffer;
+  volume.gain.setValueAtTime(0.92, startAt);
+  source.connect(volume).connect(audio.destination);
+  source.start(startAt);
+  return buffer.duration;
 }
 
 export async function unlockWerewolfAudio() {
   const audio = getContext();
   if (!audio) throw new Error("Dieses Gerät unterstützt keine Spieltöne.");
   if (audio.state !== "running") await audio.resume();
+  await preloadRecordings(audio);
   schedulePattern(audio, [tone(523, 0, 0.1, "sine", 0.045), tone(784, 0.12, 0.16, "sine", 0.045)], audio.currentTime + 0.02);
 }
 
-export function playWerewolfPhaseCue(phase: WerewolfPhase, delayMs = 0) {
+export function playWerewolfPhaseCue(phase: WerewolfPhase, delayMs = 0, transition: WerewolfAudioTransition = "sleep-again") {
   const audio = getContext();
   const cue = WEREWOLF_AUDIO_CUES[phase];
   if (!audio || audio.state !== "running" || !cue) return false;
   const begins = audio.currentTime + Math.max(0, delayMs) / 1000;
-  schedulePattern(audio, CLOSE_EYES_CUE, begins);
-  schedulePattern(audio, cue, begins + 0.72);
+  if (transition === "day-start") {
+    if (!scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins)) schedulePattern(audio, cue, begins);
+    return true;
+  }
+  let transitionDuration = transition ? scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins) : 0;
+  if (transition && !transitionDuration) transitionDuration = schedulePattern(audio, CLOSE_EYES_CUE, begins);
+  const cueStarts = begins + (transition ? transitionDuration + AUDIO_ANNOUNCEMENT_GAP_SECONDS : 0);
+  if (!scheduleRecording(audio, WEREWOLF_RECORDED_CUES[phase], cueStarts)) schedulePattern(audio, cue, cueStarts);
   return true;
+}
+
+export function playWerewolfWinnerCue(winner: Winner, delayMs = 0) {
+  const audio = getContext();
+  const path = winner ? WEREWOLF_WINNER_CUES[winner] : undefined;
+  if (!audio || audio.state !== "running" || !path) return false;
+  return scheduleRecording(audio, path, audio.currentTime + Math.max(0, delayMs) / 1000) > 0;
 }

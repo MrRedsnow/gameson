@@ -63,10 +63,6 @@ function secureIndex(length: number) {
   return values[0] % length;
 }
 
-function secureRandom() {
-  const values = new Uint32Array(1); crypto.getRandomValues(values); return values[0] / 0x100000000;
-}
-
 function networkPrefix(request: Request) {
   const value = (request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "local-preview").trim();
   return value.includes(":") ? value.split(":").slice(0, 4).join(":") : value;
@@ -115,8 +111,10 @@ async function insertAction(lobby: LobbyRow, actorId: string, kind: string, targ
 
 async function phaseActors(lobby: LobbyRow, phase = lobby.phase) {
   const allPlayers = await activePlayers(lobby.id);
+  if (phase === "role_reveal") return allPlayers;
   if (phase === "hunter") return allPlayers.filter((player) => player.id === lobby.pending_hunter_id);
   const players = allPlayers.filter((player) => player.alive);
+  if (phase === "dawn") return players;
   if (phase === "mayor_vote" || phase === "day_vote" || phase === "runoff") return players;
   if (phase === "wolves") return players.filter((player) => player.team === "wolf" || player.role === "white_werewolf");
   const roleByPhase: Partial<Record<WerewolfPhase, WerewolfRole>> = { thief: "thief", cupid: "cupid", wild_child: "wild_child", healer: "healer", seer: "seer", witch: "witch", white_werewolf: "white_werewolf", piper: "piper" };
@@ -208,7 +206,8 @@ async function submittedCount(lobby: LobbyRow, phase: WerewolfPhase) {
     const row = await db.prepare("SELECT COUNT(*) AS count FROM werewolf_votes WHERE lobby_id = ? AND match_number = ? AND cycle = ? AND phase = ?").bind(lobby.id, lobby.match_number, lobby.night, phase).first<{ count: number }>();
     return row?.count ?? 0;
   }
-  const row = await db.prepare("SELECT COUNT(*) AS count FROM werewolf_actions WHERE lobby_id = ? AND match_number = ? AND cycle = ? AND phase = ?").bind(lobby.id, lobby.match_number, lobby.night, phase).first<{ count: number }>();
+  const kind = phase === "dawn" ? `awake_${lobby.resolution_source ?? "night"}` : phase === "role_reveal" ? "role_seen" : phase;
+  const row = await db.prepare("SELECT COUNT(*) AS count FROM werewolf_actions WHERE lobby_id = ? AND match_number = ? AND cycle = ? AND phase = ? AND kind = ?").bind(lobby.id, lobby.match_number, lobby.night, phase, kind).first<{ count: number }>();
   return row?.count ?? 0;
 }
 
@@ -249,7 +248,9 @@ async function completeRolePhase(lobby: LobbyRow) {
 async function maybeAdvance(lobby: LobbyRow) {
   const actors = await phaseActors(lobby); const submitted = await submittedCount(lobby, lobby.phase);
   if (actors.length && submitted < actors.length) return;
-  if (["mayor_vote", "wolves", "day_vote", "runoff"].includes(lobby.phase)) await resolveVotes(lobby);
+  if (lobby.phase === "role_reveal") { if (lobby.mayor_enabled) await updatePhase(lobby.id, "mayor_vote"); else await nextInitialPhase(lobby); }
+  else if (lobby.phase === "dawn") { if (lobby.resolution_source === "day") await beginNight(lobby); else await updatePhase(lobby.id, "discussion"); }
+  else if (["mayor_vote", "wolves", "day_vote", "runoff"].includes(lobby.phase)) await resolveVotes(lobby);
   else await completeRolePhase(lobby);
 }
 
@@ -296,14 +297,14 @@ export async function GET(request: Request) {
       await db.batch(heartbeats);
     }
     const players = await activePlayers(lobby.id); const actors = await phaseActors(lobby); const isActor = actors.some((item) => item.id === player.id); const candidates = isActor ? await actionCandidates(lobby, player, players) : [];
-    const submitted = await submittedCount(lobby, lobby.phase); const ownAction = await db.prepare("SELECT target_id, target2_id, payload FROM werewolf_actions WHERE lobby_id = ? AND match_number = ? AND cycle = ? AND phase = ? AND actor_id = ? ORDER BY created_at DESC LIMIT 1").bind(lobby.id, lobby.match_number, lobby.night, lobby.phase, player.id).first<{ target_id: string | null; target2_id: string | null; payload: string | null }>();
+    const submitted = await submittedCount(lobby, lobby.phase); const ownActionKind = lobby.phase === "dawn" ? `awake_${lobby.resolution_source ?? "night"}` : lobby.phase === "role_reveal" ? "role_seen" : lobby.phase; const ownAction = await db.prepare("SELECT target_id, target2_id, payload FROM werewolf_actions WHERE lobby_id = ? AND match_number = ? AND cycle = ? AND phase = ? AND actor_id = ? AND kind = ? ORDER BY created_at DESC LIMIT 1").bind(lobby.id, lobby.match_number, lobby.night, lobby.phase, player.id, ownActionKind).first<{ target_id: string | null; target2_id: string | null; payload: string | null }>();
     const ownVote = await db.prepare("SELECT target_id FROM werewolf_votes WHERE lobby_id = ? AND match_number = ? AND cycle = ? AND phase = ? AND voter_id = ?").bind(lobby.id, lobby.match_number, lobby.night, lobby.phase, player.id).first<{ target_id: string }>();
     const host = players.find((item) => item.id === lobby.host_player_id);
     const lover = players.find((item) => item.id === player.lover_id); const model = players.find((item) => item.id === player.role_model_id);
     const myWolfView = player.team === "wolf" || player.role === "white_werewolf";
     const reserveRoles = player.role === "thief" && lobby.phase === "thief" ? JSON.parse(lobby.reserve_roles || "[]") : undefined;
     return reply({
-      lobby: { id: lobby.id, name: lobby.name, status: lobby.status, phase: lobby.phase, wolfCount: lobby.wolf_count, selectedRoles: parseRoles(lobby.selected_roles), mayorEnabled: Boolean(lobby.mayor_enabled), mayorPlayerId: lobby.mayor_player_id, discoverable: Boolean(lobby.discoverable), audioMode: lobby.audio_mode === "host" ? "host" : "all", revision: lobby.revision, matchNumber: lobby.match_number, night: lobby.night, winner: lobby.winner, phaseStartedAt: lobby.phase_started_at },
+      lobby: { id: lobby.id, name: lobby.name, status: lobby.status, phase: lobby.phase, wolfCount: lobby.wolf_count, selectedRoles: parseRoles(lobby.selected_roles), mayorEnabled: Boolean(lobby.mayor_enabled), mayorPlayerId: lobby.mayor_player_id, discoverable: Boolean(lobby.discoverable), audioMode: lobby.audio_mode === "host" ? "host" : "all", revision: lobby.revision, matchNumber: lobby.match_number, night: lobby.night, winner: lobby.winner, resolutionSource: lobby.resolution_source, phaseStartedAt: lobby.phase_started_at },
       me: { id: player.id, name: player.name, isHost: Boolean(player.is_host), alive: Boolean(player.alive) },
       players: players.map((item) => ({ id: item.id, name: item.name, isHost: Boolean(item.is_host), alive: Boolean(item.alive), online: now - item.last_seen < 45000, role: item.id === player.id || item.revealed || lobby.status === "results" ? item.role : undefined, knownRole: myWolfView && item.alive && (item.team === "wolf" || item.role === "white_werewolf") ? (item.role === "white_werewolf" && item.id !== player.id ? "werewolf" : item.role) : undefined, charmed: item.id === player.id ? Boolean(item.charmed) : undefined })),
       privateRole: player.role ? { role: player.role, label: ROLE_INFO[player.role].label, description: ROLE_INFO[player.role].description, team: player.team, lover: lover?.name ?? null, roleModel: model?.name ?? null, charmed: Boolean(player.charmed), elderShield: Boolean(player.elder_shield), healPotion: Boolean(player.heal_potion), poisonPotion: Boolean(player.poison_potion), reserveRoles } : null,
@@ -311,7 +312,7 @@ export async function GET(request: Request) {
       ownSubmission: ownVote?.target_id ?? ownAction ?? null,
       actionResult: ownAction?.payload ? JSON.parse(ownAction.payload) : null,
       progress: { submitted, required: actors.length },
-      canSkip: Boolean(player.is_host && lobby.status === "playing" && now - lobby.phase_started_at >= 60000),
+      canSkip: Boolean(player.is_host && lobby.status === "playing" && !["role_reveal", "dawn"].includes(lobby.phase) && now - lobby.phase_started_at >= 60000),
       canClaimHost: !player.is_host && Boolean(host) && now - (host?.last_seen ?? now) > 60000,
       serverTime: now,
     });
@@ -390,6 +391,28 @@ export async function POST(request: Request) {
       } else if (lobby.phase === "hunter") {
         const deadHunter = await db.prepare("SELECT * FROM werewolf_players WHERE id = ?").bind(lobby.pending_hunter_id).first<PlayerRow>(); if (!deadHunter || player.id !== deadHunter.id) return fail("Nur der Jäger darf schießen."); if (!targetId || !allowed.has(targetId)) return fail("Wähle eine lebende Person."); await insertAction(lobby, player.id, "hunter", targetId, null); await killPlayers(lobby, [targetId], lobby.resolution_source ?? "night", true); return reply({ ok: true });
       } else return fail("In dieser Phase ist keine Rollenaktion möglich.", 409);
+      // Keep the seer phase open until the result has actually been shown and acknowledged.
+      if (lobby.phase === "seer") return reply({ ok: true });
+      await maybeAdvance(lobby); return reply({ ok: true });
+    }
+
+    if (action === "acknowledge_seer_result") {
+      const auth = await authenticate(request, lobbyId); if (!auth) return fail("Deine Sitzung ist nicht mehr gültig.", 401); const { lobby, player } = auth;
+      if (lobby.status !== "playing" || lobby.phase !== "seer" || Number(body.matchNumber) !== lobby.match_number) return fail("Diese Phase ist bereits vorbei.", 409);
+      const actors = await phaseActors(lobby); if (!actors.some((item) => item.id === player.id)) return fail("Du bist in dieser Phase nicht an der Reihe.", 403);
+      const result = await db.prepare("SELECT 1 AS present FROM werewolf_actions WHERE lobby_id = ? AND match_number = ? AND cycle = ? AND phase = 'seer' AND actor_id = ? AND kind = 'seer' LIMIT 1").bind(lobby.id, lobby.match_number, lobby.night, player.id).first<{ present: number }>();
+      if (!result) return fail("Wähle zuerst eine Person.", 409);
+      await maybeAdvance(lobby); return reply({ ok: true });
+    }
+
+    if (action === "acknowledge_role" || action === "wake_up") {
+      const auth = await authenticate(request, lobbyId); if (!auth) return fail("Deine Sitzung ist nicht mehr gültig.", 401); const { lobby, player } = auth;
+      const expectedPhase: WerewolfPhase = action === "acknowledge_role" ? "role_reveal" : "dawn";
+      if (lobby.status !== "playing" || lobby.phase !== expectedPhase || Number(body.matchNumber) !== lobby.match_number) return fail("Diese Phase ist bereits vorbei.", 409);
+      if (action === "acknowledge_role" && !player.role) return fail("Deine Rolle wurde noch nicht verteilt.", 409);
+      if (action === "wake_up" && !player.alive) return fail("Ausgeschiedene Personen müssen nicht mehr aufstehen.", 409);
+      const actors = await phaseActors(lobby); if (!actors.some((item) => item.id === player.id)) return fail("Du bist in dieser Phase nicht an der Reihe.", 403);
+      await insertAction(lobby, player.id, action === "acknowledge_role" ? "role_seen" : `awake_${lobby.resolution_source ?? "night"}`, null, null);
       await maybeAdvance(lobby); return reply({ ok: true });
     }
 
@@ -409,17 +432,17 @@ export async function POST(request: Request) {
     }
     if (action === "start") {
       if (lobby.status !== "waiting" && lobby.status !== "results") return fail("Diese Partie läuft bereits.", 409); const players = await activePlayers(lobbyId); if (players.length < 3) return fail("Ihr braucht mindestens drei Personen.", 409); const roles = parseRoles(lobby.selected_roles); const error = validateRoleSetup(players.length, lobby.wolf_count, roles); if (error) return fail(error);
-      const deck = buildRoleDeck(players.length, lobby.wolf_count, roles, secureRandom); const reserveRoles: WerewolfRole[] = roles.includes("thief") ? ["villager", secureIndex(2) ? "werewolf" : "villager"] : [];
+      const deck = buildRoleDeck(players.length, lobby.wolf_count, roles, secureIndex); const reserveRoles: WerewolfRole[] = roles.includes("thief") ? ["villager", secureIndex(2) ? "werewolf" : "villager"] : [];
       const now = Date.now(); await db.batch(players.map((player, index) => { const role = deck[index]; return db.prepare("UPDATE werewolf_players SET alive = 1, role = ?, team = ?, revealed = 0, lover_id = NULL, role_model_id = NULL, charmed = 0, elder_shield = ?, heal_potion = ?, poison_potion = ?, last_protected_id = NULL, transformed_night = NULL WHERE id = ?").bind(role, roleTeam(role), role === "elder" ? 1 : 0, role === "witch" ? 1 : 0, role === "witch" ? 1 : 0, player.id); }));
-      await db.batch([db.prepare("DELETE FROM werewolf_actions WHERE lobby_id = ?").bind(lobbyId), db.prepare("DELETE FROM werewolf_votes WHERE lobby_id = ?").bind(lobbyId), db.prepare("DELETE FROM werewolf_players WHERE lobby_id = ? AND removed = 1").bind(lobbyId), db.prepare("UPDATE werewolf_lobbies SET status = 'playing', phase = 'waiting', match_number = match_number + 1, night = 0, runoff_round = 0, mayor_player_id = NULL, pending_wolf_victim_id = NULL, pending_heal_id = NULL, pending_poison_id = NULL, pending_hunter_id = NULL, winner = NULL, resolution_source = NULL, reserve_roles = ?, phase_started_at = ?, revision = revision + 1, updated_at = ? WHERE id = ?").bind(JSON.stringify(reserveRoles), now, now, lobbyId)]);
-      const refreshed = await db.prepare("SELECT * FROM werewolf_lobbies WHERE id = ?").bind(lobbyId).first<LobbyRow>(); if (refreshed) { if (refreshed.mayor_enabled) await updatePhase(lobbyId, "mayor_vote"); else await nextInitialPhase(refreshed); } return reply({ ok: true });
+      await db.batch([db.prepare("DELETE FROM werewolf_actions WHERE lobby_id = ?").bind(lobbyId), db.prepare("DELETE FROM werewolf_votes WHERE lobby_id = ?").bind(lobbyId), db.prepare("DELETE FROM werewolf_players WHERE lobby_id = ? AND removed = 1").bind(lobbyId), db.prepare("UPDATE werewolf_lobbies SET status = 'playing', phase = 'role_reveal', match_number = match_number + 1, night = 0, runoff_round = 0, mayor_player_id = NULL, pending_wolf_victim_id = NULL, pending_heal_id = NULL, pending_poison_id = NULL, pending_hunter_id = NULL, winner = NULL, resolution_source = NULL, reserve_roles = ?, phase_started_at = ?, revision = revision + 1, updated_at = ? WHERE id = ?").bind(JSON.stringify(reserveRoles), now, now, lobbyId)]);
+      return reply({ ok: true });
     }
     if (action === "advance") {
       if (lobby.phase === "discussion") { if (lobby.mayor_enabled && !lobby.mayor_player_id) await updatePhase(lobbyId, "mayor_vote"); else await updatePhase(lobbyId, "day_vote"); }
-      else if (lobby.phase === "dawn") { if (lobby.resolution_source === "day") await beginNight(lobby); else await updatePhase(lobbyId, "discussion"); }
       else return fail("Diese Phase kann gerade nicht weitergeschaltet werden.", 409); return reply({ ok: true });
     }
     if (action === "skip") {
+      if (["role_reveal", "dawn"].includes(lobby.phase)) return fail("Diese Bestätigung muss von allen Personen selbst erfolgen.", 409);
       if (Date.now() - lobby.phase_started_at < 60000) return fail("Diese Aktion kann erst nach 60 Sekunden übersprungen werden.", 409); await forceAdvance(lobby); return reply({ ok: true });
     }
     if (action === "new_match") {

@@ -11,14 +11,16 @@ import {
   determineWinner,
   maxWolfCount,
   minimumPlayersForRole,
+  phaseAfterDawn,
   roleTeam,
   validateRoleSetup,
   weightedVoteLeaders,
+  type Winner,
   type WerewolfPhase,
   type WerewolfRole,
   type WerewolfTeam,
 } from "../../lib/werewolf";
-import { SECRET_AUDIO_PHASES, playWerewolfPhaseCue, unlockWerewolfAudio } from "../../lib/werewolf-audio";
+import { SECRET_AUDIO_PHASES, playWerewolfPhaseCue, playWerewolfWinnerCue, unlockWerewolfAudio } from "../../lib/werewolf-audio";
 
 type Screen = "home" | "create" | "join" | "local";
 type Session = { lobbyId: string; token: string };
@@ -26,7 +28,7 @@ type NearbyLobby = { id: string; name: string; player_count: number };
 type PlayerView = { id: string; name: string; isHost: boolean; alive: boolean; online: boolean; role?: WerewolfRole; knownRole?: WerewolfRole; charmed?: boolean };
 type PrivateRole = { role: WerewolfRole; label: string; description: string; team: WerewolfTeam; lover: string | null; roleModel: string | null; charmed: boolean; elderShield: boolean; healPotion: boolean; poisonPotion: boolean; reserveRoles?: WerewolfRole[] };
 type LobbyState = {
-  lobby: { id: string; name: string; status: "waiting" | "playing" | "results"; phase: WerewolfPhase; wolfCount: number; selectedRoles: WerewolfRole[]; mayorEnabled: boolean; mayorPlayerId: string | null; discoverable: boolean; audioMode: "all" | "host"; revision: number; matchNumber: number; night: number; winner: string | null; phaseStartedAt: number };
+  lobby: { id: string; name: string; status: "waiting" | "playing" | "results"; phase: WerewolfPhase; wolfCount: number; selectedRoles: WerewolfRole[]; mayorEnabled: boolean; mayorPlayerId: string | null; discoverable: boolean; audioMode: "all" | "host"; revision: number; matchNumber: number; night: number; winner: Winner; resolutionSource: "night" | "day" | null; phaseStartedAt: number };
   me: { id: string; name: string; isHost: boolean; alive: boolean };
   players: PlayerView[];
   privateRole: PrivateRole | null;
@@ -41,6 +43,7 @@ type LobbyState = {
 
 const PHASE_COPY: Record<WerewolfPhase, { title: string; text: string }> = {
   waiting: { title: "Das Dorf versammelt sich.", text: "Stellt eure Rollen zusammen und startet, sobald alle da sind." },
+  role_reveal: { title: "Deine Rolle wartet.", text: "Öffne deine Rollenkarte einmal, bevor du die Spiellobby betrittst." },
   mayor_vote: { title: "Wählt den Bürgermeister.", text: "Seine Stimme zählt bei jeder Dorfabstimmung doppelt." },
   thief: { title: "Der Dieb entscheidet.", text: "Eine geheime Rolle kann jetzt getauscht werden." },
   cupid: { title: "Amor spannt den Bogen.", text: "Zwei Schicksale werden miteinander verbunden." },
@@ -61,8 +64,7 @@ const PHASE_COPY: Record<WerewolfPhase, { title: string; text: string }> = {
 
 const WINNER_COPY: Record<string, string> = { village: "Das Dorf gewinnt", wolves: "Das Rudel gewinnt", piper: "Der Flötenspieler gewinnt", white_werewolf: "Die Weiße Werwölfin gewinnt" };
 
-function randomIndex(length: number) { if (length <= 1) return 0; const values = new Uint32Array(1); crypto.getRandomValues(values); return values[0] % length; }
-function randomUnit() { const values = new Uint32Array(1); crypto.getRandomValues(values); return values[0] / 0x100000000; }
+function randomIndex(length: number) { if (length <= 1) return 0; const limit = Math.floor(0x100000000 / length) * length; const values = new Uint32Array(1); do crypto.getRandomValues(values); while (values[0] >= limit); return values[0] % length; }
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, { ...options, headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) }, cache: "no-store" });
@@ -122,7 +124,7 @@ export default function WerewolfHome() {
     {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
     <a className="collection-back light-back" href="/">← Gameson</a>
     <header className="wolf-brand-row"><div className="wolf-brand"><WolfMark /><span>WERWOLF<small>Ein Gameson-Spiel</small></span></div><Connection online={online} /></header>
-    <section className="wolf-hero"><span className="wolf-kicker">Wenn das Dorf schläft, beginnt die Jagd.</span><h1>WER<br />WOLF</h1><p>Findet das Rudel, bevor die Nacht euch verschlingt. Die App führt euch durch jede Rolle.</p></section>
+    <section className="wolf-hero"><span className="wolf-kicker">Wenn das Dorf schläft, beginnt die Jagd.</span><h1>WERWOLF</h1><p>Findet das Rudel, bevor die Nacht euch verschlingt. Die App führt euch durch jede Rolle.</p></section>
     <section className="wolf-mode-panel" aria-label="Spielmodus auswählen">
       <button onClick={() => setScreen("create")}><i>◉</i><span><strong>Lobby erstellen</strong><small>Jede Person mit eigenem Handy</small></span><b>→</b></button>
       <button onClick={() => setScreen("join")}><i>↗</i><span><strong>Lobby beitreten</strong><small>{nearby.length ? `${nearby.length} ${nearby.length === 1 ? "Dorf" : "Dörfer"} in deiner Nähe` : "Per Name, Link oder QR-Code"}</small></span><b>→</b></button>
@@ -140,7 +142,7 @@ function LobbyForm({ kind, nearby = [], inviteLobbyId = "", onPick, onBack, onDo
 
 function OnlineGame({ state, session, online, busy, post, leave, showError }: { state: LobbyState | null; session: Session; online: boolean; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; leave: () => void; showError: (error: unknown) => void }) {
   const [inviteOpen, setInviteOpen] = useState(false); const [settingsOpen, setSettingsOpen] = useState(false); const [roleOpen, setRoleOpen] = useState(false); const [qr, setQr] = useState("");
-  const [audioReady, setAudioReady] = useState(false); const playedCue = useRef("");
+  const [audioReady, setAudioReady] = useState(false); const playedCue = useRef(""); const playedWinnerCue = useRef(""); const announcedNight = useRef(""); const announcedInitialSleep = useRef("");
   const shareUrl = typeof window === "undefined" ? "" : `${window.location.origin}/werwolf?lobby=${session.lobbyId}`;
   useEffect(() => { if (shareUrl) QRCode.toDataURL(shareUrl, { width: 420, margin: 1, color: { dark: "#1a1119", light: "#f5efe6" } }).then(setQr).catch(() => undefined); }, [shareUrl]);
   const enableAudio = useCallback(async () => { try { await unlockWerewolfAudio(); setAudioReady(true); } catch (error) { showError(error); } }, [showError]);
@@ -151,7 +153,26 @@ function OnlineGame({ state, session, online, busy, post, leave, showError }: { 
     if (playedCue.current === cueKey) return;
     playedCue.current = cueKey;
     const delay = state.lobby.phaseStartedAt + 1800 - state.serverTime;
-    playWerewolfPhaseCue(state.lobby.phase, Math.max(0, delay));
+    let transition: "sleep-all" | "sleep-again" | "night-start" | "day-start" | null = "sleep-again";
+    if (state.lobby.phase === "dawn") transition = "day-start";
+    else if (state.lobby.phase === "mayor_vote" || state.lobby.phase === "hunter") transition = null;
+    else if (state.lobby.night > 0) {
+      const nightKey = `${state.lobby.matchNumber}:${state.lobby.night}`;
+      if (announcedNight.current !== nightKey) { transition = "night-start"; announcedNight.current = nightKey; }
+    } else {
+      const matchKey = String(state.lobby.matchNumber);
+      if (announcedInitialSleep.current !== matchKey) { transition = "sleep-all"; announcedInitialSleep.current = matchKey; }
+    }
+    playWerewolfPhaseCue(state.lobby.phase, Math.max(0, delay), transition);
+  }, [audioReady, state]);
+  useEffect(() => {
+    if (!state || !audioReady || state.lobby.status !== "results" || !state.lobby.winner) return;
+    if (state.lobby.audioMode === "host" && !state.me.isHost) return;
+    const cueKey = `${state.lobby.matchNumber}:${state.lobby.winner}:${state.lobby.phaseStartedAt}`;
+    if (playedWinnerCue.current === cueKey) return;
+    playedWinnerCue.current = cueKey;
+    const delay = state.lobby.phaseStartedAt + 1800 - state.serverTime;
+    playWerewolfWinnerCue(state.lobby.winner, Math.max(0, delay));
   }, [audioReady, state]);
   if (!state) return <main className="app-shell werewolf-shell center-shell"><div className="loader" /><p>Das Dorf wird geöffnet …</p></main>;
   const mayor = state.players.find((player) => player.id === state.lobby.mayorPlayerId);
@@ -167,21 +188,75 @@ function OnlineGame({ state, session, online, busy, post, leave, showError }: { 
 
 function WaitingRoom({ state, busy, post, invite, settings, audioReady, enableAudio }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; invite: () => void; settings: () => void; audioReady: boolean; enableAudio: () => Promise<void> }) {
   const playsHere = state.lobby.audioMode === "all" || state.me.isHost;
-  return <><section className="lobby-hero wolf-lobby-hero"><span className="step-label wolf-step">Warteraum</span><h2>Das Dorf füllt sich.</h2><p>Mindestens drei Personen – kleine Runden sind ausdrücklich willkommen.</p><button className="invite-button" onClick={invite}>+ Personen einladen</button></section><section className="player-section"><div className="section-heading"><strong>{state.players.length} Personen</strong><span>{state.players.length < 3 ? `${3 - state.players.length} fehlen noch` : "bereit"}</span></div><div className="player-grid">{state.players.map((player, index) => <div className="player-chip" key={player.id}><span className={`avatar avatar-${index % 5}`}>{player.name.charAt(0)}</span><span><strong>{player.name}</strong><small>{player.isHost ? "Host" : player.online ? "bereit" : "offline"}</small></span>{state.me.isHost && !player.isHost && <button onClick={() => post("remove", { playerId: player.id })}>×</button>}</div>)}</div></section><section className={`wolf-audio-card ${audioReady ? "ready" : ""}`}><span aria-hidden="true">♪</span><div><strong>Akustische Spielleitung</strong><small>{playsHere ? audioReady ? "Spielton ist bereit · jede Rolle hat ein eigenes Signal" : "Einmal antippen, damit dein Browser Spieltöne erlaubt" : "Der Host spielt die Signale für diese Runde ab"}</small></div>{playsHere && <button type="button" disabled={audioReady} onClick={() => void enableAudio()}>{audioReady ? "Bereit ✓" : "Ton aktivieren"}</button>}</section>{state.me.isHost ? <div className="host-actions"><button className="secondary-button" onClick={settings}>Rollen &amp; Regeln</button><button className="primary-button wolf-primary" disabled={busy || state.players.length < 3} onClick={() => post("start")}>Partie starten →</button></div> : <p className="waiting-copy">Der Host stellt die Rollen zusammen.</p>}</>;
+  const lobbyReady = state.players.length >= 3;
+  return <>
+    <section className="lobby-hero wolf-lobby-hero">
+      <span className="step-label wolf-step">Warteraum</span>
+      <h2>Das Dorf füllt sich.</h2>
+      <p>Mindestens drei Personen – kleine Runden sind ausdrücklich willkommen.</p>
+      <button className="invite-button" onClick={invite}>+ Personen einladen</button>
+    </section>
+    <section className="player-section wolf-player-section">
+      <div className="section-heading">
+        <strong>{state.players.length} Personen</strong>
+        <span className={`lobby-progress ${lobbyReady ? "is-ready" : "is-waiting"}`}><i />{lobbyReady ? "Runde bereit" : `${3 - state.players.length} fehlen noch`}</span>
+      </div>
+      <div className="player-grid">
+        {state.players.map((player, index) => <div className={`player-chip ${player.online ? "is-online" : "is-offline"}`} key={player.id}>
+          <span className={`avatar avatar-${index % 5}`}>{player.name.charAt(0)}</span>
+          <span className="player-chip-copy">
+            <strong>{player.name}{player.isHost && <em>Host</em>}</strong>
+            <small>{player.id === state.me.id ? "Das bist du" : "Mitspieler"}</small>
+          </span>
+          <span className={`player-presence ${player.online ? "is-ready" : "is-offline"}`}><i />{player.online ? "Bereit" : "Offline"}</span>
+          {state.me.isHost && !player.isHost && <button className="player-remove" aria-label={`${player.name} aus dem Dorf entfernen`} title="Person entfernen" onClick={() => post("remove", { playerId: player.id })}>×</button>}
+        </div>)}
+      </div>
+    </section>
+    <section className={`wolf-audio-card ${audioReady ? "ready" : ""}`}><span aria-hidden="true">♪</span><div><strong>Akustische Spielleitung</strong><small>{playsHere ? audioReady ? "Spielton ist bereit · jede Rolle hat ein eigenes Signal" : "Einmal antippen, damit dein Browser Spieltöne erlaubt" : "Der Host spielt die Signale für diese Runde ab"}</small></div>{playsHere && <button type="button" disabled={audioReady} onClick={() => void enableAudio()}>{audioReady ? "Bereit ✓" : "Ton aktivieren"}</button>}</section>
+    {state.me.isHost ? <div className="host-actions"><button className="secondary-button" onClick={settings}>Rollen &amp; Regeln</button><button className="primary-button wolf-primary" disabled={busy || state.players.length < 3} onClick={() => post("start")}>Partie starten →</button></div> : <p className="waiting-copy">Der Host stellt die Rollen zusammen.</p>}
+  </>;
 }
 
 function GamePhase({ state, busy, post, close, openRole, mayorName }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; close: () => void; openRole: () => void; mayorName: string | null }) {
-  const copy = PHASE_COPY[state.lobby.phase]; const dead = state.players.filter((player) => !player.alive); const isPassive = ["dawn", "discussion", "results"].includes(state.lobby.phase);
-  return <section className={`wolf-phase phase-${state.lobby.phase}`}><div className="phase-moon" aria-hidden="true">{state.lobby.phase === "discussion" || state.lobby.phase === "day_vote" ? "☀" : "☾"}</div><div className="page-intro"><span className="step-label wolf-step">{state.lobby.night ? `Nacht ${state.lobby.night}` : "Vor der ersten Nacht"} · {state.progress.submitted}/{state.progress.required}</span><h2>{copy.title}</h2><p>{copy.text}</p></div>{state.privateRole && <button className="my-role-button" onClick={openRole}><span>{ROLE_INFO[state.privateRole.role].label.charAt(0)}</span><b>Meine Rolle</b><small>{state.me.alive ? "privat ansehen" : "ausgeschieden"}</small><i>→</i></button>}{mayorName && <p className="public-status">Bürgermeister: <strong>{mayorName}</strong> · doppelte Stimme</p>}
+  if (state.lobby.phase === "role_reveal") return <RoleRevealGate state={state} busy={busy} post={post} />;
+  const isNightHandoff = state.lobby.phase === "dawn" && state.lobby.resolutionSource === "day";
+  const copy = isNightHandoff ? { title: "Die Nacht wartet.", text: "Beendet den Tag und macht euch bereit, bevor die nächtlichen Rollen wieder erwachen." } : PHASE_COPY[state.lobby.phase];
+  const dead = state.players.filter((player) => !player.alive); const isPassive = ["dawn", "discussion", "results"].includes(state.lobby.phase);
+  const hostNeedsAttention = state.me.isHost && (state.lobby.phase === "discussion" || isNightHandoff);
+  return <section className={`wolf-phase phase-${state.lobby.phase}`}>
+    {hostNeedsAttention && <div className="host-phase-frame" aria-hidden="true" />}
+    <div className="phase-moon" aria-hidden="true">{state.lobby.phase === "discussion" || state.lobby.phase === "day_vote" ? "☀" : "☾"}</div><div className="page-intro"><span className="step-label wolf-step">{state.lobby.night ? `Nacht ${state.lobby.night}` : "Vor der ersten Nacht"} · {state.progress.submitted}/{state.progress.required}</span><h2>{copy.title}</h2><p>{copy.text}</p></div>
+    {state.me.isHost && isNightHandoff && <aside className="host-night-cue" role="status"><span>Nur für dich · Host-Schritt</span><div><i aria-hidden="true">☾</i><div><h3>Nacht einläuten</h3><p>Beende die Gespräche und bitte alle, die Augen zu schließen. Sobald alle bereit sind, startet die Nacht automatisch.</p></div></div></aside>}
+    {state.privateRole && <button className="my-role-button" onClick={openRole}><span>{ROLE_INFO[state.privateRole.role].label.charAt(0)}</span><b>Meine Rolle</b><small>{state.me.alive ? "privat ansehen" : "ausgeschieden"}</small><i>→</i></button>}{mayorName && <p className="public-status">Bürgermeister: <strong>{mayorName}</strong> · doppelte Stimme</p>}
     {state.lobby.phase === "dawn" && <DeathBoard players={dead} />}
-    {state.lobby.phase === "results" ? <ResultsBoard state={state} post={post} close={close} busy={busy} /> : state.action ? <ActionPanel key={state.lobby.phase} state={state} busy={busy} post={post} /> : !isPassive ? <div className="night-wait"><i /><p>{state.me.alive ? "Eine andere Rolle ist gerade an der Reihe." : "Du schaust dieser Partie als Geist zu."}</p><small>{state.progress.submitted} von {state.progress.required} Aktionen abgeschlossen</small></div> : null}
-    {state.me.isHost && state.lobby.phase === "dawn" && <button className="primary-button wolf-primary" onClick={() => post("advance")}>Weiter →</button>}{state.me.isHost && state.lobby.phase === "discussion" && <button className="primary-button wolf-primary" onClick={() => post("advance")}>Abstimmung starten →</button>}{state.canSkip && <button className="secondary-button skip-phase" onClick={() => post("skip")}>Ausstehende Aktion überspringen</button>}
+    {state.lobby.phase === "results" ? <ResultsBoard state={state} post={post} close={close} busy={busy} /> : state.lobby.phase === "dawn" ? <DawnWakePanel state={state} busy={busy} post={post} /> : state.action ? <ActionPanel key={state.lobby.phase} state={state} busy={busy} post={post} /> : !isPassive ? <div className="night-wait"><i /><p>{state.me.alive ? "Eine andere Rolle ist gerade an der Reihe." : "Du schaust dieser Partie als Geist zu."}</p><small>{state.progress.submitted} von {state.progress.required} Aktionen abgeschlossen</small></div> : null}
+    {state.me.isHost && state.lobby.phase === "discussion" && <button className="primary-button wolf-primary" onClick={() => post("advance")}>Abstimmung starten →</button>}{state.canSkip && <button className="secondary-button skip-phase" onClick={() => post("skip")}>Ausstehende Aktion überspringen</button>}
   </section>;
+}
+
+function RoleRevealGate({ state, busy, post }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void> }) {
+  const [revealed, setRevealed] = useState(false);
+  const role = state.privateRole;
+  return <section className="wolf-phase phase-role-reveal">
+    <div className="phase-moon" aria-hidden="true">?</div>
+    <div className="page-intro"><span className="step-label wolf-step">Spielstart · {state.progress.submitted}/{state.progress.required}</span><h2>{PHASE_COPY.role_reveal.title}</h2><p>{PHASE_COPY.role_reveal.text}</p></div>
+    {state.ownSubmission ? <div className="action-card submitted-action"><span>✓</span><h3>Deine Rolle ist bestätigt.</h3><p>Du wirst automatisch in die Spiellobby weitergeleitet, sobald alle ihre Rollenkarte geöffnet haben.</p><small>{state.progress.submitted} von {state.progress.required} Personen bereit</small></div> : !revealed ? <div className="action-card role-reveal-prompt"><div className="role-orb">?</div><h3>Noch geheim</h3><p>Stelle sicher, dass nur du auf den Bildschirm blickst.</p><button className="primary-button wolf-primary" type="button" onClick={() => setRevealed(true)}>Rollenkarte öffnen</button></div> : role ? <div className="action-card role-reveal-card"><span className="step-label wolf-step">Nur für dich</span><div className={`role-orb team-${role.team}`}>{role.label.charAt(0)}</div><h3>{role.label}</h3><p>{role.description}</p><div className="role-facts"><span><b>Team</b>{role.team === "village" ? "Dorf" : role.team === "wolf" ? "Rudel" : "Eigenes Ziel"}</span></div><button className="primary-button wolf-primary" type="button" disabled={busy} onClick={() => post("acknowledge_role", { matchNumber: state.lobby.matchNumber })}>Gesehen · Zur Spiellobby →</button></div> : <div className="night-wait"><i /><p>Deine Rolle wird verteilt …</p></div>}
+  </section>;
+}
+
+function DawnWakePanel({ state, busy, post }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void> }) {
+  const startsNight = state.lobby.resolutionSource === "day";
+  const progress = `${state.progress.submitted} von ${state.progress.required} ${startsNight ? "Personen bereit" : "Personen wach"}`;
+  if (!state.me.alive) return <div className="night-wait"><i /><p>Du schaust dieser Partie als Geist zu.</p><small>{progress}</small></div>;
+  if (state.ownSubmission) return <div className="action-card submitted-action"><span>✓</span><h3>{startsNight ? "Du bist bereit für die Nacht." : "Du bist aufgestanden."}</h3><p>{startsNight ? "Die Nacht beginnt automatisch, sobald alle lebenden Personen bereit sind." : "Der Tag beginnt, sobald alle lebenden Personen wach sind."}</p><small>{progress}</small></div>;
+  return <div className="action-card dawn-wake-card"><h3>{startsNight ? `Bereit für die Nacht, ${state.me.name}?` : `Guten Morgen, ${state.me.name}.`}</h3><p>{startsNight ? "Bestätige, sobald die Gespräche beendet und deine Augen geschlossen sind." : "Bestätige selbst, dass du aufgewacht bist. Erst wenn das ganze Dorf bereit ist, geht die Partie weiter."}</p><button className="primary-button wolf-primary" type="button" disabled={busy} onClick={() => post("wake_up", { matchNumber: state.lobby.matchNumber })}>{startsNight ? "Ich bin bereit für die Nacht ☾" : "Ich bin aufgestanden ☀"}</button><small>{progress}</small></div>;
 }
 
 function ActionPanel({ state, busy, post }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void> }) {
   const action = state.action!; const [first, setFirst] = useState(""); const [second, setSecond] = useState(""); const [heal, setHeal] = useState(false);
-  if (state.ownSubmission) return <div className="action-card submitted-action"><span>✓</span><h3>Deine Entscheidung steht.</h3>{state.actionResult?.seenLabel && <p>{state.actionResult.name} ist <strong>{state.actionResult.seenLabel}</strong>.</p>}<small>Warte, bis alle ihre geheime Aktion abgeschlossen haben.</small></div>;
+  if (state.ownSubmission && action.phase === "seer" && state.actionResult?.seenLabel) return <div className="action-card submitted-action seer-result"><span>◉</span><h3>Die Seherin erkennt:</h3><p><strong>{state.actionResult.name}</strong> ist <strong>{state.actionResult.seenLabel}</strong>.</p><button className="primary-button wolf-primary" type="button" disabled={busy} onClick={() => post("acknowledge_seer_result", { matchNumber: state.lobby.matchNumber })}>Rolle gesehen · Nacht fortsetzen →</button></div>;
+  if (state.ownSubmission) return <div className="action-card submitted-action"><span>✓</span><h3>Deine Entscheidung steht.</h3><small>Warte, bis alle ihre geheime Aktion abgeschlossen haben.</small></div>;
   if (action.phase === "thief") return <div className="action-card"><h3>Welche Rolle behältst du?</h3><div className="role-choice-grid">{["thief", ...(state.privateRole?.reserveRoles ?? [])].map((role, index) => <button key={`${role}-${index}`} onClick={() => post("act", { phase: action.phase, matchNumber: state.lobby.matchNumber, choice: role })}><strong>{ROLE_INFO[role as WerewolfRole].label}</strong><small>{index ? "Verdeckte Reserve" : "Eigene Rolle"}</small></button>)}</div></div>;
   if (action.phase === "witch") {
     const victim = state.players.find((player) => player.id === action.wolfVictimId);
@@ -221,8 +296,8 @@ const EMPTY_DRAFT: LocalDraft = { votes: [], wolfVotes: [], healId: null, witchH
 
 function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (error: unknown) => void }) {
   const [phase, setPhase] = useState<"setup" | "reveal" | "turn" | "dawn" | "discussion" | "results">("setup"); const [names, setNames] = useState(["", "", ""]); const [wolves, setWolves] = useState(1); const [roles, setRoles] = useState<WerewolfRole[]>([]); const [mayorEnabled, setMayorEnabled] = useState(true);
-  const [players, setPlayers] = useState<LocalPlayer[]>([]); const [mayorId, setMayorId] = useState<string | null>(null); const [night, setNight] = useState(0); const [revealIndex, setRevealIndex] = useState(0); const [ready, setReady] = useState(false); const [queue, setQueue] = useState<LocalTurn[]>([]); const [turnIndex, setTurnIndex] = useState(0); const [purpose, setPurpose] = useState<"mayor" | "initial" | "night" | "day" | "runoff" | "hunter">("initial"); const [draft, setDraft] = useState<LocalDraft>(EMPTY_DRAFT); const [first, setFirst] = useState(""); const [second, setSecond] = useState(""); const [witchHeal, setWitchHeal] = useState(false); const [resolutionSource, setResolutionSource] = useState<"night" | "day">("night"); const [winner, setWinner] = useState<string | null>(null); const [infoOpen, setInfoOpen] = useState(false); const [infoPlayer, setInfoPlayer] = useState("");
-  const [audioReady, setAudioReady] = useState(false); const localCue = useRef("");
+  const [players, setPlayers] = useState<LocalPlayer[]>([]); const [mayorId, setMayorId] = useState<string | null>(null); const [night, setNight] = useState(0); const [revealIndex, setRevealIndex] = useState(0); const [ready, setReady] = useState(false); const [queue, setQueue] = useState<LocalTurn[]>([]); const [turnIndex, setTurnIndex] = useState(0); const [purpose, setPurpose] = useState<"mayor" | "initial" | "night" | "day" | "runoff" | "hunter">("initial"); const [draft, setDraft] = useState<LocalDraft>(EMPTY_DRAFT); const [first, setFirst] = useState(""); const [second, setSecond] = useState(""); const [witchHeal, setWitchHeal] = useState(false); const [resolutionSource, setResolutionSource] = useState<"night" | "day">("night"); const [winner, setWinner] = useState<Winner>(null); const [infoOpen, setInfoOpen] = useState(false); const [infoPlayer, setInfoPlayer] = useState("");
+  const [audioReady, setAudioReady] = useState(false); const localCue = useRef(""); const localWinnerCue = useRef(""); const localAnnouncedNight = useRef(0); const localInitialSleep = useRef(false);
   useEffect(() => { const timer = setTimeout(() => { try { const stored = localStorage.getItem("gameson:werewolf:local-names"); if (stored) { const parsed = JSON.parse(stored); if (Array.isArray(parsed) && parsed.length >= 3) setNames(parsed); } } catch { /* ignore */ } }, 0); return () => clearTimeout(timer); }, []);
   useEffect(() => { localStorage.setItem("gameson:werewolf:local-names", JSON.stringify(names)); }, [names]);
   useEffect(() => {
@@ -231,12 +306,24 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
     const cueKey = `${night}:${purpose}:${cue}`;
     if (localCue.current === cueKey) return;
     localCue.current = cueKey;
-    playWerewolfPhaseCue(cue, 120);
+    let transition: "sleep-all" | "sleep-again" | "night-start" | "day-start" | null = "sleep-again";
+    if (cue === "dawn") transition = "day-start";
+    else if (cue === "mayor_vote" || cue === "hunter") transition = null;
+    else if (purpose === "night" && night > 0 && localAnnouncedNight.current !== night) { transition = "night-start"; localAnnouncedNight.current = night; }
+    else if (purpose === "initial" && !localInitialSleep.current) { transition = "sleep-all"; localInitialSleep.current = true; }
+    playWerewolfPhaseCue(cue, 120, transition);
   }, [audioReady, night, phase, purpose, queue, turnIndex]);
+  useEffect(() => {
+    if (!audioReady || phase !== "results" || !winner) return;
+    const cueKey = `${night}:${winner}`;
+    if (localWinnerCue.current === cueKey) return;
+    localWinnerCue.current = cueKey;
+    playWerewolfWinnerCue(winner, 120);
+  }, [audioReady, night, phase, winner]);
   const validNames = names.map((name) => name.trim()).filter(Boolean); const maxWolves = maxWolfCount(Math.max(3, validNames.length)); const effectiveWolves = Math.min(wolves, maxWolves);
 
   const beginQueue = (turns: LocalTurn[], nextPurpose: typeof purpose, nextPlayers = players, nextDraft = EMPTY_DRAFT) => { setPlayers(nextPlayers); setQueue(turns); setPurpose(nextPurpose); setTurnIndex(0); setDraft(nextDraft); setFirst(""); setSecond(""); setReady(false); setPhase("turn"); if (!turns.length) finishQueue(nextPurpose, nextPlayers, nextDraft); };
-  const start = () => { if (validNames.length < 3) return showError(new Error("Füge mindestens drei Namen hinzu.")); if (new Set(validNames.map((name) => name.toLocaleLowerCase("de"))).size !== validNames.length) return showError(new Error("Jeder Name darf nur einmal vorkommen.")); const error = validateRoleSetup(validNames.length, effectiveWolves, roles); if (error) return showError(new Error(error)); void unlockWerewolfAudio().then(() => setAudioReady(true)).catch(showError); const deck = buildRoleDeck(validNames.length, effectiveWolves, roles, randomUnit); const next = validNames.map((name, index) => { const role = deck[index]; return { id: crypto.randomUUID(), name, role, team: roleTeam(role), alive: true, loverId: null, roleModelId: null, charmed: false, elderShield: role === "elder", healPotion: role === "witch", poisonPotion: role === "witch", lastProtectedId: null }; }); setPlayers(next); setMayorId(null); setNight(0); setWinner(null); setRevealIndex(0); setReady(false); setPhase("reveal"); };
+  const start = () => { if (validNames.length < 3) return showError(new Error("Füge mindestens drei Namen hinzu.")); if (new Set(validNames.map((name) => name.toLocaleLowerCase("de"))).size !== validNames.length) return showError(new Error("Jeder Name darf nur einmal vorkommen.")); const error = validateRoleSetup(validNames.length, effectiveWolves, roles); if (error) return showError(new Error(error)); void unlockWerewolfAudio().then(() => setAudioReady(true)).catch(showError); localCue.current = ""; localWinnerCue.current = ""; localAnnouncedNight.current = 0; localInitialSleep.current = false; const deck = buildRoleDeck(validNames.length, effectiveWolves, roles, randomIndex); const next = validNames.map((name, index) => { const role = deck[index]; return { id: crypto.randomUUID(), name, role, team: roleTeam(role), alive: true, loverId: null, roleModelId: null, charmed: false, elderShield: role === "elder", healPotion: role === "witch", poisonPotion: role === "witch", lastProtectedId: null }; }); setPlayers(next); setMayorId(null); setNight(0); setWinner(null); setRevealIndex(0); setReady(false); setPhase("reveal"); };
   const initialTurns = (list: LocalPlayer[]) => (["thief", "cupid", "wild_child"] as WerewolfPhase[]).flatMap((kind) => list.filter((player) => player.alive && player.role === kind).map((player) => ({ kind, actorId: player.id })));
   const mayorTurns = (list: LocalPlayer[]) => list.filter((player) => player.alive).map((player) => ({ kind: "mayor_vote" as const, actorId: player.id }));
   const startAfterReveal = () => mayorEnabled ? beginQueue(mayorTurns(players), "mayor", players) : beginQueue(initialTurns(players), "initial", players);
@@ -264,7 +351,7 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
   if (phase === "setup") return <main className="app-shell werewolf-shell"><WolfTopbar title="Ein Gerät" onBack={onBack} online={false} /><section className="page-intro"><span className="step-label wolf-step">Offline · Vorbereitung</span><h2>Wer lebt im Dorf?</h2><p>Das Handy wird für Rollen und Entscheidungen weitergereicht.</p></section><section className="local-setup"><div className="name-list">{names.map((name, index) => <div key={index}><span>{index + 1}</span><input value={name} onChange={(event) => setNames(names.map((item, position) => position === index ? event.target.value : item))} placeholder="Name eingeben" maxLength={24} aria-label={`Name ${index + 1}`} />{names.length > 3 && <button onClick={() => setNames(names.filter((_, position) => position !== index))}>×</button>}</div>)}</div>{names.length < 22 && <button className="add-person" onClick={() => setNames([...names, ""])}>+ Person hinzufügen</button>}<div className="local-options wolf-local-options"><div className="settings-row"><span><strong>Wolfsslots</strong><small>Standard: {defaultWolfCount(Math.max(3, validNames.length))}</small></span><Stepper value={effectiveWolves} min={1} max={maxWolves} onChange={setWolves} /></div><span className="settings-label">Zusatzrollen</span><RoleSelector count={validNames.length} wolves={effectiveWolves} roles={roles} setRoles={setRoles} /><div className="switch-row"><span><strong>Bürgermeister wählen</strong><small>Öffentliche Zusatzfunktion</small></span><input id="local-mayor" aria-label="Bürgermeister wählen" type="checkbox" checked={mayorEnabled} onChange={(event) => setMayorEnabled(event.target.checked)} /><i /></div><p className="local-audio-note">♪ Beim Start werden die akustischen Rollensignale aktiviert.</p></div><button className="primary-button wolf-primary" onClick={start}>Rollen verteilen →</button></section></main>;
   if (phase === "reveal") { const player = players[revealIndex]; const pack = players.filter((item) => item.id !== player.id && (item.team === "wolf" || item.role === "white_werewolf")).map((item) => item.name).join(", "); return <main className="app-shell werewolf-shell pass-shell"><WolfTopbar title={`Rolle ${revealIndex + 1}/${players.length}`} online={false} /><section className="handover wolf-handover"><span className="step-label wolf-step">Gerät weitergeben</span><h2>{ready ? `${player.name}, nur du darfst schauen.` : `Gib das Handy an ${player.name}.`}</h2>{!ready ? <button className="primary-button wolf-primary" onClick={() => setReady(true)}>Ich bin {player.name}</button> : <LocalSecret player={player} pack={pack} onDone={() => { setReady(false); if (revealIndex === players.length - 1) startAfterReveal(); else setRevealIndex(revealIndex + 1); }} />}</section></main>; }
   if (phase === "turn") { const turn = queue[turnIndex]; const actor = players.find((player) => player.id === turn.actorId)!; const living = players.filter((player) => player.alive); let candidates = living.filter((player) => player.id !== actor.id); if (turn.kind === "mayor_vote") candidates = living; if (turn.kind === "wolves") candidates = living.filter((player) => player.team !== "wolf" && player.role !== "white_werewolf"); if (turn.kind === "healer") candidates = living.filter((player) => player.id !== actor.lastProtectedId); if (turn.kind === "white_werewolf") candidates = living.filter((player) => player.team === "wolf" && player.id !== actor.id); if (turn.kind === "piper") candidates = candidates.filter((player) => !player.charmed); if (turn.candidates) candidates = candidates.filter((player) => turn.candidates!.includes(player.id)); const multi = turn.kind === "cupid" || turn.kind === "piper"; const reserve = turn.kind === "thief" ? (["thief", "villager", randomIndex(2) ? "werewolf" : "villager"] as WerewolfRole[]) : null; const wolfVictim = weightedVoteLeaders(draft.wolfVotes, null).leaders[0]; return <main className="app-shell werewolf-shell pass-shell"><WolfTopbar title={`${PHASE_COPY[turn.kind].title}`} online={false} /><section className="handover wolf-handover"><span className="step-label wolf-step">Geheime Aktion {turnIndex + 1}/{queue.length}</span><h2>{ready ? `${actor.name}, du bist dran.` : `Gib das Handy an ${actor.name}.`}</h2>{!ready ? <button className="primary-button wolf-primary" onClick={() => setReady(true)}>Ich bin {actor.name}</button> : <div className="local-action-panel"><p>{PHASE_COPY[turn.kind].text}</p>{turn.kind === "witch" ? <><p>{wolfVictim ? `Das Rudel wählte ${players.find((player) => player.id === wolfVictim)?.name}.` : "Noch kein Wolfsopfer."}</p>{actor.healPotion && wolfVictim && <div className="switch-row"><span><strong>Heiltrank einsetzen</strong></span><input id="local-witch-heal" aria-label="Heiltrank einsetzen" type="checkbox" checked={witchHeal} onChange={(event) => setWitchHeal(event.target.checked)} /><i /></div>}{actor.poisonPotion && <div className="select-field"><span>Gifttrank</span><select id="local-witch-poison" aria-label="Ziel für den Gifttrank" value={second} onChange={(event) => setSecond(event.target.value)}><option value="">Niemand</option>{candidates.filter((player) => !witchHeal || player.id !== wolfVictim).map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select></div>}</> : reserve ? <div className="target-list">{reserve.map((role, index) => <button key={`${role}-${index}`} className={first === role ? "selected" : ""} onClick={() => setFirst(role)}><span>{ROLE_INFO[role].label.charAt(0)}</span><strong>{ROLE_INFO[role].label}</strong><i>{first === role ? "✓" : ""}</i></button>)}</div> : <div className="target-list">{candidates.map((player) => <button key={player.id} className={first === player.id || second === player.id ? "selected" : ""} onClick={() => { if (first === player.id) { setFirst(second); setSecond(""); } else if (multi && first) setSecond(player.id); else setFirst(player.id); }}><span>{player.name.charAt(0)}</span><strong>{player.name}</strong><i>{first === player.id || second === player.id ? "✓" : ""}</i></button>)}</div>}<button className="primary-button wolf-primary" disabled={!first && !["witch", "white_werewolf"].includes(turn.kind)} onClick={submitTurn}>{turn.kind === "white_werewolf" && !first ? "Diese Nacht passen" : "Geheim bestätigen"}</button></div>}</section></main>; }
-  const dead = players.filter((player) => !player.alive); return <main className="app-shell werewolf-shell"><WolfTopbar title={phase === "results" ? "Ergebnis" : phase === "discussion" ? "Dorfversammlung" : "Auflösung"} onBack={phase === "results" ? onBack : undefined} online={false} /><section className="wolf-phase"><div className="phase-moon">{phase === "discussion" ? "☀" : "☾"}</div><div className="page-intro"><span className="step-label wolf-step">{night ? `Nacht ${night}` : "Dorf"}</span><h2>{phase === "results" ? WINNER_COPY[winner ?? ""] : phase === "discussion" ? "Wem könnt ihr trauen?" : "Der Morgen graut."}</h2><p>{phase === "discussion" ? "Diskutiert gemeinsam. Wenn ihr bereit seid, beginnt die geheime Abstimmung." : phase === "results" ? "Alle Rollen werden aufgedeckt." : "Seht nach, wer das Dorf verlassen musste."}</p></div>{phase !== "discussion" && <DeathBoard players={dead.map((player) => ({ ...player, isHost: false, online: false }))} />}{phase === "results" && <div className="role-reveal-list">{players.map((player) => <div key={player.id}><span>{player.name.charAt(0)}</span><strong>{player.name}</strong><small>{ROLE_INFO[player.role].label}</small></div>)}</div>}<button className="secondary-button" onClick={() => setInfoOpen(true)}>Private Rolleninfo öffnen</button>{phase === "dawn" && <button className="primary-button wolf-primary" onClick={() => resolutionSource === "night" ? setPhase("discussion") : startNight(players)}>Weiter →</button>}{phase === "discussion" && <button className="primary-button wolf-primary" onClick={() => mayorEnabled && !mayorId ? beginQueue(mayorTurns(players), "mayor", players) : startDayVote(players)}>Abstimmung starten →</button>}{phase === "results" && <button className="primary-button wolf-primary" onClick={() => setPhase("setup")}>Neue Partie →</button>}</section>{infoOpen && <LocalInfoSheet players={players} selected={infoPlayer} setSelected={setInfoPlayer} close={() => { setInfoOpen(false); setInfoPlayer(""); }} />}</main>;
+  const dead = players.filter((player) => !player.alive); return <main className="app-shell werewolf-shell"><WolfTopbar title={phase === "results" ? "Ergebnis" : phase === "discussion" ? "Dorfversammlung" : "Auflösung"} onBack={phase === "results" ? onBack : undefined} online={false} /><section className="wolf-phase"><div className="phase-moon">{phase === "discussion" ? "☀" : "☾"}</div><div className="page-intro"><span className="step-label wolf-step">{night ? `Nacht ${night}` : "Dorf"}</span><h2>{phase === "results" ? WINNER_COPY[winner ?? ""] : phase === "discussion" ? "Wem könnt ihr trauen?" : "Der Morgen graut."}</h2><p>{phase === "discussion" ? "Diskutiert gemeinsam. Wenn ihr bereit seid, beginnt die geheime Abstimmung." : phase === "results" ? "Alle Rollen werden aufgedeckt." : "Seht nach, wer das Dorf verlassen musste."}</p></div>{phase !== "discussion" && <DeathBoard players={dead.map((player) => ({ ...player, isHost: false, online: false }))} />}{phase === "results" && <div className="role-reveal-list">{players.map((player) => <div key={player.id}><span>{player.name.charAt(0)}</span><strong>{player.name}</strong><small>{ROLE_INFO[player.role].label}</small></div>)}</div>}<button className="secondary-button" onClick={() => setInfoOpen(true)}>Private Rolleninfo öffnen</button>{phase === "dawn" && <button className="primary-button wolf-primary" onClick={() => phaseAfterDawn(resolutionSource) === "discussion" ? setPhase("discussion") : startNight(players)}>Weiter →</button>}{phase === "discussion" && <button className="primary-button wolf-primary" onClick={() => mayorEnabled && !mayorId ? beginQueue(mayorTurns(players), "mayor", players) : startDayVote(players)}>Abstimmung starten →</button>}{phase === "results" && <button className="primary-button wolf-primary" onClick={() => setPhase("setup")}>Neue Partie →</button>}</section>{infoOpen && <LocalInfoSheet players={players} selected={infoPlayer} setSelected={setInfoPlayer} close={() => { setInfoOpen(false); setInfoPlayer(""); }} />}</main>;
 }
 
 function LocalSecret({ player, pack, onDone }: { player: LocalPlayer; pack: string; onDone: () => void }) { const [holding, setHolding] = useState(false); const [seen, setSeen] = useState(false); return <section className={`local-secret-card ${holding ? "revealed" : ""}`}><div className="role-orb">{holding ? ROLE_INFO[player.role].label.charAt(0) : "?"}</div><h3>{holding ? ROLE_INFO[player.role].label : "Noch geheim"}</h3><p>{holding ? ROLE_INFO[player.role].description : "Halte den Knopf gedrückt, um deine Rolle zu sehen."}</p>{holding && pack && (player.team === "wolf" || player.role === "white_werewolf") && <small>Dein Rudel: {pack}</small>}<button onPointerDown={() => { setHolding(true); setSeen(true); }} onPointerUp={() => setHolding(false)} onPointerLeave={() => setHolding(false)}>{holding ? "Loslassen zum Verbergen" : "Gedrückt halten"}</button><button className="text-button light" disabled={!seen} onClick={onDone}>Gesehen &amp; weiter →</button></section>; }
