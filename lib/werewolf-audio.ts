@@ -68,6 +68,9 @@ const CLOSE_EYES_CUE: readonly Tone[] = [
 let context: AudioContext | null = null;
 const recordings = new Map<string, AudioBuffer>();
 let recordingsLoading: Promise<void> | null = null;
+type ActiveSound = { source: AudioScheduledSourceNode; volume: GainNode };
+const activeSounds = new Set<ActiveSound>();
+let latestAudioRequest = 0;
 
 function getContext() {
   if (typeof window === "undefined") return null;
@@ -75,6 +78,40 @@ function getContext() {
   if (!AudioContextConstructor) return null;
   context ??= new AudioContextConstructor();
   return context;
+}
+
+function releaseSound(sound: ActiveSound) {
+  activeSounds.delete(sound);
+  sound.source.onended = null;
+  sound.source.disconnect();
+  sound.volume.disconnect();
+}
+
+function trackSound(source: AudioScheduledSourceNode, volume: GainNode) {
+  const sound = { source, volume };
+  activeSounds.add(sound);
+  source.onended = () => releaseSound(sound);
+}
+
+function stopActiveSounds() {
+  const sounds = [...activeSounds];
+  activeSounds.clear();
+  for (const sound of sounds) {
+    sound.source.onended = null;
+    try { sound.source.stop(); } catch { /* a source that already ended is already silent */ }
+    sound.source.disconnect();
+    sound.volume.disconnect();
+  }
+}
+
+function beginLatestAudioRequest() {
+  latestAudioRequest += 1;
+  stopActiveSounds();
+  return latestAudioRequest;
+}
+
+export function stopWerewolfAudio() {
+  beginLatestAudioRequest();
 }
 
 function schedulePattern(audio: AudioContext, pattern: readonly Tone[], startAt: number) {
@@ -90,6 +127,7 @@ function schedulePattern(audio: AudioContext, pattern: readonly Tone[], startAt:
     volume.gain.exponentialRampToValueAtTime(note.gain, starts + Math.min(0.035, note.duration / 4));
     volume.gain.exponentialRampToValueAtTime(0.0001, ends);
     oscillator.connect(volume).connect(audio.destination);
+    trackSound(oscillator, volume);
     oscillator.start(starts);
     oscillator.stop(ends + 0.04);
   }
@@ -120,15 +158,18 @@ function scheduleRecording(audio: AudioContext, path: string | undefined, startA
   source.buffer = buffer;
   volume.gain.setValueAtTime(0.92, startAt);
   source.connect(volume).connect(audio.destination);
+  trackSound(source, volume);
   source.start(startAt);
   return buffer.duration;
 }
 
 export async function unlockWerewolfAudio() {
+  const request = beginLatestAudioRequest();
   const audio = getContext();
   if (!audio) throw new Error("Dieses Gerät unterstützt keine Spieltöne.");
   if (audio.state !== "running") await audio.resume();
   await preloadRecordings(audio);
+  if (request !== latestAudioRequest) return;
   schedulePattern(audio, [tone(523, 0, 0.1, "sine", 0.045), tone(784, 0.12, 0.16, "sine", 0.045)], audio.currentTime + 0.02);
 }
 
@@ -141,7 +182,9 @@ export function playWerewolfPhaseCue(
   const audio = getContext();
   const cue = WEREWOLF_AUDIO_CUES[phase];
   const recording = WEREWOLF_RECORDED_CUES[phase];
-  if (!audio || audio.state !== "running" || (!cue && !recording)) return false;
+  if (!audio || (!cue && !recording)) return false;
+  beginLatestAudioRequest();
+  if (audio.state !== "running") return false;
   const begins = audio.currentTime + Math.max(0, delayMs) / 1000;
   if (transition === "day-start" || transition === "day-resolution") {
     if (!scheduleRecording(audio, WEREWOLF_TRANSITION_CUES[transition], begins) && cue) schedulePattern(audio, cue, begins);
@@ -158,6 +201,8 @@ export function playWerewolfPhaseCue(
 export function playWerewolfWinnerCue(winner: Winner, delayMs = 0) {
   const audio = getContext();
   const path = winner ? WEREWOLF_WINNER_CUES[winner] : undefined;
-  if (!audio || audio.state !== "running" || !path) return false;
+  if (!audio || !path) return false;
+  beginLatestAudioRequest();
+  if (audio.state !== "running") return false;
   return scheduleRecording(audio, path, audio.currentTime + Math.max(0, delayMs) / 1000) > 0;
 }

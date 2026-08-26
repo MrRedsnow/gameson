@@ -25,7 +25,7 @@ import {
   type WerewolfRole,
   type WerewolfTeam,
 } from "../../lib/werewolf";
-import { AUDIO_ANNOUNCEMENT_GAP_SECONDS, MAX_AUDIO_ANNOUNCEMENT_GAP_SECONDS, MIN_AUDIO_ANNOUNCEMENT_GAP_SECONDS, WEREWOLF_AUDIO_PHASES, playWerewolfPhaseCue, playWerewolfWinnerCue, unlockWerewolfAudio } from "../../lib/werewolf-audio";
+import { AUDIO_ANNOUNCEMENT_GAP_SECONDS, MAX_AUDIO_ANNOUNCEMENT_GAP_SECONDS, MIN_AUDIO_ANNOUNCEMENT_GAP_SECONDS, WEREWOLF_AUDIO_PHASES, playWerewolfPhaseCue, playWerewolfWinnerCue, stopWerewolfAudio, unlockWerewolfAudio } from "../../lib/werewolf-audio";
 
 type Screen = "home" | "create" | "join" | "local";
 type Session = { lobbyId: string; token: string };
@@ -251,6 +251,8 @@ export default function WerewolfHome() {
   }, []);
   useEffect(() => { if (!session) return; localStorage.setItem("gameson:werewolf:session", JSON.stringify(session)); window.history.replaceState({}, "", `/werwolf?lobby=${encodeURIComponent(session.lobbyId)}`); }, [session]);
   useEffect(() => { if (session || !online || (screen !== "home" && screen !== "join")) return; let active = true; const load = () => api<{ lobbies: NearbyLobby[] }>("/api/werwolf?action=nearby").then((data) => { if (active) setNearby(data.lobbies); }).catch(() => undefined); load(); const timer = setInterval(load, 10000); return () => { active = false; clearInterval(timer); }; }, [online, screen, session]);
+  useEffect(() => { if (!session && screen !== "local") stopWerewolfAudio(); }, [screen, session]);
+  useEffect(() => () => stopWerewolfAudio(), []);
 
   const fetchState = useCallback(async (quiet = false) => {
     if (!session) return; try { const data = await api<LobbyState>(`/api/werwolf?action=state&lobbyId=${encodeURIComponent(session.lobbyId)}`, { headers: { Authorization: `Bearer ${session.token}` } }); setState(data); setOnline(true); }
@@ -335,11 +337,16 @@ function OnlineGame({ state, session, online, busy, post, leave, showError }: { 
     const delay = state.lobby.phaseStartedAt + 1800 - state.serverTime;
     playWerewolfWinnerCue(state.lobby.winner, Math.max(0, delay));
   }, [audioReady, state]);
+  const shouldPlayHere = Boolean(state && (state.lobby.audioMode === "all" || state.me.isHost));
+  const hasCurrentAnnouncement = Boolean(state && shouldPlayHere && (
+    (state.lobby.status === "results" && state.lobby.winner)
+    || (state.lobby.status === "playing" && WEREWOLF_AUDIO_PHASES.includes(state.lobby.phase))
+  ));
+  useEffect(() => { if (!hasCurrentAnnouncement) stopWerewolfAudio(); }, [hasCurrentAnnouncement]);
   if (!state) return <main className="app-shell werewolf-shell center-shell"><div className="loader" /><p>Das Dorf wird geöffnet …</p></main>;
   const mayor = state.players.find((player) => player.id === state.lobby.mayorPlayerId);
   const me = state.players.find((player) => player.id === state.me.id);
   const showsFreshDeath = Boolean(me && !me.alive && (state.lobby.phase === "dawn" || state.lobby.phase === "results") && me.deathMatchNumber === state.lobby.matchNumber && me.deathCycle === state.lobby.night && me.deathSource === state.lobby.resolutionSource);
-  const shouldPlayHere = state.lobby.audioMode === "all" || state.me.isHost;
   const villageKillCount = countVillageDecisionDeaths(state.players);
   return <main className={`app-shell werewolf-shell ${state.lobby.status === "waiting" && state.me.isHost ? "has-sticky-action" : ""}`}><WolfTopbar title={state.lobby.name} onBack={leave} online={online} />
     <VillageGuiltFrame count={villageKillCount} />
@@ -500,6 +507,7 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
   const [audioReady, setAudioReady] = useState(false); const localCue = useRef(""); const localWinnerCue = useRef(""); const localAnnouncedNight = useRef(0); const localInitialSleep = useRef(false);
   useEffect(() => { const timer = setTimeout(() => { try { const stored = localStorage.getItem("gameson:werewolf:local-names"); if (stored) { const parsed = JSON.parse(stored); if (Array.isArray(parsed) && parsed.length >= 3) setNames(parsed); } } catch { /* ignore */ } }, 0); return () => clearTimeout(timer); }, []);
   useEffect(() => { localStorage.setItem("gameson:werewolf:local-names", JSON.stringify(names)); }, [names]);
+  useEffect(() => { if (phase === "setup") stopWerewolfAudio(); }, [phase]);
   useEffect(() => {
     const cue: WerewolfPhase | null = phase === "reveal" ? "role_reveal" : phase === "turn" ? queue[turnIndex]?.kind : phase === "dawn" ? "dawn" : phase === "discussion" ? "discussion" : null;
     if (!audioReady || !cue || !WEREWOLF_AUDIO_PHASES.includes(cue)) return;
