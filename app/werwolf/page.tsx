@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import QRCode from "qrcode";
-import { GameBackLink, GameModes, GameRules } from "@/components/game-entry";
+import { GameBackLink, GameModes, GameRules, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
 import { ArrowLeft, ArrowUpRight, AudioLines, Check, ChevronRight, Crown, DoorOpen, Eye, LockKeyhole, Moon, Plus, Settings2, Skull, Sparkles, Users, Vote, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getGameGuidance, getSelectionGuidance } from "@/lib/werewolf-guidance";
 import { TaskStatus, ConfirmBar, DecisionSteps, ActionProgress, GameEmptyState, PhaseHeader, PlayerChoice, PlayerSelect, PrivateRoleButton, RoleIcon, SettingSwitch } from "@/components/werewolf/game-ui";
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { resolveOnlineGameStartup } from "../../lib/game-session";
+import { describeLobby, resolveOnlineGameStartup } from "../../lib/game-session";
 import {
   DEATH_CAUSE_INFO,
   ROLE_INFO,
@@ -225,8 +225,11 @@ function WolfTopbar({ title, onBack, online = true, local = false }: { title: st
   return <header className="topbar wolf-topbar">{onBack ? <Button variant="ghost" size="icon" className="icon-button" onClick={onBack} aria-label="Zurück"><ArrowLeft /></Button> : <WolfMark />}<strong className="topbar-title">{title}</strong><Connection online={online} local={local} /></header>;
 }
 
+const RESUME_STATUS_LABEL: Record<LobbyState["lobby"]["status"], string> = { waiting: "Dorf wartet auf den Start", playing: "Partie läuft", results: "Partie beendet" };
+
 export default function WerewolfHome() {
   const [leaveOpen, setLeaveOpen] = useState(false);
+  const [storedSession, setStoredSession] = useState<Session | null>(null); const [storedLobby, setStoredLobby] = useState<ResumeLobbyInfo | null | undefined>(undefined);
   const [receipt, setReceipt] = useState("");
   const posting = useRef(false);
   const [screen, setScreen] = useState<Screen>("home"); const [session, setSession] = useState<Session | null>(null); const [state, setState] = useState<LobbyState | null>(null);
@@ -241,12 +244,22 @@ export default function WerewolfHome() {
       try { stored = localStorage.getItem("gameson:werewolf:session"); } catch { /* storage unavailable */ }
       const startup = resolveOnlineGameStartup(window.location.search, stored);
       if (startup.kind === "resume") setSession(startup.session);
+      else if (startup.kind === "choose") setStoredSession(startup.session);
       else if (startup.kind === "join") { setInviteLobbyId(startup.lobbyId); setScreen("join"); }
       else if (startup.kind === "local") setScreen("local");
     }, 0);
     return () => { clearTimeout(timer); window.removeEventListener("online", update); window.removeEventListener("offline", update); };
   }, []);
   useEffect(() => { if (!session) return; localStorage.setItem("gameson:werewolf:session", JSON.stringify(session)); window.history.replaceState({}, "", `/werwolf?lobby=${encodeURIComponent(session.lobbyId)}`); }, [session]);
+  // Describe the stored round while the player decides; an invalid session leaves only "new game" to choose.
+  useEffect(() => {
+    if (!storedSession) return;
+    let active = true;
+    api<LobbyState>(`/api/werwolf?action=state&lobbyId=${encodeURIComponent(storedSession.lobbyId)}`, { headers: { Authorization: `Bearer ${storedSession.token}` } })
+      .then((data) => { if (active) setStoredLobby({ name: data.lobby.name, detail: describeLobby(data.players.length, RESUME_STATUS_LABEL[data.lobby.status]) }); })
+      .catch((error: unknown) => { if (active) setStoredLobby(error instanceof Error && error.message.includes("Sitzung") ? null : { detail: "Gerade keine Verbindung. Du kannst trotzdem entscheiden." }); });
+    return () => { active = false; };
+  }, [storedSession]);
   useEffect(() => { if (session || !online || (screen !== "home" && screen !== "join")) return; let active = true; const load = () => api<{ lobbies: NearbyLobby[] }>("/api/werwolf?action=nearby").then((data) => { if (active) setNearby(data.lobbies); }).catch(() => undefined); load(); const timer = setInterval(load, 10000); return () => { active = false; clearInterval(timer); }; }, [online, screen, session]);
   useEffect(() => { if (!session && screen !== "local") stopWerewolfAudio(); }, [screen, session]);
   useEffect(() => () => stopWerewolfAudio(), []);
@@ -288,6 +301,9 @@ export default function WerewolfHome() {
   const closesVillage = state?.me.isHost && state.lobby.status !== "playing";
   const leaveDialog = <Dialog open={leaveOpen} onOpenChange={setLeaveOpen}><DialogContent className="werewolf-theme wolf-dialog" showCloseButton={false} aria-describedby="leave-description"><DialogTitle>{closesVillage ? "Dorf wirklich schließen?" : "Partie verlassen?"}</DialogTitle><p id="leave-description" className="dialog-copy">{closesVillage ? "Alle Personen werden getrennt und die Spieldaten dieser Lobby gelöscht." : "Deine Rolle bleibt in der laufenden Partie. Du verlässt die Ansicht auf diesem Gerät."}</p><div className="dialog-actions"><Button variant="outline" onClick={() => setLeaveOpen(false)} disabled={busy}>Im Dorf bleiben</Button><Button className="wolf-primary" disabled={busy} onClick={() => void confirmLeave()}><DoorOpen aria-hidden="true" />{closesVillage ? "Dorf schließen" : "Partie verlassen"}</Button></div></DialogContent></Dialog>;
 
+  const resumeStoredSession = () => { if (!storedSession) return; setStoredSession(null); setStoredLobby(undefined); setSession(storedSession); };
+  const discardStoredSession = () => { try { localStorage.removeItem("gameson:werewolf:session"); } catch { /* storage unavailable */ } setStoredSession(null); setStoredLobby(undefined); };
+
   const activeNotice = notice && <Notice message={notice} clear={() => setNotice("")} />;
   if (session) return <><OnlineGame state={state} session={session} online={online} busy={busy} post={post} leave={leave} showError={showError} receipt={receipt} clearReceipt={() => setReceipt("")} />{leaveDialog}{activeNotice}</>;
   if (screen === "create") return <><LobbyForm kind="create" onBack={() => setScreen("home")} onDone={setSession} showError={showError} />{activeNotice}</>;
@@ -301,6 +317,7 @@ export default function WerewolfHome() {
     <GameModes onCreate={() => setScreen("create")} onJoin={() => setScreen("join")} onLocal={() => setScreen("local")} />
     <GameRules game="werewolf" />
     <p className="entry-footnote">Ab 3 Personen · Kein Konto nötig</p>
+    {storedSession && <ResumeSessionDialog theme="werewolf" lobby={storedLobby} onResume={resumeStoredSession} onDiscard={discardStoredSession} />}
     {activeNotice}
   </main>;
 }

@@ -3,12 +3,12 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { GameBackLink, GameModes, GameRules } from "@/components/game-entry";
+import { GameBackLink, GameModes, GameRules, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateImposterSetup } from "@/lib/imposter-setup";
 import { CATEGORIES, defaultImposterCount, maxImposterCount, type ContentMode } from "../../lib/game";
-import { resolveOnlineGameStartup } from "../../lib/game-session";
+import { describeLobby, resolveOnlineGameStartup } from "../../lib/game-session";
 
 type Screen = "home" | "create" | "join" | "local";
 type Session = { lobbyId: string; token: string };
@@ -28,6 +28,7 @@ type LocalPlayer = { id: string; name: string; role: "crew" | "imposter"; word: 
 type NearbyLobby = { id: string; name: string; player_count: number };
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+const RESUME_STATUS_LABEL: Record<LobbyState["lobby"]["status"], string> = { waiting: "Lobby wartet auf den Start", revealing: "Runde läuft", voting: "Abstimmung läuft", results: "Ergebnis liegt vor" };
 
 function randomIndex(length: number) {
   if (length <= 1) return 0;
@@ -129,6 +130,8 @@ export default function Home() {
   const [online, setOnline] = useState(true);
   const [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
   const [busy, setBusy] = useState(false);
+  const [storedSession, setStoredSession] = useState<Session | null>(null);
+  const [storedLobby, setStoredLobby] = useState<ResumeLobbyInfo | null | undefined>(undefined);
 
   const showError = useCallback((error: unknown) => setNotice(error instanceof Error ? error.message : "Etwas ist schiefgelaufen."), []);
 
@@ -145,6 +148,8 @@ export default function Home() {
       if (startup.kind === "resume") {
         try { localStorage.setItem("gameson:imposter:session", JSON.stringify(startup.session)); localStorage.removeItem("imposter-session"); } catch { /* storage unavailable */ }
         setSession(startup.session);
+      } else if (startup.kind === "choose") {
+        setStoredSession(startup.session);
       } else if (startup.kind === "join") {
         setInviteLobbyId(startup.lobbyId); setScreen("join");
       } else if (startup.kind === "local") setScreen("local");
@@ -157,6 +162,16 @@ export default function Home() {
     localStorage.setItem("gameson:imposter:session", JSON.stringify(session));
     window.history.replaceState({}, "", `/imposter?lobby=${encodeURIComponent(session.lobbyId)}`);
   }, [session]);
+
+  // Describe the stored round while the player decides; an invalid session leaves only "new game" to choose.
+  useEffect(() => {
+    if (!storedSession) return;
+    let active = true;
+    api<LobbyState>(`/api/game?action=state&lobbyId=${encodeURIComponent(storedSession.lobbyId)}`, { headers: { Authorization: `Bearer ${storedSession.token}` } })
+      .then((data) => { if (active) setStoredLobby({ name: data.lobby.name, detail: describeLobby(data.players.length, RESUME_STATUS_LABEL[data.lobby.status]) }); })
+      .catch((error: unknown) => { if (active) setStoredLobby(error instanceof Error && error.message.includes("Sitzung") ? null : { detail: "Gerade keine Verbindung. Du kannst trotzdem entscheiden." }); });
+    return () => { active = false; };
+  }, [storedSession]);
 
   useEffect(() => {
     if (session || !online || (screen !== "home" && screen !== "join")) return;
@@ -214,6 +229,16 @@ export default function Home() {
     setSession(null); setState(null); setAssignment(null); localStorage.removeItem("gameson:imposter:session"); window.history.replaceState({}, "", "/imposter"); setScreen("home");
   };
 
+  const resumeStoredSession = () => {
+    if (!storedSession) return;
+    try { localStorage.removeItem("imposter-session"); } catch { /* storage unavailable */ }
+    setStoredSession(null); setStoredLobby(undefined); setSession(storedSession);
+  };
+  const discardStoredSession = () => {
+    try { localStorage.removeItem("gameson:imposter:session"); localStorage.removeItem("imposter-session"); } catch { /* storage unavailable */ }
+    setStoredSession(null); setStoredLobby(undefined);
+  };
+
   const activeNotice = notice && <Notice message={notice} clear={() => setNotice("")} />;
   if (session) return <><MultiGame state={state} assignment={assignment} session={session} online={online} busy={busy} post={post} onBack={leaveToHome} showError={showError} />{activeNotice}</>;
   if (screen === "create") return <><CreateLobby onBack={() => setScreen("home")} onCreated={setSession} showError={showError} />{activeNotice}</>;
@@ -229,6 +254,7 @@ export default function Home() {
       <GameModes onCreate={() => setScreen("create")} onJoin={() => setScreen("join")} onLocal={() => setScreen("local")} />
       <GameRules game="imposter" />
       <footer className="home-footer">{installEvent ? <button className="install-link" onClick={async () => { await installEvent.prompt(); await installEvent.userChoice; setInstallEvent(null); }}>App installieren</button> : <><span className="status-dot" /><span>Bereit für eure nächste Runde</span></>}</footer>
+      {storedSession && <ResumeSessionDialog theme="imposter" lobby={storedLobby} onResume={resumeStoredSession} onDiscard={discardStoredSession} />}
       {activeNotice}
     </main>
   );

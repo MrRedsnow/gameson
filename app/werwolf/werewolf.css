@@ -269,6 +269,7 @@
 .werewolf-theme.wolf-dialog .task-status h2 { margin-right:0; }
 .werewolf-theme .dialog-copy, .werewolf-theme .role-sheet>p { color:var(--muted-foreground); font-size:1rem; line-height:1.65; }
 .werewolf-theme .dialog-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
+.werewolf-theme.wolf-dialog.resume-dialog h2:not(.sr-only) { margin:0; }
 .werewolf-theme .invite-sheet img { width:min(100%,240px); height:auto; margin:24px auto; padding:12px; border:1px solid #f1e3c033; border-radius:14px; background:#fff; box-shadow:0 0 34px #f1e3c026; }
 .werewolf-theme .group-code { margin:12px 0 20px; color:var(--wolf-gold-soft); font-family:var(--wolf-display); font-size:1.5rem; font-weight:600; letter-spacing:.08em; }
 .werewolf-theme .setting-toggle, .werewolf-theme .settings-row { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:78px; padding:18px 0; border-top:1px solid var(--border); }

@@ -229,3 +229,25 @@ test("hält zentrale UI-Rückmeldungen, Dialoge und mobile Aktionen zugänglich"
   assert.match(css, /\.settings-sheet \.role-selector\s*\{[^}]*max-height:none;/);
   assert.match(css, /\.library-card\s*\{[^}]*min-height:330px;/);
 });
+
+test("fragt beim Start aus der Spielauswahl nach einer gespeicherten Online-Runde", async () => {
+  const [imposterSource, werewolfSource, catanSource, sessionSource, entrySource, css] = await Promise.all([
+    readFile(new URL("../app/imposter/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/catan/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/game-session.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/game-entry.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  for (const [source, theme] of [[imposterSource, "imposter"], [werewolfSource, "werewolf"], [catanSource, "catan"]]) {
+    assert.match(source, /startup\.kind === "choose"/, theme);
+    assert.match(source, /startup\.kind === "resume"/, theme);
+    assert.match(source, new RegExp(`<ResumeSessionDialog theme="${theme}" lobby=\\{storedLobby\\} onResume=\\{resumeStoredSession\\} onDiscard=\\{discardStoredSession\\} />`), theme);
+  }
+  assert.match(sessionSource, /export const RESUME_DISCARD_SECONDS = 5;/);
+  assert.match(entrySource, /onEscapeKeyDown=\{\(event\) => \{ event\.preventDefault\(\); setRemaining\(null\); \}\}/);
+  assert.match(entrySource, /if \(remaining <= 1\) discard\.current\(\); else setRemaining\(remaining - 1\);/);
+  assert.match(css, /@keyframes resume-drain/);
+  assert.match(css, /\.resume-countdown-bar span \{[^}]*animation:resume-drain 5s linear forwards;/);
+});
+

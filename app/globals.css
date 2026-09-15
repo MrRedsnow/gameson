@@ -1881,3 +1881,29 @@ body, .gameson-home, .imposter-theme, .werewolf-theme {
 @media(min-width:900px) { .gameson-home .game-library { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media(max-width:899px) and (min-width:601px) { .gameson-home .catan-library-card { grid-column:1/-1; } }
 @media(max-width:600px) { .gameson-home .catan-library-art>svg { width:36px; height:42px; } }
+
+/* Returning to a stored online round: one clear choice, and a short grace period before the round is forgotten on this device. */
+.resume-dialog { border-color:var(--border); }
+.imposter-theme.resume-dialog { min-height:0; padding:26px 22px; border-radius:var(--ui-card-radius); background:#fffaf3; color:var(--ink); box-shadow:0 30px 90px rgba(23,23,19,.28); }
+.resume-panel { display:grid; gap:12px; }
+.resume-kicker { display:inline-flex; align-items:center; gap:8px; color:var(--ring); font-size:.75rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.resume-kicker svg { width:16px; height:16px; }
+.resume-panel [data-slot=dialog-title] { margin:0; font-size:1.5rem; font-weight:700; line-height:1.25; letter-spacing:-.01em; }
+.resume-panel [data-slot=dialog-description] { margin:0; color:var(--muted-foreground); font-size:1rem; line-height:1.6; }
+.resume-lobby { display:grid; gap:3px; margin-top:6px; padding:14px 16px; border:1px solid var(--border); border-radius:var(--ui-control-radius); background:color-mix(in srgb,currentColor 5%,transparent); }
+.resume-lobby strong { font-size:1.0625rem; line-height:1.4; }
+.resume-lobby span { color:var(--muted-foreground); font-size:.875rem; line-height:1.5; }
+.resume-actions { display:grid; gap:10px; margin-top:10px; }
+.resume-actions [data-slot=button] { width:100%; height:auto; min-height:var(--ui-action-height); padding:12px 18px; border-radius:var(--ui-control-radius); font-size:1rem; font-weight:650; white-space:normal; }
+.resume-actions [data-slot=button] svg { width:18px; height:18px; }
+/* The global button color reset beats Tailwind's layered utilities, so the variants name their colors here. */
+.resume-actions [data-slot=button][data-variant=default] { border:1px solid var(--primary); background:var(--primary); color:var(--primary-foreground); }
+.resume-actions [data-slot=button][data-variant=outline] { border:1px solid var(--border); background:transparent; color:inherit; }
+.resume-hint { margin:0; color:var(--muted-foreground); font-size:.8125rem; line-height:1.5; text-align:center; }
+.resume-countdown { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; column-gap:16px; row-gap:12px; margin-top:6px; padding:16px; border:1px solid var(--border); border-radius:var(--ui-control-radius); }
+.resume-countdown strong { font-size:2.5rem; font-variant-numeric:tabular-nums; line-height:1; }
+.resume-countdown p { margin:0; font-size:.9375rem; line-height:1.5; }
+.resume-countdown-bar { grid-column:1/-1; height:8px; overflow:hidden; border-radius:999px; background:color-mix(in srgb,currentColor 12%,transparent); }
+.resume-countdown-bar span { display:block; width:100%; height:100%; border-radius:inherit; background:var(--destructive); animation:resume-drain 5s linear forwards; }
+@keyframes resume-drain { from { width:100%; } to { width:0; } }
+@media (max-width:600px) { .imposter-theme.resume-dialog { top:auto; bottom:0; left:0; width:100%; max-width:100%; max-height:calc(100svh - 24px); padding:26px 20px max(24px,env(safe-area-inset-bottom)); border-radius:22px 22px 0 0; --tw-translate-x:0; --tw-translate-y:0; translate:none; transform:none; } }

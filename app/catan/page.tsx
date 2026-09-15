@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Copy, Flag, LockKeyhole, LogOut, Plus, RotateCcw, Users, X } from "lucide-react";
-import { GameBackLink, GameModes } from "@/components/game-entry";
+import { GameBackLink, GameModes, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CatanGameUI, CatanRules, TargetPoints } from "@/components/catan/game-ui";
 import { DEFAULT_TARGET_POINTS, PLAYER_COLORS, applyCatanAction, catanView, createCatanGame, localActorId, type CatanAction, type CatanGame, type CatanView } from "@/lib/catan";
-import { resolveOnlineGameStartup, type GameSession } from "@/lib/game-session";
+import { describeLobby, resolveOnlineGameStartup, type GameSession } from "@/lib/game-session";
 
 const SESSION_KEY = "gameson-catan-session-v1";
 const LOCAL_KEY = "gameson-catan-local-v1";
@@ -37,6 +37,7 @@ export default function CatanPage() {
   const [playerName, setPlayerName] = useState(""); const [groupName, setGroupName] = useState(""); const [code, setCode] = useState("");
   const [names, setNames] = useState(["", "", ""]); const [target, setTarget] = useState(DEFAULT_TARGET_POINTS);
   const [confirmNew, setConfirmNew] = useState(false); const [copied, setCopied] = useState(false);
+  const [storedSession, setStoredSession] = useState<GameSession | null>(null); const [storedLobby, setStoredLobby] = useState<ResumeLobbyInfo | null | undefined>(undefined);
   const stateRef = useRef<LobbyState | null>(null); const locked = useRef(false);
   const store = (key: string, value: string | null) => { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { setNotice("Der Browser kann den Spielstand nicht speichern. Halte diese Seite geöffnet, bis die Partie beendet ist."); } };
   const acceptState = useCallback((next: LobbyState) => {
@@ -49,6 +50,7 @@ export default function CatanPage() {
       const startup = resolveOnlineGameStartup(window.location.search, localStorage.getItem(SESSION_KEY));
       setLocalSaved(Boolean(localStorage.getItem(LOCAL_KEY)));
       if (startup.kind === "resume") setSession(startup.session);
+      if (startup.kind === "choose") setStoredSession(startup.session);
       if (startup.kind === "join") { setMode("join"); setCode(startup.lobbyId); }
       if (startup.kind === "local") { const game = loadLocal(); if (game) setLocalGame(game); else setMode("local"); }
     } catch (error) { setNotice(error instanceof Error ? error.message : "Der letzte Spielstand konnte nicht geladen werden."); }
@@ -82,6 +84,15 @@ export default function CatanPage() {
     };
     void poll(); return () => { cancelled = true; clearTimeout(timer); };
   }, [session, acceptState]);
+  // Describe the stored round while the player decides; an invalid session leaves only "new game" to choose.
+  useEffect(() => {
+    if (!storedSession) return;
+    let active = true;
+    request<LobbyState>(`/api/catan?lobby=${encodeURIComponent(storedSession.lobbyId)}`, { headers: { Authorization: `Bearer ${storedSession.token}` } })
+      .then((next) => { if (active) setStoredLobby({ name: next.lobby.name, detail: describeLobby(next.members.length, next.game ? next.game.phase === "finished" ? "Partie beendet" : "Partie läuft" : "Lobby wartet auf den Start") }); })
+      .catch((error: unknown) => { if (active) setStoredLobby(error instanceof ApiError && [401, 404].includes(error.status) ? null : { detail: "Gerade keine Verbindung. Du kannst trotzdem entscheiden." }); });
+    return () => { active = false; };
+  }, [storedSession]);
   async function enter(kind: "create" | "join") {
     if (locked.current) return; locked.current = true; setBusy(true); setNotice("");
     try {
@@ -121,6 +132,8 @@ export default function CatanPage() {
     } catch (error) { setNotice((error as Error).message); return false; }
     finally { locked.current = false; }
   }
+  const resumeStoredSession = () => { if (!storedSession) return; setStoredSession(null); setStoredLobby(undefined); setSession(storedSession); window.history.replaceState({}, "", `/catan?lobby=${storedSession.lobbyId}`); };
+  const discardStoredSession = () => { store(SESSION_KEY, null); setStoredSession(null); setStoredLobby(undefined); };
   const actor = localGame ? localActorId(localGame) : null;
   const isHost = Boolean(state && state.me.id === state.lobby.hostPlayerId);
   const active = localGame || state?.game;
@@ -156,6 +169,7 @@ export default function CatanPage() {
       </section>}
       <CatanRules />
     </>}
+    {storedSession && <ResumeSessionDialog theme="catan" lobby={storedLobby} onResume={resumeStoredSession} onDiscard={discardStoredSession} />}
     <Dialog open={confirmNew} onOpenChange={setConfirmNew}><DialogContent className="catan-theme catan-dialog"><DialogTitle>Neue lokale Partie starten?</DialogTitle><DialogDescription>Die bisher auf diesem Gerät gespeicherte Catan-Partie wird ersetzt.</DialogDescription><div className="catan-button-row"><Button variant="outline" onClick={() => setConfirmNew(false)}>Abbrechen</Button><Button onClick={() => { setConfirmNew(false); startLocal(); }}>Neue Partie starten</Button></div></DialogContent></Dialog>
   </main>;
 }
