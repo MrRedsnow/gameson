@@ -96,6 +96,17 @@ run_as_build_user() {
   runuser -u "$BUILD_USER" -- env HOME="$BUILD_HOME" "$@"
 }
 
+migrate_local_database() (
+  # runuser preserves the caller's working directory, which may be /root.
+  # workerd must be able to open it even when every CLI path is absolute.
+  cd -- "$APP_DIR"
+  # Older games bootstrap their tables at runtime. The additive Catan migration
+  # uses IF NOT EXISTS so repeated Ubuntu updates preserve existing lobbies.
+  runuser -u "$APP_USER" -- env HOME="$DATA_DIR" TMPDIR="$SERVICE_TMP_DIR" WRANGLER_SEND_METRICS=false WRANGLER_WRITE_LOGS=false \
+    "$APP_DIR/node_modules/.bin/wrangler" d1 execute DB --local --persist-to "$DATA_DIR" \
+    --config "$APP_DIR/dist/server/wrangler.json" --file "$APP_DIR/drizzle/0007_catan.sql"
+)
+
 [[ -f /etc/os-release ]] || fail "this setup requires Ubuntu."
 # shellcheck disable=SC1091
 source /etc/os-release
@@ -235,11 +246,7 @@ chgrp -R "$APP_GROUP" "$APP_DIR/node_modules" "$APP_DIR/dist" "$APP_DIR/.wrangle
 chmod -R g+rX "$APP_DIR/node_modules" "$APP_DIR/dist" "$APP_DIR/.wrangler"
 chmod -R g+rwX "$APP_DIR/.wrangler" "$APP_DIR/dist/server/.wrangler" "$MINIFLARE_CACHE_DIR"
 
-# Older games bootstrap their tables at runtime. Catan uses the same generated,
-# additive migration as Sites; IF NOT EXISTS makes repeated Ubuntu updates safe.
-runuser -u "$APP_USER" -- env HOME="$DATA_DIR" TMPDIR="$SERVICE_TMP_DIR" WRANGLER_SEND_METRICS=false WRANGLER_WRITE_LOGS=false \
-  "$APP_DIR/node_modules/.bin/wrangler" d1 execute DB --local --persist-to "$DATA_DIR" \
-  --config "$APP_DIR/dist/server/wrangler.json" --file "$APP_DIR/drizzle/0007_catan.sql"
+migrate_local_database
 
 echo "[6/8] Installing and starting the 24/7 systemd service"
 unit_tmp="$(mktemp)"
