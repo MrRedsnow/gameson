@@ -17,6 +17,8 @@ test("rendert die Gameson-Spielauswahl", async () => {
   assert.match(html, /Was spielt ihr heute\?/);
   assert.match(html, /IMPOSTER/);
   assert.match(html, /WERWOLF/);
+  assert.match(html, /CATAN/);
+  assert.match(html, /href="\/catan"/);
   assert.match(html, /App installieren/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|SkeletonPreview/);
 });
@@ -28,7 +30,7 @@ test("rendert Imposter und Werwolf als eigene Spiele", async () => {
   const werewolf = await render("/werwolf");
   assert.equal(werewolf.status, 200);
   const html = await werewolf.text();
-  assert.match(html, /Wenn das Dorf schläft/);
+  assert.match(html, /Wie möchtet ihr/);
   assert.match(html, /Lobby erstellen/);
   assert.match(html, /Ein Gerät/);
 });
@@ -41,7 +43,7 @@ test("liefert ein installierbares deutsches PWA-Manifest", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.deepEqual(manifest.icons.map((icon) => icon.sizes), ["192x192", "512x512"]);
-  assert.deepEqual(manifest.shortcuts.map((shortcut) => shortcut.url), ["/imposter", "/werwolf"]);
+  assert.deepEqual(manifest.shortcuts.map((shortcut) => shortcut.url), ["/imposter", "/werwolf", "/catan"]);
 });
 
 test("nutzt robuste Spielnavigation und getrennte Offline-Seiten", async () => {
@@ -71,7 +73,7 @@ test("nutzt lesbare Typografie und vermeidet erzwungene Werwolf-Umbrüche", asyn
   assert.match(css, /\.page-intro p,[^{]+\{[^}]*line-height:1\.65;/);
   assert.match(css, /\.wolf-phase\s*\{[^}]*margin-inline:-20px;/);
   assert.match(css, /@media\(max-width:420px\)/);
-  assert.match(werewolfSource, /<h1>WERWOLF<\/h1>/);
+  assert.match(werewolfSource, /<h1>Wie möchtet ihr<br \/>spielen\?<\/h1>/);
   assert.doesNotMatch(werewolfSource, /WER<br\s*\/>WOLF/);
 });
 
@@ -85,10 +87,10 @@ test("gruppiert die Online-Lobbys nach spielbereiten und nicht bereiten Personen
   assert.match(imposterSource, /Nicht bereit/);
   assert.match(werewolfSource, /const readyPlayers = indexedPlayers\.filter/);
   assert.match(werewolfSource, /const waitingPlayers = indexedPlayers\.filter/);
-  assert.match(werewolfSource, /Online &amp; spielbereit/);
-  assert.match(werewolfSource, /Nicht bereit/);
+  assert.match(werewolfSource, /wolf-ready-players/);
+  assert.match(werewolfSource, /Gerade offline/);
   assert.match(werewolfSource, /player-presence/);
-  assert.match(werewolfSource, /player\.online \? "Bereit" : "Nicht bereit"/);
+  assert.match(werewolfSource, /player\.online \? "Online" : "Offline"/);
   assert.match(werewolfSource, /aria-label={`\$\{player\.name\} aus dem Dorf entfernen`}/);
   assert.match(css, /\.player-groups\s*\{/);
   assert.match(css, /\.player-group-heading\.is-ready/);
@@ -103,14 +105,14 @@ test("kennzeichnet die manuellen Übergänge für den Host eindeutig", async () 
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const werewolfSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
   const routeSource = await readFile(new URL("../app/api/werwolf/route.ts", import.meta.url), "utf8");
-  assert.match(werewolfSource, /state\.me\.isHost && state\.lobby\.phase === "discussion"/);
+  // The host-only discussion action is exercised with rendered states in werewolf-ui.test.mjs.
   assert.match(werewolfSource, /state\.lobby\.phase === "dawn" && state\.lobby\.resolutionSource === "day"/);
-  assert.match(werewolfSource, /Nur für dich · Host-Schritt/);
-  assert.match(werewolfSource, /<h3>Nacht einläuten<\/h3>/);
-  assert.match(werewolfSource, /Ich bin bereit für die Nacht ☾/);
+  assert.match(werewolfSource, /Du leitest die Runde/);
+  assert.match(werewolfSource, /zuerst ihre Bereitschaft zu bestätigen/);
+  assert.match(werewolfSource, /Bereit für die Nacht/);
   assert.match(routeSource, /resolutionSource: lobby\.resolution_source/);
   assert.match(css, /\.host-night-cue\s*\{[^}]*border:2px solid #f47718;/);
-  assert.match(werewolfSource, /host-phase-frame/);
+  assert.match(werewolfSource, /label="Abstimmung starten"/);
   assert.match(css, /\.host-phase-frame\s*\{[^}]*border:4px solid #ff8a24;/);
   assert.match(css, /@keyframes host-phase-pulse/);
 });
@@ -118,7 +120,7 @@ test("kennzeichnet die manuellen Übergänge für den Host eindeutig", async () 
 test("sperrt Spielstart und Morgengrauen bis jede Person selbst bestätigt", async () => {
   const werewolfSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
   const routeSource = await readFile(new URL("../app/api/werwolf/route.ts", import.meta.url), "utf8");
-  assert.match(werewolfSource, /Rollenkarte öffnen/);
+  assert.match(werewolfSource, /Meine Rolle öffnen/);
   assert.match(werewolfSource, /post\("acknowledge_role"/);
   assert.match(werewolfSource, /post\("wake_up"/);
   assert.match(routeSource, /phase = 'role_reveal'/);
@@ -131,7 +133,7 @@ test("sperrt Spielstart und Morgengrauen bis jede Person selbst bestätigt", asy
 test("zeigt der Seherin die erkannte Rolle vor der nächsten Nachtphase", async () => {
   const werewolfSource = await readFile(new URL("../app/werwolf/page.tsx", import.meta.url), "utf8");
   const routeSource = await readFile(new URL("../app/api/werwolf/route.ts", import.meta.url), "utf8");
-  assert.match(werewolfSource, /Die Seherin erkennt:/);
+  assert.match(werewolfSource, /Ergebnis gelesen/);
   assert.match(werewolfSource, /state\.actionResult\.seenLabel/);
   assert.match(werewolfSource, /post\("acknowledge_seer_result"/);
   assert.match(routeSource, /if \(lobby\.phase === "seer"\) return reply\(\{ ok: true \}\)/);
@@ -218,7 +220,8 @@ test("hält zentrale UI-Rückmeldungen, Dialoge und mobile Aktionen zugänglich"
   assert.match(imposterSource + werewolfSource, /aria-labelledby=\{labelledBy\}/);
   assert.match(imposterSource + werewolfSource, /Lokales Spiel – kein Internet nötig/);
   assert.match(werewolfSource, /game-floating-actions/);
-  assert.match(werewolfSource, /game-status-details/);
+  assert.match(werewolfSource, /<TabsTrigger value="village"/);
+  assert.match(werewolfSource, /<TabsTrigger value="votes"/);
   assert.match(werewolfSource, /victim-death-dismiss/);
   assert.match(werewolfSource, /survival-badge/);
   assert.match(css, /\.connection-pill\.local/);

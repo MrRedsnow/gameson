@@ -7,4 +7,4 @@ export const metadata: Metadata = {
   twitter: { title: "Imposter – Gameson", description: "Einer kennt nur die halbe Wahrheit.", images: [] },
 };
 
-export default function ImposterLayout({ children }: { children: React.ReactNode }) { return children; }
+export default function ImposterLayout({ children }: { children: React.ReactNode }) { return <div className="imposter-theme">{children}</div>; }

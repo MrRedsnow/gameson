@@ -1,7 +1,7 @@
 {
   "name": "Gameson – Spieleabend. Sofort.",
   "short_name": "Gameson",
-  "description": "Imposter und Werwolf als mobile Gesellschaftsspiele.",
+  "description": "Imposter, Werwolf und Die Siedler von Catan als mobile Gesellschaftsspiele.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -16,6 +16,7 @@
   ],
   "shortcuts": [
     { "name": "Imposter spielen", "short_name": "Imposter", "url": "/imposter" },
-    { "name": "Werwolf spielen", "short_name": "Werwolf", "url": "/werwolf" }
+    { "name": "Werwolf spielen", "short_name": "Werwolf", "url": "/werwolf" },
+    { "name": "Catan spielen", "short_name": "Catan", "url": "/catan" }
   ]
 }

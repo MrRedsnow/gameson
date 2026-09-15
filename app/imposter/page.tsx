@@ -3,7 +3,11 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { CATEGORIES, WORD_PAIRS, defaultImposterCount, maxImposterCount, type ContentMode } from "../../lib/game";
+import { GameBackLink, GameModes, GameRules } from "@/components/game-entry";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { validateImposterSetup } from "@/lib/imposter-setup";
+import { CATEGORIES, defaultImposterCount, maxImposterCount, type ContentMode } from "../../lib/game";
 import { resolveOnlineGameStartup } from "../../lib/game-session";
 
 type Screen = "home" | "create" | "join" | "local";
@@ -219,16 +223,11 @@ export default function Home() {
   return (
     <main className="home-shell">
       <div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" />
-      {/* Hosted vinext navigation currently requires a full page load between game routes. */}
-      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-      <a className="collection-back" href="/">← Gameson</a>
+      <GameBackLink />
       <header className="brand-row"><Brand /><span className={`connection-pill ${online ? "" : "offline"}`}><i />{online ? "online" : "offline"}</span></header>
       <section className="hero-copy" aria-labelledby="home-title"><p className="kicker">Einer kennt nur die halbe Wahrheit.</p><h1 id="home-title">IMPOSTER</h1><p className="hero-subtitle">Finde heraus, wer blufft – bevor die Gruppe dir auf die Schliche kommt.</p></section>
-      <section className="mode-panel" aria-label="Spielmodus auswählen">
-        <button className="mode-card mode-card-primary" onClick={() => setScreen("create")}><span className="mode-icon">◎</span><span className="mode-copy"><strong>Lobby erstellen</strong><small>Mit mehreren Handys spielen</small></span><span className="arrow">→</span></button>
-        <button className="mode-card" onClick={() => setScreen("join")}><span className="mode-icon">↗</span><span className="mode-copy"><strong>Lobby beitreten</strong><small>{nearby.length ? `${nearby.length} ${nearby.length === 1 ? "Gruppe" : "Gruppen"} in deiner Nähe` : "Per Name, Link oder QR-Code"}</small></span><span className="arrow">→</span></button>
-        <button className="mode-card" onClick={() => setScreen("local")}><span className="mode-icon">▣</span><span className="mode-copy"><strong>Ein Gerät</strong><small>Handy weiterreichen &amp; offline spielen</small></span><span className="arrow">→</span></button>
-      </section>
+      <GameModes onCreate={() => setScreen("create")} onJoin={() => setScreen("join")} onLocal={() => setScreen("local")} />
+      <GameRules game="imposter" />
       <footer className="home-footer">{installEvent ? <button className="install-link" onClick={async () => { await installEvent.prompt(); await installEvent.userChoice; setInstallEvent(null); }}>App installieren</button> : <><span className="status-dot" /><span>Bereit für eure nächste Runde</span></>}</footer>
       {activeNotice}
     </main>
@@ -305,24 +304,67 @@ function Results({ state, busy, post, close }: { state: LobbyState; busy: boolea
   return <section className="results-screen"><div className="result-stamp">Abgestimmt</div><div className="page-intro"><span className="step-label">Runde {state.lobby.roundNumber} · Ergebnis</span><h2>Das sagt die Gruppe.</h2><p>Die Rollen bleiben geheim. Entscheidet selbst, was das Ergebnis für eure Runde bedeutet.</p></div><div className="result-list">{state.results?.map((item, index) => <div className={index === 0 && item.votes > 0 ? "leader" : ""} key={item.playerId}><span><strong>{item.name}</strong><b>{item.votes}</b></span><i><em style={{ width: `${(item.votes / max) * 100}%` }} /></i></div>)}</div>{state.me.isHost ? <><button className="primary-button coral" disabled={busy} onClick={() => post("start")}>Neue Runde →</button><button className="secondary-button" disabled={busy} onClick={close}>Lobby beenden</button></> : <p className="waiting-copy">Der Host startet gleich eine neue Runde.</p>}</section>;
 }
 
+function LocalNames({ names, setup, onChange }: {
+  names: string[]; setup: ReturnType<typeof validateImposterSetup>; onChange: (names: string[]) => void;
+}) {
+  return <>
+      <div className="name-list imposter-name-list">
+        {names.map((name, idx) => {
+          const duplicate = setup.duplicateIndices.includes(idx);
+          const errorId = `imposter-name-${idx}-error`;
+          return <div key={idx} className={duplicate ? "name-has-error" : undefined}>
+            <span>{idx + 1}</span>
+            <Input aria-label={`Name ${idx + 1}`} aria-invalid={duplicate || undefined} aria-describedby={duplicate ? `${errorId} imposter-names-status` : "imposter-names-status"} value={name} onChange={(e) => onChange(names.map((item, position) => position === idx ? e.target.value : item))} placeholder="Name eingeben" maxLength={24} />
+            {names.length > 3 && <Button variant="ghost" size="icon" type="button" aria-label={`${name || `Person ${idx + 1}`} entfernen`} onClick={() => onChange(names.filter((_, position) => position !== idx))}>×</Button>}
+            {duplicate && <p className="name-error" id={errorId}>Dieser Name ist bereits vergeben.</p>}
+          </div>;
+        })}
+      </div>
+      <p id="imposter-names-status" className={`setup-hint${setup.nameError ? " needs-input" : " is-ready"}`} role="status">{setup.nameError || `${setup.validNames.length} Personen sind bereit.`}</p>
+      {names.length < 22 && <Button className="add-person" variant="outline" type="button" onClick={() => onChange([...names, ""])}>+ Person hinzufügen</Button>}
+  </>;
+}
+
 function LocalGame({ onBack, showError }: { onBack: () => void; showError: (error: unknown) => void }) {
   const [phase, setPhase] = useState<"setup" | "reveal" | "discuss" | "vote" | "results">("setup");
   const [names, setNames] = useState(["", "", ""]); const [mode, setMode] = useState<ContentMode>("family"); const [pool, setPool] = useState("random"); const [imposters, setImposters] = useState(1); const [imposterTouched, setImposterTouched] = useState(false); const [customPairs, setCustomPairs] = useState<{ crew: string; imposter: string; rating: ContentMode }[]>([]);
   const [crewDraft, setCrewDraft] = useState(""); const [imposterDraft, setImposterDraft] = useState(""); const [players, setPlayers] = useState<LocalPlayer[]>([]); const [index, setIndex] = useState(0); const [ready, setReady] = useState(false); const [choice, setChoice] = useState(""); const [votes, setVotes] = useState<Record<string, string>>({});
   useEffect(() => { const id = window.setTimeout(() => { try { const saved = localStorage.getItem("imposter-local-names"); if (saved) { const parsed = JSON.parse(saved) as string[]; if (parsed.length >= 3) setNames(parsed); } } catch { /* empty */ } }, 0); return () => window.clearTimeout(id); }, []);
   useEffect(() => { localStorage.setItem("imposter-local-names", JSON.stringify(names)); }, [names]);
-  const validNames = names.map((name) => name.trim()).filter(Boolean);
+  const setup = validateImposterSetup(names, mode, pool, customPairs);
+  const { validNames, eligiblePairs: eligible } = setup;
   const effectiveImposters = imposterTouched ? Math.min(imposters, maxImposterCount(validNames.length || 3)) : defaultImposterCount(validNames.length || 3);
   const start = () => {
-    if (validNames.length < 3) return showError(new Error("Füge mindestens drei Namen hinzu."));
-    if (new Set(validNames.map((name) => name.toLocaleLowerCase("de"))).size !== validNames.length) return showError(new Error("Jeder Name darf nur einmal vorkommen."));
-    const eligible = pool === "custom" ? customPairs.filter((item) => mode === "adult" || item.rating === "family") : WORD_PAIRS.filter((item) => (mode === "adult" || item.rating === "family") && (pool === "random" || item.category === pool));
-    if (!eligible.length) return showError(new Error("In diesem Wortpool fehlt noch ein Wortpaar."));
+    if (!setup.canStart) return showError(new Error(setup.nameError || setup.wordPoolError));
     const pair = eligible[randomIndex(eligible.length)]; const order = validNames.map((name, position) => ({ id: crypto.randomUUID(), name, position })); for (let i = order.length - 1; i > 0; i--) { const j = randomIndex(i + 1); [order[i], order[j]] = [order[j], order[i]]; } const imposterIds = new Set(order.slice(0, effectiveImposters).map((item) => item.id));
     setPlayers(order.sort((a, b) => a.position - b.position).map((item) => ({ id: item.id, name: item.name, role: imposterIds.has(item.id) ? "imposter" : "crew", word: imposterIds.has(item.id) ? pair.imposter : pair.crew }))); setIndex(0); setReady(false); setVotes({}); setPhase("reveal");
   };
   const voteTotals = useMemo(() => players.map((player) => ({ ...player, votes: Object.values(votes).filter((target) => target === player.id).length })).sort((a, b) => b.votes - a.votes), [players, votes]);
-  if (phase === "setup") return <main className="app-shell"><Topbar title="Ein Gerät" onBack={onBack} local /><section className="page-intro"><span className="step-label">Ein Gerät · Vorbereitung</span><h2>Wer spielt mit?</h2><p>Das Handy wird später von Person zu Person weitergereicht.</p></section><section className="local-setup"><div className="name-list">{names.map((name, idx) => <div key={idx}><span>{idx + 1}</span><input aria-label={`Name ${idx + 1}`} value={name} onChange={(e) => setNames(names.map((item, position) => position === idx ? e.target.value : item))} placeholder="Name eingeben" maxLength={24} />{names.length > 3 && <button type="button" aria-label={`${name || `Person ${idx + 1}`} entfernen`} onClick={() => setNames(names.filter((_, position) => position !== idx))}>×</button>}</div>)}</div>{names.length < 22 && <button className="add-person" type="button" onClick={() => setNames([...names, ""])}>+ Person hinzufügen</button>}<div className="local-options"><div className="segmented"><button type="button" aria-pressed={mode === "family"} className={mode === "family" ? "active" : ""} onClick={() => { setMode("family"); if (CATEGORIES.find((item) => item.id === pool)?.rating === "adult") setPool("random"); }}>Jugendfrei</button><button type="button" aria-pressed={mode === "adult"} className={mode === "adult" ? "active" : ""} onClick={() => { if (window.confirm("Ich bestätige, dass alle Mitspieler mindestens 18 Jahre alt sind.")) setMode("adult"); }}>Erwachsene 18+</button></div><label>Wortpool<select value={pool} onChange={(e) => setPool(e.target.value)}>{CATEGORIES.filter((item) => item.rating === "family" || mode === "adult").map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><div className="settings-row"><span><strong>Imposter</strong><small>Vorschlag: {defaultImposterCount(validNames.length || 3)}</small></span><Stepper value={effectiveImposters} min={1} max={maxImposterCount(validNames.length || 3)} onChange={(value) => { setImposterTouched(true); setImposters(value); }} /></div>{pool === "custom" && <div className="inline-pair"><input aria-label="Gruppenwort" value={crewDraft} onChange={(e) => setCrewDraft(e.target.value)} placeholder="Gruppenwort" /><input aria-label="Imposter-Wort" value={imposterDraft} onChange={(e) => setImposterDraft(e.target.value)} placeholder="Imposter-Wort" /><button className="secondary-button" type="button" onClick={() => { if (crewDraft.trim().length < 2 || imposterDraft.trim().length < 2 || crewDraft.trim().toLocaleLowerCase("de") === imposterDraft.trim().toLocaleLowerCase("de")) return showError(new Error("Gib zwei unterschiedliche Wörter ein.")); setCustomPairs([...customPairs, { crew: crewDraft.trim(), imposter: imposterDraft.trim(), rating: mode }]); setCrewDraft(""); setImposterDraft(""); }}>{customPairs.length ? `Weiteres Paar (${customPairs.length})` : "Wortpaar hinzufügen"}</button></div>}</div><button className="primary-button coral" type="button" onClick={start}>Rollen verteilen →</button></section></main>;
+  if (phase === "setup") return <main className="app-shell imposter-setup">
+    <Topbar title="Ein Gerät für alle" onBack={onBack} local />
+    <section className="page-intro"><span className="step-label">Vorbereitung</span><h2>Wer spielt mit?</h2><p>Das Handy wird später von Person zu Person weitergereicht.</p></section>
+    <section className="local-setup">
+      <LocalNames names={names} setup={setup} onChange={setNames} />
+      <div className="local-options">
+        <div className="segmented">
+          <button type="button" aria-pressed={mode === "family"} className={mode === "family" ? "active" : ""} onClick={() => { setMode("family"); if (CATEGORIES.find((item) => item.id === pool)?.rating === "adult") setPool("random"); }}>Jugendfrei</button>
+          <button type="button" aria-pressed={mode === "adult"} className={mode === "adult" ? "active" : ""} onClick={() => { if (window.confirm("Ich bestätige, dass alle Mitspieler mindestens 18 Jahre alt sind.")) setMode("adult"); }}>Erwachsene 18+</button>
+        </div>
+        <label>Wortpool<select value={pool} aria-describedby="imposter-pool-status" onChange={(e) => setPool(e.target.value)}>{CATEGORIES.filter((item) => item.rating === "family" || mode === "adult").map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        <p id="imposter-pool-status" className={`setup-hint${setup.wordPoolError ? " needs-input" : ""}`} role="status">{setup.wordPoolError || (pool === "custom" ? `${eligible.length} ${eligible.length === 1 ? "gespeichertes Wortpaar ist" : "gespeicherte Wortpaare sind"} bereit.` : "Die Wörter werden passend zu eurer Auswahl verteilt.")}</p>
+        <div className="settings-row"><span><strong>Imposter</strong><small>Vorschlag: {defaultImposterCount(validNames.length || 3)}</small></span><Stepper value={effectiveImposters} min={1} max={maxImposterCount(validNames.length || 3)} onChange={(value) => { setImposterTouched(true); setImposters(value); }} /></div>
+        {pool === "custom" && <div className="inline-pair">
+          <Input aria-label="Gruppenwort" value={crewDraft} onChange={(e) => setCrewDraft(e.target.value)} placeholder="Gruppenwort" />
+          <Input aria-label="Imposter-Wort" value={imposterDraft} onChange={(e) => setImposterDraft(e.target.value)} placeholder="Imposter-Wort" />
+          <Button className="secondary-button" variant="outline" type="button" onClick={() => {
+            if (crewDraft.trim().length < 2 || imposterDraft.trim().length < 2 || crewDraft.trim().toLocaleLowerCase("de") === imposterDraft.trim().toLocaleLowerCase("de")) return showError(new Error("Gib zwei unterschiedliche Wörter ein."));
+            setCustomPairs([...customPairs, { crew: crewDraft.trim(), imposter: imposterDraft.trim(), rating: mode }]); setCrewDraft(""); setImposterDraft("");
+          }}>{customPairs.length ? `Weiteres Paar (${customPairs.length})` : "Wortpaar hinzufügen"}</Button>
+        </div>}
+      </div>
+      <Button className="primary-button coral" type="button" disabled={!setup.canStart} aria-describedby="imposter-names-status imposter-pool-status" onClick={start}>Rollen verteilen →</Button>
+    </section>
+  </main>;
   if (phase === "reveal") { const current = players[index]; return <main className="app-shell pass-shell"><Topbar title={`Rolle ${index + 1}/${players.length}`} local /><section className="handover"><span className="step-label">Gerät weitergeben</span><h2>{ready ? `${current.name}, nur du darfst schauen.` : `Gib das Handy an ${current.name}.`}</h2>{!ready ? <button className="primary-button" onClick={() => setReady(true)}>Ich bin {current.name}</button> : <HoldCard assignment={{ role: current.role, word: current.word }} onSeen={() => { if (index === players.length - 1) { setPhase("discuss"); setIndex(0); setReady(false); } else { setIndex(index + 1); setReady(false); } }} />}</section></main>; }
   if (phase === "discuss") return <main className="app-shell pass-shell"><Topbar title="Diskussion" local /><section className="discussion-card"><span className="round-symbol">?</span><span className="step-label">Alle kennen ihr Wort</span><h2>Wer klingt verdächtig?</h2><p>Beschreibt euren Begriff, ohne ihn direkt zu nennen. Wenn ihr bereit seid, stimmt nacheinander ab.</p><button className="primary-button coral" onClick={() => { setPhase("vote"); setReady(false); setIndex(0); }}>Abstimmung starten</button></section></main>;
   if (phase === "vote") { const current = players[index]; return <main className="app-shell pass-shell"><Topbar title={`Stimme ${index + 1}/${players.length}`} local /><section className="handover"><span className="step-label">Geheime Abstimmung</span><h2>{ready ? `${current.name}, wer blufft?` : `Gib das Handy an ${current.name}.`}</h2>{!ready ? <button className="primary-button" onClick={() => setReady(true)}>Ich bin {current.name}</button> : <><div className="vote-list compact-votes">{players.filter((player) => player.id !== current.id).map((player, idx) => <button aria-pressed={choice === player.id} className={choice === player.id ? "selected" : ""} key={player.id} onClick={() => setChoice(player.id)}><span className={`avatar avatar-${idx % 5}`}>{player.name.charAt(0)}</span><strong>{player.name}</strong><i>{choice === player.id ? "✓" : ""}</i></button>)}</div><button className="primary-button coral" disabled={!choice} onClick={() => { const nextVotes = { ...votes, [current.id]: choice }; setVotes(nextVotes); setChoice(""); setReady(false); if (index === players.length - 1) { setPhase("results"); } else setIndex(index + 1); }}>Stimme bestätigen</button></>}</section></main>; }

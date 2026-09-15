@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Hexagon } from "lucide-react";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -87,9 +88,8 @@ export default function GamesonHome() {
       </header>
 
       <section className="gameson-intro" aria-labelledby="gameson-title">
-        <span className="gameson-kicker">Eure Runde beginnt hier</span>
         <h1 id="gameson-title">Was spielt ihr heute?</h1>
-        <p>Ein Handy oder mehrere – sucht euch ein Spiel aus und legt direkt los.</p>
+        <p>Wählt ein Spiel. Ein Handy oder mehrere.</p>
       </section>
 
       <section className="game-library" aria-label="Spiel auswählen">
@@ -98,8 +98,8 @@ export default function GamesonHome() {
           <div className="library-card-copy">
             <span className="library-eyebrow">Bluff &amp; Wortspiel</span>
             <h2>IMPOSTER</h2>
-            <p>Einer kennt nur die halbe Wahrheit. Findet heraus, wer blufft.</p>
-            <div><span>3–22 Spieler</span><span>Online &amp; 1 Gerät</span></div>
+            <p>Findet heraus, wer mit einem ähnlichen Wort blufft.</p>
+            <div><span>3–22 Personen</span><span>Online &amp; 1 Gerät</span></div>
           </div>
           <strong>Spielen <span>→</span></strong>
         </a>
@@ -109,8 +109,18 @@ export default function GamesonHome() {
           <div className="library-card-copy">
             <span className="library-eyebrow">Täuschung &amp; Rollen</span>
             <h2>WERWOLF</h2>
-            <p>Das Dorf schläft nie ruhig. Entlarvt das Rudel, bevor es zu spät ist.</p>
-            <div><span>Ab 3 Spielern</span><span>Online &amp; 1 Gerät</span></div>
+            <p>Entlarvt das Rudel, bevor es euer Dorf übernimmt.</p>
+            <div><span>3–22 Personen</span><span>Online &amp; 1 Gerät</span></div>
+          </div>
+          <strong>Spielen <span>→</span></strong>
+        </a>
+        <a className="library-card catan-library-card" href="/catan">
+          <div className="library-card-art catan-library-art" aria-hidden="true"><Hexagon /></div>
+          <div className="library-card-copy">
+            <span className="library-eyebrow">Handel &amp; Strategie</span>
+            <h2>CATAN</h2>
+            <p>Die Siedler von Catan: Handelt, baut und besiedelt die Insel.</p>
+            <div><span>3–4 Personen</span><span>Online &amp; 1 Gerät</span></div>
           </div>
           <strong>Spielen <span>→</span></strong>
         </a>

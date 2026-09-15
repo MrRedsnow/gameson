@@ -179,7 +179,7 @@ test("macht die Redepause in beiden Spielmodi einstellbar und speichert sie je L
     readFile(new URL("../app/api/werwolf/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
   ]);
-  assert.equal(pageSource.match(/<strong>Redepause<\/strong>/g)?.length, 2);
+  assert.equal(pageSource.match(/<strong>Pause zwischen den Ansagen<\/strong>/g)?.length, 2);
   assert.match(pageSource, /audioGapSeconds/);
   assert.match(routeSource, /audio_gap_seconds/);
   assert.match(schemaSource, /audioGapSeconds: integer\("audio_gap_seconds"\)\.notNull\(\)\.default\(3\)/);

@@ -1,6 +1,6 @@
-const CACHE = "gameson-shell-v8";
+const CACHE = "gameson-shell-v10";
 const SHELL = [
-  "/", "/imposter", "/werwolf", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
+  "/", "/imposter", "/werwolf", "/catan", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
   "/audio/werwolf/role-reveal.mp3", "/audio/werwolf/mayor-vote.mp3",
   "/audio/werwolf/thief.mp3", "/audio/werwolf/cupid.mp3", "/audio/werwolf/wild-child.mp3",
   "/audio/werwolf/healer.mp3", "/audio/werwolf/seer.mp3", "/audio/werwolf/wolves.mp3",

@@ -36,6 +36,15 @@ export const customPairs = sqliteTable("custom_pairs", {
 
 export const rateLimits = sqliteTable("rate_limits", { key: text("key").primaryKey(), count: integer("count").notNull(), expiresAt: integer("expires_at").notNull() });
 
+// A whole Catan turn is saved with a revision compare-and-swap. Keeping seats
+// and game in the same row also makes concurrent joins obey the four-seat cap.
+export const catanLobbies = sqliteTable("catan_lobbies", {
+  id: text("id").primaryKey(), name: text("name").notNull(), normalizedName: text("normalized_name").notNull(),
+  hostPlayerId: text("host_player_id").notNull(), targetPoints: integer("target_points").notNull().default(12),
+  members: text("members").notNull().default("[]"), game: text("game"),
+  revision: integer("revision").notNull().default(1), createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+}, (t) => [uniqueIndex("idx_catan_lobbies_name").on(t.normalizedName), index("idx_catan_lobbies_updated").on(t.updatedAt)]);
+
 export const werewolfLobbies = sqliteTable("werewolf_lobbies", {
   id: text("id").primaryKey(), name: text("name").notNull(), normalizedName: text("normalized_name").notNull(),
   status: text("status", { enum: ["waiting", "playing", "results"] }).notNull().default("waiting"), phase: text("phase").notNull().default("waiting"),
