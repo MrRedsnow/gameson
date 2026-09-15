@@ -27,6 +27,10 @@ snake-order setup, resource production, limited bank/pieces, domestic and harbor
 trade, robber/discard/steal, all 25 development cards and both special awards.
 Online hands and deck order stay server-side; turn updates use atomic revisions.
 Local games are saved on the device and hide hands when passing it around.
+The play screen is organised as five menus pinned to the bottom of the screen
+(island, cards, build, trade, overview); the game switches to the menu whose
+task is currently yours, and the menu badges show hand size, pending offers and
+required discards.
 
 The new table is defined by `drizzle/0007_catan.sql`. Sites applies it during
 deployment; the Ubuntu updater applies this additive migration automatically.
