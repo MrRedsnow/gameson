@@ -384,7 +384,8 @@ export async function POST(request: Request) {
       else if (existing) return fail("Dieser Gruppenname ist gerade schon vergeben.", 409);
       const lobbyId = crypto.randomUUID(); const playerId = crypto.randomUUID(); const token = makeToken(); const now = Date.now();
       await db.batch([
-        db.prepare("INSERT INTO werewolf_lobbies (id, name, normalized_name, status, phase, host_player_id, wolf_count, selected_roles, mayor_enabled, discoverable, revision, match_number, night, runoff_round, reserve_roles, phase_started_at, network_hash, created_at, updated_at) VALUES (?, ?, ?, 'waiting', 'waiting', ?, 1, '[]', 1, 1, 1, 0, 0, 0, '[]', ?, ?, ?, ?)").bind(lobbyId, name, normalized, playerId, now, await networkHash(request), now, now),
+        // Announcements default to the host's device: in large groups most phones never activate their own sound.
+        db.prepare("INSERT INTO werewolf_lobbies (id, name, normalized_name, status, phase, host_player_id, wolf_count, selected_roles, mayor_enabled, discoverable, audio_mode, revision, match_number, night, runoff_round, reserve_roles, phase_started_at, network_hash, created_at, updated_at) VALUES (?, ?, ?, 'waiting', 'waiting', ?, 1, '[]', 1, 1, 'host', 1, 0, 0, 0, '[]', ?, ?, ?, ?)").bind(lobbyId, name, normalized, playerId, now, await networkHash(request), now, now),
         db.prepare("INSERT INTO werewolf_players (id, lobby_id, name, normalized_name, token_hash, is_host, removed, alive, revealed, charmed, elder_shield, heal_potion, poison_potion, joined_at, last_seen) VALUES (?, ?, ?, ?, ?, 1, 0, 1, 0, 0, 0, 0, 0, ?, ?)").bind(playerId, lobbyId, playerName, normalizeName(playerName), await digest(token), now, now),
       ]);
       return reply({ lobbyId, token }, 201);
