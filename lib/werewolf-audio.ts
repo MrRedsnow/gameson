@@ -163,14 +163,29 @@ function scheduleRecording(audio: AudioContext, path: string | undefined, startA
   return buffer.duration;
 }
 
-export async function unlockWerewolfAudio() {
+/** Prepares playback quietly: preloads the recordings and resumes the context, which browsers allow inside any user gesture.
+ * Resolves true once announcements can actually be heard on this device. */
+export async function primeWerewolfAudio(): Promise<boolean> {
+  const audio = getContext();
+  if (!audio) return false;
+  const loading = preloadRecordings(audio);
+  if (audio.state !== "running") {
+    try { await audio.resume(); } catch { /* the browser still waits for a user gesture */ }
+  }
+  if (audio.state !== "running") return false;
+  await loading;
+  return true;
+}
+
+/** Explicit activation from a button: like priming, but confirms with a short chime. */
+export async function unlockWerewolfAudio(): Promise<boolean> {
   const request = beginLatestAudioRequest();
   const audio = getContext();
   if (!audio) throw new Error("Dieses Gerät unterstützt keine Spieltöne.");
-  if (audio.state !== "running") await audio.resume();
-  await preloadRecordings(audio);
-  if (request !== latestAudioRequest) return;
+  if (!(await primeWerewolfAudio())) return false;
+  if (request !== latestAudioRequest) return true;
   schedulePattern(audio, [tone(523, 0, 0.1, "sine", 0.045), tone(784, 0.12, 0.16, "sine", 0.045)], audio.currentTime + 0.02);
+  return true;
 }
 
 export function playWerewolfPhaseCue(
