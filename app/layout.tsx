@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://imposter-partyspiel.gadia545.chatgpt.site"),
   title: "Gameson – Spieleabend. Sofort.",
-  description: "Imposter, Werwolf und Die Siedler von Catan als mobile Gesellschaftsspiele – online oder gemeinsam auf einem Gerät.",
+  description: "Imposter, Werwolf, Catan und Stadt Land Fluss als mobile Gesellschaftsspiele für euren Spieleabend.",
   manifest: "/manifest.webmanifest",
   applicationName: "Gameson",
   appleWebApp: { capable: true, title: "Gameson", statusBarStyle: "black-translucent" },

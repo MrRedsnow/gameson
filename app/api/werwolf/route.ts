@@ -306,14 +306,15 @@ async function publicVoteHistory(lobby: LobbyRow) {
       AND NOT (v.cycle = ? AND v.phase = ?)
     ORDER BY v.cycle ASC, CASE v.phase WHEN 'mayor_vote' THEN 0 WHEN 'day_vote' THEN 1 ELSE 2 END ASC, v.created_at ASC
   `).bind(lobby.id, lobby.match_number, lobby.night, lobby.phase).all<PublicVoteRow>();
-  const rounds = new Map<string, {
+  type PublicVoteRound = {
     cycle: number; phase: PublicVotePhase;
     votes: { voterId: string; voterName: string; targetId: string; targetName: string; weight: number }[];
     totals: Map<string, { playerId: string; name: string; votes: number }>;
-  }>();
+  };
+  const rounds = new Map<string, PublicVoteRound>();
   for (const row of (result.results ?? []) as PublicVoteRow[]) {
     const key = `${row.cycle}:${row.phase}`;
-    const round = rounds.get(key) ?? { cycle: row.cycle, phase: row.phase, votes: [], totals: new Map() };
+    const round: PublicVoteRound = rounds.get(key) ?? { cycle: row.cycle, phase: row.phase, votes: [], totals: new Map() };
     const weight = Math.max(1, row.weight || 1);
     round.votes.push({ voterId: row.voter_id, voterName: row.voter_name, targetId: row.target_id, targetName: row.target_name, weight });
     const total = round.totals.get(row.target_id) ?? { playerId: row.target_id, name: row.target_name, votes: 0 };

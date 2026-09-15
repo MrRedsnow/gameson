@@ -67,13 +67,14 @@ export function GameRules({ game }: { game: keyof typeof RULES }) {
 }
 
 export type ResumeLobbyInfo = { name?: string; detail: string };
-export type ResumeGameTheme = "imposter" | "werewolf" | "catan";
+export type ResumeGameTheme = "imposter" | "werewolf" | "catan" | "slf";
 
 // Dialogs are portaled outside the route layout, so each game's theme class travels with the content.
 const RESUME_DIALOG_CLASS: Record<ResumeGameTheme, string> = {
   imposter: "imposter-theme resume-dialog",
   werewolf: "werewolf-theme wolf-dialog resume-dialog",
   catan: "catan-theme catan-dialog resume-dialog",
+  slf: "slf-theme slf-dialog resume-dialog",
 };
 
 /** The three states of the stored-round prompt: choose, count down before discarding, or acknowledge a round that is gone. */

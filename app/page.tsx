@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Hexagon } from "lucide-react";
+import { Hexagon, PencilLine } from "lucide-react";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -121,6 +121,16 @@ export default function GamesonHome() {
             <h2>CATAN</h2>
             <p>Die Siedler von Catan: Handelt, baut und besiedelt die Insel.</p>
             <div><span>3–4 Personen</span><span>Online &amp; 1 Gerät</span></div>
+          </div>
+          <strong>Spielen <span>→</span></strong>
+        </a>
+        <a className="library-card slf-library-card" href="/stadt-land-fluss">
+          <div className="library-card-art slf-library-art" aria-hidden="true"><PencilLine /><b>Aa</b></div>
+          <div className="library-card-copy">
+            <span className="library-eyebrow">Wissen &amp; Wortwitz</span>
+            <h2>STADT LAND FLUSS</h2>
+            <p>Alle tippen gleichzeitig. Eure Spalten, euer Tempo, eure Abstimmung.</p>
+            <div><span>2–22 Personen</span><span>Ein Handy pro Person</span></div>
           </div>
           <strong>Spielen <span>→</span></strong>
         </a>

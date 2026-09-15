@@ -20,7 +20,7 @@ type NearbyLobby = { id: string; name: string; player_count: number };
 class ApiError extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status; } }
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000), ...options, headers: { "Content-Type": "application/json", ...options?.headers } });
-  const data = await response.json();
+  const data = await response.json() as T & { error?: string };
   if (!response.ok) throw new ApiError(data.error || "Die Anfrage konnte nicht abgeschlossen werden.", response.status);
   return data;
 }

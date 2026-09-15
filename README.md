@@ -1,7 +1,7 @@
 # Gameson
 
 Mobile German party games for multiple phones or one shared device. The app
-currently includes Imposter, Werwolf and Die Siedler von Catan, with persistent lobby state in a local
+currently includes Imposter, Werwolf, Die Siedler von Catan and Stadt Land Fluss, with persistent lobby state in a local
 Cloudflare D1-compatible SQLite store.
 
 ## Prerequisites
@@ -16,6 +16,37 @@ npm run dev
 npm run build
 npm test
 ```
+
+### Stadt Land Fluss
+
+Open `/stadt-land-fluss` or choose it in Gameson. 2–22 people play simultaneously
+on their own devices, joining by invitation link, code, group name or nearby lobby.
+The host defines 2–12 custom columns, 1–20 rounds and a 15–1800 second timer
+(default: Stadt, Land, Fluss, Tier, Beruf; 5 rounds; 120 seconds).
+Columns can be changed in the lobby and between rounds. The host can change or
+disable the timer during a round; a new duration starts when saved and also becomes
+the next round's duration. With no timer, everyone submitting or the host stopping
+the writing phase starts review.
+
+The fixed header shows the current letter and remaining time, including while
+scrolling or using a mobile keyboard. Clients estimate server time from request
+round trips and advance it with a monotonic clock. The server enforces the deadline
+on every read and write. Inputs autosave with per-player sequences; atomic retries
+merge simultaneous edits and votes. Only the player's own answers leave the server
+during writing. A browser reload restores the session and any newer local draft.
+An internet connection is required; only answers saved before the server deadline
+count, and the UI shows when a save is outstanding.
+
+During review, tap **Anzweifeln**, then **Gilt** or **Gilt nicht**. Everyone has one
+changeable vote per disputed answer, including its author. The majority of cast
+votes decides; ties accept the answer. Players confirm the review; the host then
+scores it, or explicitly closes it early using the existing votes. Empty answers
+and wrong initials score 0; accepted duplicates score 5, unique answers 10, and
+the only accepted answer in a column 20. Umlauts/case are normalized. Each round
+uses a fresh letter and the scoreboard records all rounds.
+
+`drizzle/0009_stadt_land_fluss.sql` and the runtime schema bootstrap both create
+the table idempotently, so existing installations need no manual migration.
 
 ### Catan
 

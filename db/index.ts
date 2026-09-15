@@ -18,6 +18,9 @@ export async function ensureSchema() {
   const db = getD1();
   initialization = (async () => {
     const statements = [
+      `CREATE TABLE IF NOT EXISTS slf_lobbies (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, normalized_name TEXT NOT NULL, host_player_id TEXT NOT NULL, settings TEXT NOT NULL, members TEXT DEFAULT '[]' NOT NULL, game TEXT, discoverable INTEGER DEFAULT 1 NOT NULL, network_hash TEXT NOT NULL, revision INTEGER DEFAULT 1 NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_slf_lobbies_name ON slf_lobbies (normalized_name)`,
+      `CREATE INDEX IF NOT EXISTS idx_slf_lobbies_nearby ON slf_lobbies (network_hash, updated_at)`,
       `CREATE TABLE IF NOT EXISTS lobbies (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, normalized_name TEXT NOT NULL, status TEXT DEFAULT 'waiting' NOT NULL, host_player_id TEXT NOT NULL, content_mode TEXT DEFAULT 'family' NOT NULL, pool TEXT DEFAULT 'random' NOT NULL, imposter_count INTEGER DEFAULT 1 NOT NULL, imposter_overridden INTEGER DEFAULT 0 NOT NULL, discoverable INTEGER DEFAULT 1 NOT NULL, revision INTEGER DEFAULT 1 NOT NULL, network_hash TEXT NOT NULL, round_number INTEGER DEFAULT 0 NOT NULL, finished_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_lobbies_normalized_name ON lobbies (normalized_name)`,
       `CREATE INDEX IF NOT EXISTS idx_lobbies_network_waiting ON lobbies (network_hash, status, updated_at)`,

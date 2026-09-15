@@ -43,7 +43,7 @@ test("liefert ein installierbares deutsches PWA-Manifest", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.deepEqual(manifest.icons.map((icon) => icon.sizes), ["192x192", "512x512"]);
-  assert.deepEqual(manifest.shortcuts.map((shortcut) => shortcut.url), ["/imposter", "/werwolf", "/catan"]);
+  assert.deepEqual(manifest.shortcuts.map((shortcut) => shortcut.url), ["/imposter", "/werwolf", "/catan", "/stadt-land-fluss"]);
 });
 
 test("nutzt robuste Spielnavigation und getrennte Offline-Seiten", async () => {

@@ -1907,3 +1907,9 @@ body, .gameson-home, .imposter-theme, .werewolf-theme {
 .resume-countdown-bar span { display:block; width:100%; height:100%; border-radius:inherit; background:var(--destructive); animation:resume-drain 5s linear forwards; }
 @keyframes resume-drain { from { width:100%; } to { width:0; } }
 @media (max-width:600px) { .imposter-theme.resume-dialog { top:auto; bottom:0; left:0; width:100%; max-width:100%; max-height:calc(100svh - 24px); padding:26px 20px max(24px,env(safe-area-inset-bottom)); border-radius:22px 22px 0 0; --tw-translate-x:0; --tw-translate-y:0; translate:none; transform:none; } }
+/* Stadt Land Fluss in the shared game library. */
+.slf-library-card { background:linear-gradient(145deg,#254f3c,#172f25); border-color:#456c48; }
+.slf-library-card .library-eyebrow { color:#c2d9a0; }
+.slf-library-art { color:#d1e5ad; }
+.slf-library-art>svg { position:absolute; right:40px; top:28px; width:66px; height:66px; transform:rotate(-12deg); opacity:.6; }
+.slf-library-art>b { font-family:Georgia,serif; font-style:italic; color:#cce4ad; }
