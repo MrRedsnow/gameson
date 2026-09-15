@@ -3,7 +3,7 @@ import { applyCatanAction, catanView, createCatanGame, DEFAULT_TARGET_POINTS, ra
 
 export const runtime = "edge";
 type Member = { id: string; name: string; tokenHash: string };
-type Lobby = { id: string; name: string; normalized_name: string; host_player_id: string; target_points: number; members: string; game: string | null; revision: number; created_at: number; updated_at: number };
+type Lobby = { id: string; name: string; normalized_name: string; host_player_id: string; target_points: number; members: string; game: string | null; discoverable: number; network_hash: string; revision: number; created_at: number; updated_at: number };
 const reply = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 const fail = (error: string, status = 400) => reply({ error }, status);
 const clean = (value: unknown, max: number) => typeof value === "string" ? value.normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, max) : "";
@@ -15,6 +15,15 @@ async function digest(value: string) {
 function token() { return Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join(""); }
 function members(lobby: Lobby): Member[] { return JSON.parse(lobby.members); }
 function gameOf(lobby: Lobby): CatanGame | null { return lobby.game ? JSON.parse(lobby.game) : null; }
+const DISCOVERY_WINDOW = 15 * 60 * 1000;
+function networkPrefix(request: Request) {
+  const value = (request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "local-preview").trim();
+  return value.includes(":") ? value.split(":").slice(0, 4).join(":") : value;
+}
+// Devices behind the same public address see each other's waiting lobbies; the time bucket lets stale entries fade out.
+async function networkHash(request: Request, offset = 0) {
+  return digest(`catan-nearby-v1|${networkPrefix(request)}|${Math.floor(Date.now() / DISCOVERY_WINDOW) + offset}`);
+}
 async function authenticate(request: Request, lobby: Lobby): Promise<Member | undefined> {
   const header = request.headers.get("authorization") ?? "";
   if (!header.startsWith("Bearer ") || header.length > 200) return undefined;
@@ -23,13 +32,13 @@ async function authenticate(request: Request, lobby: Lobby): Promise<Member | un
 }
 function view(lobby: Lobby, me: Member) {
   const game = gameOf(lobby);
-  return { lobby: { id: lobby.id, name: lobby.name, hostPlayerId: lobby.host_player_id, targetPoints: lobby.target_points, revision: lobby.revision },
+  return { lobby: { id: lobby.id, name: lobby.name, hostPlayerId: lobby.host_player_id, targetPoints: lobby.target_points, discoverable: Boolean(lobby.discoverable), revision: lobby.revision },
     members: members(lobby).map(({ id, name }) => ({ id, name })), me: { id: me.id, name: me.name }, game: game ? catanView(game, me.id) : null };
 }
 async function readLobby(id: string) { return getD1().prepare("SELECT * FROM catan_lobbies WHERE id = ?").bind(id).first<Lobby>(); }
 async function save(lobby: Lobby, previousRevision: number) {
-  const result = await getD1().prepare("UPDATE catan_lobbies SET host_player_id = ?, target_points = ?, members = ?, game = ?, revision = revision + 1, updated_at = ? WHERE id = ? AND revision = ?")
-    .bind(lobby.host_player_id, lobby.target_points, lobby.members, lobby.game, Date.now(), lobby.id, previousRevision).run();
+  const result = await getD1().prepare("UPDATE catan_lobbies SET host_player_id = ?, target_points = ?, members = ?, game = ?, discoverable = ?, revision = revision + 1, updated_at = ? WHERE id = ? AND revision = ?")
+    .bind(lobby.host_player_id, lobby.target_points, lobby.members, lobby.game, lobby.discoverable, Date.now(), lobby.id, previousRevision).run();
   return result.meta.changes === 1;
 }
 async function rateLimit(request: Request, action: string) {
@@ -46,12 +55,22 @@ function errorResponse(error: unknown) {
 
 export async function GET(request: Request) {
   try {
-    const id = clean(new URL(request.url).searchParams.get("lobby"), 40);
+    const url = new URL(request.url);
+    if (url.searchParams.get("nearby") === "1") {
+      await ensureSchema();
+      const [current, previous] = await Promise.all([networkHash(request), networkHash(request, -1)]);
+      const rows = await getD1().prepare("SELECT id, name, members FROM catan_lobbies WHERE discoverable = 1 AND game IS NULL AND network_hash IN (?, ?) ORDER BY updated_at DESC LIMIT 8").bind(current, previous).all<Pick<Lobby, "id" | "name" | "members">>();
+      const lobbies = (rows.results ?? []).map((row: Pick<Lobby, "id" | "name" | "members">) => ({ id: row.id, name: row.name, player_count: (JSON.parse(row.members) as Member[]).length })).filter((row: { player_count: number }) => row.player_count > 0 && row.player_count < 4);
+      return reply({ lobbies });
+    }
+    const id = clean(url.searchParams.get("lobby"), 40);
     if (!id) return fail("Der Lobbycode fehlt.");
+    await ensureSchema();
     const lobby = await readLobby(id); if (!lobby) return fail("Diese Lobby gibt es nicht mehr.", 404);
     const me = await authenticate(request, lobby); if (!me) return fail("Bitte tritt der Lobby erneut bei.", 401);
-    // Read-only polls keep long sessions alive without invalidating turn revisions.
-    if (Date.now() - lobby.updated_at > 60000) await getD1().prepare("UPDATE catan_lobbies SET updated_at = ? WHERE id = ?").bind(Date.now(), id).run();
+    // Read-only polls keep long sessions alive without invalidating turn revisions; the host's polls also keep a waiting lobby discoverable on its current network.
+    const hash = me.id === lobby.host_player_id && !lobby.game ? await networkHash(request) : lobby.network_hash;
+    if (hash !== lobby.network_hash || Date.now() - lobby.updated_at > 60000) await getD1().prepare("UPDATE catan_lobbies SET updated_at = ?, network_hash = ? WHERE id = ?").bind(Date.now(), hash, id).run();
     return reply(view(lobby, me));
   } catch (error) { return errorResponse(error); }
 }
@@ -82,8 +101,8 @@ export async function POST(request: Request) {
         const existing = await getD1().prepare("SELECT id FROM catan_lobbies WHERE normalized_name = ?").bind(normalize(lobbyName)).first();
         if (existing) return fail("Dieser Gruppenname ist schon vergeben.", 409);
         try {
-          await getD1().prepare("INSERT INTO catan_lobbies (id, name, normalized_name, host_player_id, target_points, members, revision, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)")
-            .bind(id, lobbyName, normalize(lobbyName), member.id, points, JSON.stringify([member]), Date.now(), Date.now()).run();
+          await getD1().prepare("INSERT INTO catan_lobbies (id, name, normalized_name, host_player_id, target_points, members, discoverable, network_hash, revision, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 1, ?, ?)")
+            .bind(id, lobbyName, normalize(lobbyName), member.id, points, JSON.stringify([member]), await networkHash(request), Date.now(), Date.now()).run();
         } catch (e) {
           if (String(e).includes("UNIQUE")) return fail("Dieser Gruppenname ist inzwischen vergeben. Bitte wähle einen anderen.", 409);
           throw e;
@@ -108,8 +127,11 @@ export async function POST(request: Request) {
     const isHost = me.id === lobby.host_player_id; const game = gameOf(lobby);
     if (["settings", "start", "reset", "remove"].includes(String(action)) && !isHost) return fail("Das kann nur die Spielleitung tun.", 403);
     if (action === "settings") {
-      if (game) return fail("Die Siegpunktzahl bleibt während einer Partie fest.");
-      try { lobby.target_points = validateTargetPoints(body.targetPoints); } catch (e) { return fail((e as Error).message); }
+      if (typeof body.discoverable === "boolean") lobby.discoverable = body.discoverable ? 1 : 0;
+      if (body.targetPoints !== undefined) {
+        if (game) return fail("Die Siegpunktzahl bleibt während einer Partie fest.");
+        try { lobby.target_points = validateTargetPoints(body.targetPoints); } catch (e) { return fail((e as Error).message); }
+      } else if (typeof body.discoverable !== "boolean") return fail("Keine Einstellung übergeben.");
     } else if (action === "start") {
       if (game) return fail("Diese Partie wurde schon gestartet.");
       try { lobby.game = JSON.stringify(createCatanGame(members(lobby), lobby.target_points)); } catch (e) { return fail((e as Error).message); }

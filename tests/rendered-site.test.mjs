@@ -251,3 +251,21 @@ test("fragt beim Start aus der Spielauswahl nach einer gespeicherten Online-Rund
   assert.match(css, /\.resume-countdown-bar span \{[^}]*animation:resume-drain 5s linear forwards;/);
 });
 
+test("macht Catan-Lobbys im selben Netzwerk auffindbar", async () => {
+  const [catanSource, routeSource, schemaSource, dbSource, css] = await Promise.all([
+    readFile(new URL("../app/catan/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/catan/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/index.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/catan/catan.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(catanSource, /\/api\/catan\?nearby=1/);
+  assert.match(catanSource, /In deiner Nähe/);
+  assert.match(catanSource, /Lobby in der Nähe anzeigen/);
+  assert.match(catanSource, /setInterval\(load, 10000\)/);
+  assert.match(routeSource, /searchParams\.get\("nearby"\) === "1"/);
+  assert.match(routeSource, /discoverable = 1 AND game IS NULL AND network_hash IN \(\?, \?\)/);
+  assert.match(schemaSource, /networkHash: text\("network_hash"\)\.notNull\(\)\.default\(""\)/);
+  assert.match(dbSource, /ALTER TABLE catan_lobbies ADD COLUMN network_hash TEXT DEFAULT '' NOT NULL/);
+  assert.match(css, /\.catan-theme \.nearby-list button \{/);
+});

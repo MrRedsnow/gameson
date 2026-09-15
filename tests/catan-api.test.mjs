@@ -12,6 +12,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const out = resolve(root, `.wrangler/test-artifacts/catan-api-${process.pid}.cjs`);
 const db = new DatabaseSync(":memory:");
 db.exec(await readFile(resolve(root, "drizzle/0007_catan.sql"), "utf8"));
+db.exec(await readFile(resolve(root, "drizzle/0008_catan_nearby.sql"), "utf8"));
 db.exec("CREATE TABLE rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL)");
 // Use actual SQLite and the real HTTP handlers. Only the Workers binding is
 // replaced, so CAS, constraints, projection and request validation are exercised.
@@ -37,14 +38,16 @@ await build({ entryPoints: [resolve(root, "app/api/catan/route.ts")], outfile: o
 const { GET, POST } = createRequire(import.meta.url)(out);
 after(async () => { db.close(); delete globalThis.catanTestDB; await rm(out, { force: true }); });
 let requestId = 0;
-async function post(body, session) {
-  const response = await POST(new Request("https://gameson.test/api/catan", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `test-${++requestId}`, ...(session ? { authorization: `Bearer ${session.token}` } : {}) }, body: JSON.stringify(body) }));
+// Every request comes from its own address unless a test models one shared network.
+async function post(body, session, ip = `test-${++requestId}`) {
+  const response = await POST(new Request("https://gameson.test/api/catan", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": ip, ...(session ? { authorization: `Bearer ${session.token}` } : {}) }, body: JSON.stringify(body) }));
   return { status: response.status, body: await response.json(), headers: response.headers };
 }
-async function get(session) { const response = await GET(new Request(`https://gameson.test/api/catan?lobby=${session.lobbyId}`, { headers: { authorization: `Bearer ${session.token}` } })); return { status: response.status, body: await response.json() }; }
-async function create(name, points) { const r = await post({ action: "create", name, playerName: "Anna", targetPoints: points }); assert.equal(r.status, 200); return r.body; }
-async function join(code, name) { return post({ action: "join", code, playerName: name }); }
-async function command(session, action, extra = {}) { const { body } = await get(session); return post({ action, lobbyId: session.lobbyId, revision: body.lobby.revision, ...extra }, session); }
+async function get(session, ip = `test-${++requestId}`) { const response = await GET(new Request(`https://gameson.test/api/catan?lobby=${session.lobbyId}`, { headers: { authorization: `Bearer ${session.token}`, "cf-connecting-ip": ip } })); return { status: response.status, body: await response.json() }; }
+async function nearby(ip) { const response = await GET(new Request("https://gameson.test/api/catan?nearby=1", { headers: { "cf-connecting-ip": ip } })); return { status: response.status, body: await response.json() }; }
+async function create(name, points, ip) { const r = await post({ action: "create", name, playerName: "Anna", targetPoints: points }, undefined, ip); assert.equal(r.status, 200); return r.body; }
+async function join(code, name, ip) { return post({ action: "join", code, playerName: name }, undefined, ip); }
+async function command(session, action, extra = {}, ip) { const { body } = await get(session, ip); return post({ action, lobbyId: session.lobbyId, revision: body.lobby.revision, ...extra }, session, ip); }
 
 test("Catan-Lobby: Standard 12, einstellbar, Beitritt per Name/Code, maximal vier", async () => {
   const a = await create("Viererspiel"); assert.equal(a.state.lobby.targetPoints, 12); assert.equal(a.state.members.length, 1);
@@ -102,4 +105,33 @@ test("API lehnt ungültige JSON-Anfragen, Zielwerte und nicht authentifizierte �
   const a = await create("Authspiel");
   assert.equal((await post({ action: "start", lobbyId: a.session.lobbyId, revision: 1 })).status, 401);
   assert.equal((await post({ action: "settings", lobbyId: a.session.lobbyId, targetPoints: 8 }, a.session)).status, 409);
+});
+
+test("Catan-Lobbys sind für Geräte im selben Netzwerk auffindbar, bis sie starten oder voll sind", async () => {
+  const wlan = "203.0.113.7"; const elsewhere = "198.51.100.9";
+  const a = await create("Nachbarschaft", 12, wlan);
+  assert.equal(a.state.lobby.discoverable, true);
+  assert.deepEqual((await nearby(wlan)).body.lobbies, [{ id: a.session.lobbyId, name: "Nachbarschaft", player_count: 1 }]);
+  assert.deepEqual((await nearby(elsewhere)).body.lobbies, []);
+  const hidden = await command(a.session, "settings", { discoverable: false }, wlan);
+  assert.equal(hidden.status, 200); assert.equal(hidden.body.state.lobby.discoverable, false);
+  assert.deepEqual((await nearby(wlan)).body.lobbies, []);
+  assert.equal((await command(a.session, "settings", { discoverable: true }, wlan)).body.state.lobby.discoverable, true);
+  // The host's polls carry a waiting lobby along to the network the host is on now; guests do not move it.
+  assert.equal((await get(a.session, elsewhere)).status, 200);
+  assert.deepEqual((await nearby(elsewhere)).body.lobbies.map((lobby) => lobby.id), [a.session.lobbyId]);
+  assert.deepEqual((await nearby(wlan)).body.lobbies, []);
+  const b = (await join(a.session.lobbyId, "Ben", wlan)).body;
+  assert.equal((await get(b.session, wlan)).status, 200);
+  assert.equal((await nearby(elsewhere)).body.lobbies[0].player_count, 2);
+  assert.deepEqual((await nearby(wlan)).body.lobbies, []);
+  for (const name of ["Clara", "David"]) assert.equal((await join(a.session.lobbyId, name, wlan)).status, 200);
+  assert.deepEqual((await nearby(elsewhere)).body.lobbies, []);
+  const c = await create("Startbereit", 10, wlan);
+  for (const name of ["Ben", "Clara"]) assert.equal((await join(c.session.lobbyId, name, wlan)).status, 200);
+  assert.deepEqual((await nearby(wlan)).body.lobbies.map((lobby) => lobby.player_count), [3]);
+  assert.equal((await command(c.session, "start", {}, wlan)).status, 200);
+  assert.deepEqual((await nearby(wlan)).body.lobbies, []);
+  assert.equal((await command(c.session, "settings", { discoverable: false }, wlan)).status, 200);
+  assert.equal((await command(c.session, "settings", {}, wlan)).status, 400);
 });

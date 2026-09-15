@@ -57,6 +57,13 @@
       "when": 1789474144700,
       "tag": "0007_catan",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789506029412,
+      "tag": "0008_catan_nearby",
+      "breakpoints": true
     }
   ]
 }

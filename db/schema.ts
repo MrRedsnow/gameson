@@ -42,8 +42,9 @@ export const catanLobbies = sqliteTable("catan_lobbies", {
   id: text("id").primaryKey(), name: text("name").notNull(), normalizedName: text("normalized_name").notNull(),
   hostPlayerId: text("host_player_id").notNull(), targetPoints: integer("target_points").notNull().default(12),
   members: text("members").notNull().default("[]"), game: text("game"),
+  discoverable: integer("discoverable", { mode: "boolean" }).notNull().default(true), networkHash: text("network_hash").notNull().default(""),
   revision: integer("revision").notNull().default(1), createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
-}, (t) => [uniqueIndex("idx_catan_lobbies_name").on(t.normalizedName), index("idx_catan_lobbies_updated").on(t.updatedAt)]);
+}, (t) => [uniqueIndex("idx_catan_lobbies_name").on(t.normalizedName), index("idx_catan_lobbies_updated").on(t.updatedAt), index("idx_catan_lobbies_nearby").on(t.networkHash, t.updatedAt)]);
 
 export const werewolfLobbies = sqliteTable("werewolf_lobbies", {
   id: text("id").primaryKey(), name: text("name").notNull(), normalizedName: text("normalized_name").notNull(),

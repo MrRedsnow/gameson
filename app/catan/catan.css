@@ -243,3 +243,21 @@
 .catan-nav-badge.is-alert { background:#c74a3c; }
 .catan-nav-badge.is-dot { min-width:0; width:12px; height:12px; padding:0; background:#efd18a; }
 @media(prefers-reduced-motion:reduce) { .catan-theme * { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+
+/* Nearby lobbies and the visibility switch follow the Imposter/Werwolf discovery flow in Catan's palette. */
+.catan-theme .nearby-section { margin:0 0 6px; }
+.catan-theme .section-heading strong { color:#e7e4da; font-size:.9375rem; }
+.catan-theme .section-heading span { color:#8fa5af; }
+.catan-theme .nearby-list button { border-color:#516871; border-radius:10px; background:#132730; color:#f4f0e5; }
+.catan-theme .nearby-list button:hover, .catan-theme .nearby-list button:focus-visible { border-color:#ac9059; }
+.catan-theme .nearby-list small { color:#b6c8cc; }
+.catan-theme .nearby-list b { color:#d1b67a; }
+.catan-theme .selected-lobby { margin:0 0 16px; border-color:#ac9059; background:#2c3937; color:#f4f0e5; }
+.catan-theme .selected-lobby small { color:#d1b67a; }
+.catan-theme .selected-lobby [data-slot=button] { min-height:40px; border-color:#48606b; background:#1e333e; color:#f4f0e5; }
+.catan-discoverable label { display:grid; gap:3px; min-width:0; flex:1; cursor:pointer; }
+.catan-discoverable small { color:#b7c6ca; font-size:.8125rem; line-height:1.45; }
+.catan-theme .catan-discoverable [data-slot=switch] { width:44px; height:26px; flex-shrink:0; border:1px solid #506673; background:#263d48; }
+.catan-theme .catan-discoverable [data-slot=switch][data-state=checked] { border-color:#efd18a; background:#efd18a; }
+.catan-theme .catan-discoverable [data-slot=switch-thumb] { width:20px; height:20px; background:#f4f0e5; }
+.catan-theme .catan-discoverable [data-slot=switch-thumb][data-state=checked] { translate:20px 0; background:#1c2b31; }

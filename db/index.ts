@@ -76,6 +76,18 @@ export async function ensureSchema() {
     if (!(werewolfVoteColumns.results ?? []).some((column) => column.name === "weight")) {
       await db.prepare("ALTER TABLE werewolf_votes ADD COLUMN weight INTEGER DEFAULT 1 NOT NULL").run();
     }
+    // Catan's table comes from drizzle/0007_catan.sql; its later additive columns are ensured here so updates need no manual migration.
+    const catanColumns = await db.prepare("PRAGMA table_info(catan_lobbies)").all<{ name: string }>();
+    const existingCatanColumns = new Set((catanColumns.results ?? []).map((column) => column.name));
+    if (existingCatanColumns.size) {
+      const additiveCatanColumns = [
+        ["discoverable", "ALTER TABLE catan_lobbies ADD COLUMN discoverable INTEGER DEFAULT 1 NOT NULL"],
+        ["network_hash", "ALTER TABLE catan_lobbies ADD COLUMN network_hash TEXT DEFAULT '' NOT NULL"],
+      ] as const;
+      const missingCatanColumns = additiveCatanColumns.filter(([name]) => !existingCatanColumns.has(name));
+      if (missingCatanColumns.length) await db.batch(missingCatanColumns.map(([, statement]) => db.prepare(statement)));
+      await db.prepare("CREATE INDEX IF NOT EXISTS idx_catan_lobbies_nearby ON catan_lobbies (network_hash, updated_at)").run();
+    }
     await db.prepare("PRAGMA optimize").run();
   })().catch((error) => { initialization = null; throw error; });
   return initialization;

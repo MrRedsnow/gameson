@@ -5,6 +5,7 @@ import { ArrowLeft, Copy, Flag, LockKeyhole, LogOut, Plus, RotateCcw, Users, X }
 import { GameBackLink, GameModes, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CatanGameUI, CatanRules, TargetPoints } from "@/components/catan/game-ui";
 import { DEFAULT_TARGET_POINTS, PLAYER_COLORS, applyCatanAction, catanView, createCatanGame, localActorId, type CatanAction, type CatanGame, type CatanView } from "@/lib/catan";
@@ -12,9 +13,10 @@ import { describeLobby, resolveOnlineGameStartup, type GameSession } from "@/lib
 
 const SESSION_KEY = "gameson-catan-session-v1";
 const LOCAL_KEY = "gameson-catan-local-v1";
-type LobbyState = { lobby: { id: string; name: string; hostPlayerId: string; targetPoints: number; revision: number }; members: { id: string; name: string }[]; me: { id: string; name: string }; game: CatanView | null };
+type LobbyState = { lobby: { id: string; name: string; hostPlayerId: string; targetPoints: number; discoverable: boolean; revision: number }; members: { id: string; name: string }[]; me: { id: string; name: string }; game: CatanView | null };
 type ResponseData = { session?: GameSession; state?: LobbyState; left?: boolean; error?: string };
 type EntryMode = "home" | "create" | "join" | "local";
+type NearbyLobby = { id: string; name: string; player_count: number };
 class ApiError extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status; } }
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000), ...options, headers: { "Content-Type": "application/json", ...options?.headers } });
@@ -38,6 +40,7 @@ export default function CatanPage() {
   const [names, setNames] = useState(["", "", ""]); const [target, setTarget] = useState(DEFAULT_TARGET_POINTS);
   const [confirmNew, setConfirmNew] = useState(false); const [copied, setCopied] = useState(false);
   const [storedSession, setStoredSession] = useState<GameSession | null>(null); const [storedLobby, setStoredLobby] = useState<ResumeLobbyInfo | null | undefined>(undefined);
+  const [nearby, setNearby] = useState<NearbyLobby[]>([]);
   const stateRef = useRef<LobbyState | null>(null); const locked = useRef(false);
   const store = (key: string, value: string | null) => { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { setNotice("Der Browser kann den Spielstand nicht speichern. Halte diese Seite geöffnet, bis die Partie beendet ist."); } };
   const acceptState = useCallback((next: LobbyState) => {
@@ -84,6 +87,14 @@ export default function CatanPage() {
     };
     void poll(); return () => { cancelled = true; clearTimeout(timer); };
   }, [session, acceptState]);
+  // Waiting lobbies on the same network are offered under "Lobby beitreten" while this device is not playing.
+  useEffect(() => {
+    if (session || localGame || (mode !== "home" && mode !== "join")) return;
+    let active = true;
+    const load = () => request<{ lobbies: NearbyLobby[] }>("/api/catan?nearby=1").then((data) => { if (active) setNearby(data.lobbies); }).catch(() => undefined);
+    load(); const timer = setInterval(load, 10000);
+    return () => { active = false; clearInterval(timer); };
+  }, [session, localGame, mode]);
   // Describe the stored round while the player decides; an invalid session leaves only "new game" to choose.
   useEffect(() => {
     if (!storedSession) return;
@@ -136,6 +147,7 @@ export default function CatanPage() {
   const discardStoredSession = () => { store(SESSION_KEY, null); setStoredSession(null); setStoredLobby(undefined); };
   const actor = localGame ? localActorId(localGame) : null;
   const isHost = Boolean(state && state.me.id === state.lobby.hostPlayerId);
+  const selectedLobby = mode === "join" ? nearby.find((item) => item.id === code) : undefined;
   const active = localGame || state?.game;
   const needsHandoff = localGame && actor && unlocked !== actor && localGame.phase !== "finished";
   const back = () => { setMode("home"); setNotice(""); window.history.replaceState({}, "", "/catan"); };
@@ -151,6 +163,7 @@ export default function CatanPage() {
       <section className="catan-panel"><div className="catan-section-heading"><h2>Lobbycode</h2><strong className="catan-lobby-code">{state.lobby.id}</strong></div><div className="catan-button-row"><Button variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/catan?lobby=${state.lobby.id}&join=1`); setCopied(true); } catch { setNotice(`Einladungslink: ${window.location.origin}/catan?lobby=${state.lobby.id}&join=1`); } }}><Copy />{copied ? "Link kopiert" : "Einladungslink kopieren"}</Button></div></section>
       <section className="catan-panel"><div className="catan-section-heading"><h2><Users />Mitspielende</h2><span>{state.members.length} / 4</span></div><ul className="catan-lobby-players">{state.members.map((p, i) => <li key={p.id}><span style={{ background: PLAYER_COLORS[i] }}>{p.name.slice(0, 1)}</span><div><strong>{p.name}{p.id === state.me.id ? " (du)" : ""}</strong>{p.id === state.lobby.hostPlayerId && <small>Spielleitung</small>}</div>{isHost && p.id !== state.me.id && <Button variant="ghost" size="icon" disabled={busy} onClick={() => void post("remove", { playerId: p.id })} aria-label={`${p.name} aus der Lobby entfernen`}><X /></Button>}</li>)}</ul>
         <TargetPoints value={state.lobby.targetPoints} onChange={(targetPoints) => void post("settings", { targetPoints })} disabled={!isHost || busy} />
+        <div className="catan-target catan-discoverable"><label htmlFor="catan-discoverable"><strong>Lobby in der Nähe anzeigen</strong><small>Personen im selben Netzwerk sehen eure Lobby unter „Lobby beitreten“.</small></label><Switch id="catan-discoverable" checked={state.lobby.discoverable} disabled={!isHost || busy} onCheckedChange={(discoverable) => void post("settings", { discoverable })} /></div>
         {isHost ? <Button className="catan-primary" disabled={busy || state.members.length < 3} onClick={() => void post("start")}><Flag />{state.members.length < 3 ? `Noch ${3 - state.members.length} ${state.members.length === 2 ? "Person fehlt" : "Personen fehlen"}` : "Partie starten"}</Button> : <p className="catan-muted">Die Spielleitung startet, sobald alle da sind.</p>}
       </section><Button variant="ghost" className="catan-leave" disabled={busy} onClick={() => void post("leave")}><LogOut />Lobby verlassen</Button><CatanRules />
     </> : <>
@@ -159,11 +172,12 @@ export default function CatanPage() {
         <GameModes onCreate={() => setMode("create")} onJoin={() => setMode("join")} onLocal={() => setMode("local")} />
         {localSaved && <Button className="catan-resume" variant="outline" onClick={() => { try { const game = loadLocal(); if (game) { setLocalGame(game); setUnlocked(null); window.history.replaceState({}, "", "/catan?local=1"); } else setLocalSaved(false); } catch (error) { setNotice((error as Error).message); } }}><RotateCcw />Lokale Partie fortsetzen</Button>}
       </> : <section className="catan-panel catan-setup"><Button variant="ghost" onClick={back}><ArrowLeft />Zurück</Button><h2>{mode === "create" ? "Lobby erstellen" : mode === "join" ? "Lobby beitreten" : "Ein Gerät für alle"}</h2>
+        {mode === "join" && (selectedLobby ? <div className="selected-lobby"><span><small>Ausgewählte Lobby</small><strong>{selectedLobby.name}</strong></span><Button type="button" variant="outline" onClick={() => setCode("")}>Ändern</Button></div> : nearby.length > 0 && <section className="nearby-section" aria-label="Lobbys in deiner Nähe"><div className="section-heading"><strong>In deiner Nähe</strong><span>automatisch erkannt</span></div><div className="nearby-list">{nearby.map((item) => <button type="button" key={item.id} onClick={() => setCode(item.id)}><span className="nearby-pulse" /><span><strong>{item.name}</strong><small>{item.player_count} von 4 Personen</small></span><b>→</b></button>)}</div></section>)}
         {mode === "local" ? <><p>Tragt eure Namen ein. Beim Wechsel verdecken wir die Handkarten, bis die nächste Person übernimmt.</p>{names.map((name, i) => <label className="catan-field" key={i}><span>Person {i + 1}</span><div className="catan-name-field"><Input autoComplete="off" maxLength={24} aria-label={`Name von Person ${i + 1}`} value={name} onChange={(e) => setNames(names.map((n, j) => i === j ? e.target.value : n))} placeholder={`Name ${i + 1}`} />{i === 3 && <Button variant="ghost" size="icon" aria-label="Vierte Person entfernen" onClick={() => setNames(names.slice(0, 3))}><X /></Button>}</div></label>)}
           {names.length < 4 && <Button variant="outline" onClick={() => setNames([...names, ""])}><Plus />Vierte Person hinzufügen</Button>}
           <TargetPoints value={target} onChange={setTarget} /><Button className="catan-primary" disabled={names.some((name) => !name.trim())} onClick={() => { if (localSaved) setConfirmNew(true); else startLocal(); }}>Partie starten</Button>
         </> : <form onSubmit={(e) => { e.preventDefault(); void enter(mode as "create" | "join"); }}><label className="catan-field" htmlFor="catan-player-name"><span>Dein Name</span><Input id="catan-player-name" required maxLength={24} autoComplete="nickname" value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Wie heißt du?" /></label>
-          {mode === "create" ? <><label className="catan-field" htmlFor="catan-group-name"><span>Gruppenname</span><Input id="catan-group-name" required minLength={2} maxLength={32} autoComplete="off" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Zum Beispiel: Inselrunde" /></label><TargetPoints value={target} onChange={setTarget} disabled={busy} /></> : <label className="catan-field" htmlFor="catan-join-code"><span>Lobbycode oder Gruppenname</span><Input id="catan-join-code" required maxLength={40} autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code oder Gruppenname" /></label>}
+          {mode === "create" ? <><label className="catan-field" htmlFor="catan-group-name"><span>Gruppenname</span><Input id="catan-group-name" required minLength={2} maxLength={32} autoComplete="off" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Zum Beispiel: Inselrunde" /></label><TargetPoints value={target} onChange={setTarget} disabled={busy} /></> : !selectedLobby && <label className="catan-field" htmlFor="catan-join-code"><span>Lobbycode oder Gruppenname</span><Input id="catan-join-code" required maxLength={40} autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code oder Gruppenname" /></label>}
           <Button type="submit" className="catan-primary" disabled={busy}>{busy ? "Verbindung wird hergestellt …" : mode === "create" ? "Lobby erstellen" : "Beitreten"}</Button>
         </form>}
       </section>}

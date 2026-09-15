@@ -26,14 +26,19 @@ The base game includes randomized terrain with nonadjacent red number tokens,
 snake-order setup, resource production, limited bank/pieces, domestic and harbor
 trade, robber/discard/steal, all 25 development cards and both special awards.
 Online hands and deck order stay server-side; turn updates use atomic revisions.
+Waiting online lobbies are listed under „Lobby beitreten“ for devices on the same
+network, like in Imposter and Werwolf; the host can hide a lobby with „Lobby in
+der Nähe anzeigen“.
 Local games are saved on the device and hide hands when passing it around.
 The play screen is organised as five menus pinned to the bottom of the screen
 (island, cards, build, trade, overview); the game switches to the menu whose
 task is currently yours, and the menu badges show hand size, pending offers and
 required discards.
 
-The new table is defined by `drizzle/0007_catan.sql`. Sites applies it during
-deployment; the Ubuntu updater applies this additive migration automatically.
+The table is defined by `drizzle/0007_catan.sql`; `drizzle/0008_catan_nearby.sql`
+adds the discovery columns, which the app also adds at runtime when they are
+missing. Sites applies the migrations during deployment; the Ubuntu updater
+applies the table migration automatically.
 For an existing local preview, apply it once before creating a Catan lobby:
 
 ```bash
