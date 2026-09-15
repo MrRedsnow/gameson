@@ -1,0 +1,1 @@
+ALTER TABLE `werewolf_lobbies` ADD `audio_gap_seconds` integer DEFAULT 3 NOT NULL;

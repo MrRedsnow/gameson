@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Hexagon } from "lucide-react";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -11,6 +12,8 @@ export default function GamesonHome() {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const installButtonRef = useRef<HTMLButtonElement>(null);
+  const installSheetRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -46,6 +49,23 @@ export default function GamesonHome() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!installHelpOpen) return;
+    const installButton = installButtonRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    installSheetRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setInstallHelpOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      installButton?.focus();
+    };
+  }, [installHelpOpen]);
+
   const installApp = async () => {
     if (!installPrompt) {
       setInstallHelpOpen(true);
@@ -68,9 +88,8 @@ export default function GamesonHome() {
       </header>
 
       <section className="gameson-intro" aria-labelledby="gameson-title">
-        <span className="gameson-kicker">Eure Runde beginnt hier</span>
         <h1 id="gameson-title">Was spielt ihr heute?</h1>
-        <p>Ein Handy oder mehrere – sucht euch ein Spiel aus und legt direkt los.</p>
+        <p>Wählt ein Spiel. Ein Handy oder mehrere.</p>
       </section>
 
       <section className="game-library" aria-label="Spiel auswählen">
@@ -79,8 +98,8 @@ export default function GamesonHome() {
           <div className="library-card-copy">
             <span className="library-eyebrow">Bluff &amp; Wortspiel</span>
             <h2>IMPOSTER</h2>
-            <p>Einer kennt nur die halbe Wahrheit. Findet heraus, wer blufft.</p>
-            <div><span>3–22 Spieler</span><span>Online &amp; 1 Gerät</span></div>
+            <p>Findet heraus, wer mit einem ähnlichen Wort blufft.</p>
+            <div><span>3–22 Personen</span><span>Online &amp; 1 Gerät</span></div>
           </div>
           <strong>Spielen <span>→</span></strong>
         </a>
@@ -90,8 +109,18 @@ export default function GamesonHome() {
           <div className="library-card-copy">
             <span className="library-eyebrow">Täuschung &amp; Rollen</span>
             <h2>WERWOLF</h2>
-            <p>Das Dorf schläft nie ruhig. Entlarvt das Rudel, bevor es zu spät ist.</p>
-            <div><span>Ab 3 Spielern</span><span>Online &amp; 1 Gerät</span></div>
+            <p>Entlarvt das Rudel, bevor es euer Dorf übernimmt.</p>
+            <div><span>3–22 Personen</span><span>Online &amp; 1 Gerät</span></div>
+          </div>
+          <strong>Spielen <span>→</span></strong>
+        </a>
+        <a className="library-card catan-library-card" href="/catan">
+          <div className="library-card-art catan-library-art" aria-hidden="true"><Hexagon /></div>
+          <div className="library-card-copy">
+            <span className="library-eyebrow">Handel &amp; Strategie</span>
+            <h2>CATAN</h2>
+            <p>Die Siedler von Catan: Handelt, baut und besiedelt die Insel.</p>
+            <div><span>3–4 Personen</span><span>Online &amp; 1 Gerät</span></div>
           </div>
           <strong>Spielen <span>→</span></strong>
         </a>
@@ -100,7 +129,14 @@ export default function GamesonHome() {
       <footer className="gameson-footer">
         <div className="gameson-footer-copy"><span />Keine Konten. Keine Vorbereitung. Einfach spielen.</div>
         {!installed && (
-          <button className="gameson-install-button" type="button" onClick={() => void installApp()}>
+          <button
+            ref={installButtonRef}
+            className="gameson-install-button"
+            type="button"
+            aria-expanded={installHelpOpen}
+            aria-controls="gameson-install-dialog"
+            onClick={() => void installApp()}
+          >
             <span aria-hidden="true">↓</span> App installieren
           </button>
         )}
@@ -108,17 +144,21 @@ export default function GamesonHome() {
 
       {installHelpOpen && (
         <div className="sheet-backdrop gameson-install-backdrop">
-          <button className="gameson-install-dismiss" type="button" aria-label="Installationshinweise schließen" onClick={() => setInstallHelpOpen(false)} />
+          <button className="sheet-dismiss" type="button" tabIndex={-1} aria-label="Installationshinweise schließen" onClick={() => setInstallHelpOpen(false)} />
           <section
+            ref={installSheetRef}
+            id="gameson-install-dialog"
             className="bottom-sheet gameson-install-sheet"
             role="dialog"
             aria-modal="true"
             aria-labelledby="gameson-install-title"
+            aria-describedby="gameson-install-description"
+            tabIndex={-1}
           >
             <button className="sheet-close" type="button" aria-label="Schließen" onClick={() => setInstallHelpOpen(false)}>×</button>
             <span className="gameson-kicker">Gameson für deinen Startbildschirm</span>
             <h3 id="gameson-install-title">App installieren</h3>
-            <div className="gameson-install-steps">
+            <div id="gameson-install-description" className="gameson-install-steps">
               <div><strong>iPhone &amp; iPad</strong><p>Öffne Gameson in Safari, tippe auf „Teilen“ und dann auf „Zum Home-Bildschirm“.</p></div>
               <div><strong>Android &amp; Chrome</strong><p>Öffne das Browsermenü und wähle „App installieren“ oder „Zum Startbildschirm hinzufügen“.</p></div>
             </div>

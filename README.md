@@ -1,7 +1,7 @@
 # Gameson
 
 Mobile German party games for multiple phones or one shared device. The app
-currently includes Imposter and Werwolf, with persistent lobby state in a local
+currently includes Imposter, Werwolf and Die Siedler von Catan, with persistent lobby state in a local
 Cloudflare D1-compatible SQLite store.
 
 ## Prerequisites
@@ -16,6 +16,27 @@ npm run dev
 npm run build
 npm test
 ```
+
+### Catan
+
+Open `/catan` or select the third game in Gameson. Supports 3–4 people, an online
+lobby (code, name or invitation link) and pass-and-play on one device. The victory
+target is selectable from 8 to 15, default 12; choose 10 for the original target.
+The base game includes randomized terrain with nonadjacent red number tokens,
+snake-order setup, resource production, limited bank/pieces, domestic and harbor
+trade, robber/discard/steal, all 25 development cards and both special awards.
+Online hands and deck order stay server-side; turn updates use atomic revisions.
+Local games are saved on the device and hide hands when passing it around.
+
+The new table is defined by `drizzle/0007_catan.sql`. Sites applies it during
+deployment; the Ubuntu updater applies this additive migration automatically.
+For an existing local preview, apply it once before creating a Catan lobby:
+
+```bash
+npx wrangler d1 execute DB --local --persist-to .wrangler/state --config dist/server/wrangler.json --file drizzle/0007_catan.sql
+```
+
+The offline game works after the Catan page has been loaded once online.
 
 ## Ubuntu 24/7 hosting with HTTPS
 

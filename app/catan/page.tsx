@@ -1,0 +1,161 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, Copy, Flag, LockKeyhole, LogOut, Plus, RotateCcw, Users, X } from "lucide-react";
+import { GameBackLink, GameModes } from "@/components/game-entry";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { CatanGameUI, CatanRules, TargetPoints } from "@/components/catan/game-ui";
+import { DEFAULT_TARGET_POINTS, PLAYER_COLORS, applyCatanAction, catanView, createCatanGame, localActorId, type CatanAction, type CatanGame, type CatanView } from "@/lib/catan";
+import { resolveOnlineGameStartup, type GameSession } from "@/lib/game-session";
+
+const SESSION_KEY = "gameson-catan-session-v1";
+const LOCAL_KEY = "gameson-catan-local-v1";
+type LobbyState = { lobby: { id: string; name: string; hostPlayerId: string; targetPoints: number; revision: number }; members: { id: string; name: string }[]; me: { id: string; name: string }; game: CatanView | null };
+type ResponseData = { session?: GameSession; state?: LobbyState; left?: boolean; error?: string };
+type EntryMode = "home" | "create" | "join" | "local";
+class ApiError extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status; } }
+async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000), ...options, headers: { "Content-Type": "application/json", ...options?.headers } });
+  const data = await response.json();
+  if (!response.ok) throw new ApiError(data.error || "Die Anfrage konnte nicht abgeschlossen werden.", response.status);
+  return data;
+}
+function loadLocal(): CatanGame | null {
+  const raw = localStorage.getItem(LOCAL_KEY); if (!raw) return null;
+  const value = JSON.parse(raw) as CatanGame;
+  if (value.version !== 1 || !Array.isArray(value.players) || value.players.length < 3 || value.players.length > 4 || value.board?.hexes?.length !== 19 || !value.players[value.currentPlayer]) throw new Error("Die gespeicherte Partie kann nicht gelesen werden. Du kannst eine neue lokale Partie starten.");
+  return value;
+}
+
+export default function CatanPage() {
+  const [mode, setMode] = useState<EntryMode>("home"); const [ready, setReady] = useState(false);
+  const [session, setSession] = useState<GameSession | null>(null); const [state, setState] = useState<LobbyState | null>(null);
+  const [localGame, setLocalGame] = useState<CatanGame | null>(null); const [localSaved, setLocalSaved] = useState(false); const [unlocked, setUnlocked] = useState<string | null>(null);
+  const [notice, setNotice] = useState(""); const [busy, setBusy] = useState(false); const [connected, setConnected] = useState(true);
+  const [playerName, setPlayerName] = useState(""); const [groupName, setGroupName] = useState(""); const [code, setCode] = useState("");
+  const [names, setNames] = useState(["", "", ""]); const [target, setTarget] = useState(DEFAULT_TARGET_POINTS);
+  const [confirmNew, setConfirmNew] = useState(false); const [copied, setCopied] = useState(false);
+  const stateRef = useRef<LobbyState | null>(null); const locked = useRef(false);
+  const store = (key: string, value: string | null) => { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { setNotice("Der Browser kann den Spielstand nicht speichern. Halte diese Seite geöffnet, bis die Partie beendet ist."); } };
+  const acceptState = useCallback((next: LobbyState) => {
+    if (stateRef.current?.lobby.id === next.lobby.id && stateRef.current.lobby.revision > next.lobby.revision) return;
+    stateRef.current = next; setState(next); setConnected(true);
+  }, []);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+    try {
+      const startup = resolveOnlineGameStartup(window.location.search, localStorage.getItem(SESSION_KEY));
+      setLocalSaved(Boolean(localStorage.getItem(LOCAL_KEY)));
+      if (startup.kind === "resume") setSession(startup.session);
+      if (startup.kind === "join") { setMode("join"); setCode(startup.lobbyId); }
+      if (startup.kind === "local") { const game = loadLocal(); if (game) setLocalGame(game); else setMode("local"); }
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Der letzte Spielstand konnte nicht geladen werden."); }
+    setReady(true);
+    });
+    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(() => {});
+    const hide = () => { if (document.hidden) setUnlocked(null); }; document.addEventListener("visibilitychange", hide);
+    return () => { cancelAnimationFrame(frame); document.removeEventListener("visibilitychange", hide); };
+  }, []);
+  const refresh = useCallback(async (current: GameSession) => {
+    const next = await request<LobbyState>(`/api/catan?lobby=${encodeURIComponent(current.lobbyId)}`, { headers: { Authorization: `Bearer ${current.token}` } });
+    acceptState(next);
+  }, [acceptState]);
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false; let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const next = await request<LobbyState>(`/api/catan?lobby=${encodeURIComponent(session.lobbyId)}`, { headers: { Authorization: `Bearer ${session.token}` } });
+        if (!cancelled) acceptState(next);
+      } catch (error) {
+        if (cancelled) return;
+        setConnected(false);
+        if (error instanceof ApiError && [401, 404].includes(error.status)) {
+          setSession(null); setState(null); stateRef.current = null;
+          store(SESSION_KEY, null); setNotice(error.message); setMode("join"); setCode(session.lobbyId);
+          return;
+        }
+      }
+      if (!cancelled) timer = setTimeout(() => void poll(), 2500);
+    };
+    void poll(); return () => { cancelled = true; clearTimeout(timer); };
+  }, [session, acceptState]);
+  async function enter(kind: "create" | "join") {
+    if (locked.current) return; locked.current = true; setBusy(true); setNotice("");
+    try {
+      const data = await request<ResponseData>("/api/catan", { method: "POST", body: JSON.stringify({ action: kind, playerName, name: groupName, code, targetPoints: target }) });
+      if (data.session && data.state) { store(SESSION_KEY, JSON.stringify(data.session)); acceptState(data.state); setSession(data.session); window.history.replaceState({}, "", `/catan?lobby=${data.session.lobbyId}`); }
+    } catch (error) { setNotice(error instanceof ApiError ? error.message : "Keine Verbindung. Deine Eingaben bleiben erhalten; versuche es erneut."); }
+    finally { locked.current = false; setBusy(false); }
+  }
+  async function post(action: string, extra: Record<string, unknown> = {}): Promise<boolean> {
+    if (locked.current || !session || !stateRef.current) return false;
+    locked.current = true; setBusy(true); setNotice("");
+    try {
+      const data = await request<ResponseData>("/api/catan", { method: "POST", headers: { Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ action, lobbyId: session.lobbyId, revision: stateRef.current.lobby.revision, ...extra }) });
+      if (data.state) acceptState(data.state);
+      if (data.left) { store(SESSION_KEY, null); setSession(null); setState(null); stateRef.current = null; setMode("home"); window.history.replaceState({}, "", "/catan"); }
+      return true;
+    } catch (error) {
+      setNotice(error instanceof ApiError ? error.message : "Die Bestätigung fehlt. Der Spielstand wird neu geladen; prüfe deinen Zug, bevor du ihn erneut sendest.");
+      try { await refresh(session); } catch { setConnected(false); }
+      return false;
+    } finally { locked.current = false; setBusy(false); }
+  }
+  function startLocal() {
+    try {
+      const game = createCatanGame(names.map((name, i) => ({ id: `local-${i}`, name })), target);
+      store(LOCAL_KEY, JSON.stringify(game)); setLocalGame(game); setLocalSaved(true); setUnlocked(null); setNotice("");
+      window.history.replaceState({}, "", "/catan?local=1");
+    } catch (error) { setNotice((error as Error).message); }
+  }
+  async function sendLocal(action: CatanAction) {
+    if (!localGame || locked.current) return false;
+    locked.current = true;
+    try {
+    const next = applyCatanAction(localGame, localActorId(localGame), action);
+      if (localActorId(next) !== localActorId(localGame)) setUnlocked(null);
+      store(LOCAL_KEY, JSON.stringify(next)); setLocalGame(next); return true;
+    } catch (error) { setNotice((error as Error).message); return false; }
+    finally { locked.current = false; }
+  }
+  const actor = localGame ? localActorId(localGame) : null;
+  const isHost = Boolean(state && state.me.id === state.lobby.hostPlayerId);
+  const active = localGame || state?.game;
+  const needsHandoff = localGame && actor && unlocked !== actor && localGame.phase !== "finished";
+  const back = () => { setMode("home"); setNotice(""); window.history.replaceState({}, "", "/catan"); };
+  return <main className={`catan-shell ${active && !needsHandoff ? "catan-shell-wide" : ""}`}>
+    <header className="catan-header"><GameBackLink /><div className="catan-brand"><Flag aria-hidden="true" /><span>CATAN <small>by Gameson</small></span></div><span className={`catan-connection ${!connected && session ? "is-offline" : ""}`}>{localGame || mode === "local" ? "Ein Gerät · lokal" : session ? connected ? "Verbunden" : "Verbindung unterbrochen" : "3–4 Personen"}</span></header>
+    {notice && <div className="catan-notice" role="alert"><p>{notice}</p><Button variant="ghost" size="icon" aria-label="Hinweis schließen" onClick={() => setNotice("")}><X /></Button></div>}
+    {!ready ? <p role="status">Spiel wird geladen …</p> : session && !state ? <section className="catan-panel"><h1>Lobby wird geladen …</h1><p role="status">{connected ? "Deine letzte Partie wird fortgesetzt." : "Die Verbindung fehlt. Wir versuchen es erneut."}</p><Button variant="outline" onClick={() => { setSession(null); back(); }}>Zur Spielauswahl von Catan</Button></section> : needsHandoff ? <section className="catan-handoff">
+      <LockKeyhole aria-hidden="true" /><span className="catan-kicker">Handkarten bleiben geheim</span><h1>Weitergeben an<br /><span style={{ color: PLAYER_COLORS[localGame.players.find((p) => p.id === actor)!.color] }}>{localGame.players.find((p) => p.id === actor)!.name}</span></h1>
+      <p>{localGame.phase === "discard" ? "Du musst Rohstoffe abgeben." : localGame.trade ? "Für dich liegt ein Handelsangebot vor." : "Dein nächster Spielzug wartet."} Nur du schaust auf den Bildschirm.</p>
+      <Button className="catan-primary" onClick={() => setUnlocked(actor)}>Ich bin {localGame.players.find((p) => p.id === actor)!.name}</Button>
+    </section> : active ? <CatanGameUI key={localGame ? `${localGame.id}-${actor}` : state!.game!.id} game={localGame ? catanView(localGame, actor!) : state!.game!} send={localGame ? sendLocal : (move) => post("move", { move })} busy={busy || Boolean(session && !connected)} local={Boolean(localGame)} onHide={() => setUnlocked(null)} onRematch={localGame ? () => { setNames([...localGame.players].sort((a, b) => a.color - b.color).map((p) => p.name)); setTarget(localGame.targetPoints); setLocalGame(null); setMode("local"); store(LOCAL_KEY, null); setLocalSaved(false); } : isHost ? () => void post("reset") : undefined} /> : state ? <>
+      <section className="catan-lobby-heading"><span className="catan-kicker">Eure Catan-Lobby</span><h1>{state.lobby.name}</h1><p>Teilt den Code oder Einladungslink. Startet mit drei oder vier Personen.</p></section>
+      <section className="catan-panel"><div className="catan-section-heading"><h2>Lobbycode</h2><strong className="catan-lobby-code">{state.lobby.id}</strong></div><div className="catan-button-row"><Button variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/catan?lobby=${state.lobby.id}&join=1`); setCopied(true); } catch { setNotice(`Einladungslink: ${window.location.origin}/catan?lobby=${state.lobby.id}&join=1`); } }}><Copy />{copied ? "Link kopiert" : "Einladungslink kopieren"}</Button></div></section>
+      <section className="catan-panel"><div className="catan-section-heading"><h2><Users />Mitspielende</h2><span>{state.members.length} / 4</span></div><ul className="catan-lobby-players">{state.members.map((p, i) => <li key={p.id}><span style={{ background: PLAYER_COLORS[i] }}>{p.name.slice(0, 1)}</span><div><strong>{p.name}{p.id === state.me.id ? " (du)" : ""}</strong>{p.id === state.lobby.hostPlayerId && <small>Spielleitung</small>}</div>{isHost && p.id !== state.me.id && <Button variant="ghost" size="icon" disabled={busy} onClick={() => void post("remove", { playerId: p.id })} aria-label={`${p.name} aus der Lobby entfernen`}><X /></Button>}</li>)}</ul>
+        <TargetPoints value={state.lobby.targetPoints} onChange={(targetPoints) => void post("settings", { targetPoints })} disabled={!isHost || busy} />
+        {isHost ? <Button className="catan-primary" disabled={busy || state.members.length < 3} onClick={() => void post("start")}><Flag />{state.members.length < 3 ? `Noch ${3 - state.members.length} ${state.members.length === 2 ? "Person fehlt" : "Personen fehlen"}` : "Partie starten"}</Button> : <p className="catan-muted">Die Spielleitung startet, sobald alle da sind.</p>}
+      </section><Button variant="ghost" className="catan-leave" disabled={busy} onClick={() => void post("leave")}><LogOut />Lobby verlassen</Button><CatanRules />
+    </> : <>
+      <section className="catan-intro"><span className="catan-kicker">Handel · Strategie · Inselglück</span><h1>Die Siedler<br />von <span>Catan.</span></h1><p>Straßen verbinden. Siedlungen wachsen.<br />Wer erreicht zuerst das Punktziel?</p><div className="catan-intro-meta"><span>3–4 Personen</span><span>60–120 Minuten</span><span>Ab 10 Jahren</span></div></section>
+      {mode === "home" ? <>
+        <GameModes onCreate={() => setMode("create")} onJoin={() => setMode("join")} onLocal={() => setMode("local")} />
+        {localSaved && <Button className="catan-resume" variant="outline" onClick={() => { try { const game = loadLocal(); if (game) { setLocalGame(game); setUnlocked(null); window.history.replaceState({}, "", "/catan?local=1"); } else setLocalSaved(false); } catch (error) { setNotice((error as Error).message); } }}><RotateCcw />Lokale Partie fortsetzen</Button>}
+      </> : <section className="catan-panel catan-setup"><Button variant="ghost" onClick={back}><ArrowLeft />Zurück</Button><h2>{mode === "create" ? "Lobby erstellen" : mode === "join" ? "Lobby beitreten" : "Ein Gerät für alle"}</h2>
+        {mode === "local" ? <><p>Tragt eure Namen ein. Beim Wechsel verdecken wir die Handkarten, bis die nächste Person übernimmt.</p>{names.map((name, i) => <label className="catan-field" key={i}><span>Person {i + 1}</span><div className="catan-name-field"><Input autoComplete="off" maxLength={24} aria-label={`Name von Person ${i + 1}`} value={name} onChange={(e) => setNames(names.map((n, j) => i === j ? e.target.value : n))} placeholder={`Name ${i + 1}`} />{i === 3 && <Button variant="ghost" size="icon" aria-label="Vierte Person entfernen" onClick={() => setNames(names.slice(0, 3))}><X /></Button>}</div></label>)}
+          {names.length < 4 && <Button variant="outline" onClick={() => setNames([...names, ""])}><Plus />Vierte Person hinzufügen</Button>}
+          <TargetPoints value={target} onChange={setTarget} /><Button className="catan-primary" disabled={names.some((name) => !name.trim())} onClick={() => { if (localSaved) setConfirmNew(true); else startLocal(); }}>Partie starten</Button>
+        </> : <form onSubmit={(e) => { e.preventDefault(); void enter(mode as "create" | "join"); }}><label className="catan-field" htmlFor="catan-player-name"><span>Dein Name</span><Input id="catan-player-name" required maxLength={24} autoComplete="nickname" value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Wie heißt du?" /></label>
+          {mode === "create" ? <><label className="catan-field" htmlFor="catan-group-name"><span>Gruppenname</span><Input id="catan-group-name" required minLength={2} maxLength={32} autoComplete="off" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Zum Beispiel: Inselrunde" /></label><TargetPoints value={target} onChange={setTarget} disabled={busy} /></> : <label className="catan-field" htmlFor="catan-join-code"><span>Lobbycode oder Gruppenname</span><Input id="catan-join-code" required maxLength={40} autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code oder Gruppenname" /></label>}
+          <Button type="submit" className="catan-primary" disabled={busy}>{busy ? "Verbindung wird hergestellt …" : mode === "create" ? "Lobby erstellen" : "Beitreten"}</Button>
+        </form>}
+      </section>}
+      <CatanRules />
+    </>}
+    <Dialog open={confirmNew} onOpenChange={setConfirmNew}><DialogContent className="catan-theme catan-dialog"><DialogTitle>Neue lokale Partie starten?</DialogTitle><DialogDescription>Die bisher auf diesem Gerät gespeicherte Catan-Partie wird ersetzt.</DialogDescription><div className="catan-button-row"><Button variant="outline" onClick={() => setConfirmNew(false)}>Abbrechen</Button><Button onClick={() => { setConfirmNew(false); startLocal(); }}>Neue Partie starten</Button></div></DialogContent></Dialog>
+  </main>;
+}
