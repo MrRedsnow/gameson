@@ -61,7 +61,7 @@ export function getSelectionGuidance(phase: WerewolfPhase, names: string[]) {
   return {
     valid: valid || mayPass,
     summary: names.length ? names.join(" & ") : mayPass ? "Diese Nacht ohne Opfer" : "Noch keine Auswahl",
-    instruction: valid || mayPass ? "Noch nicht bestätigt. Tippe auf den blauen Knopf." : needsPair && names.length === 1 ? "Wähle noch eine zweite Person." : needsPair ? "Wähle zuerst zwei Personen." : "Wähle zuerst eine Person aus.",
+    instruction: valid || mayPass ? "Noch nicht bestätigt. Tippe auf den roten Knopf." : needsPair && names.length === 1 ? "Wähle noch eine zweite Person." : needsPair ? "Wähle zuerst zwei Personen." : "Wähle zuerst eine Person aus.",
     buttonLabel: mayPass && !names.length ? "Ohne Opfer bestätigen" : ["mayor_vote", "day_vote", "runoff", "wolves"].includes(phase) ? "Stimme bestätigen" : "Auswahl bestätigen",
   };
 }
