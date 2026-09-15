@@ -1,11 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { BrickWall, Cloud, Mountain, Trees, Wheat, ZoomIn, ZoomOut } from "lucide-react";
+import { BrickWall, Cloud, Mountain, Wheat, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Resource } from "@/lib/catan";
 
-const TerrainIcon = { wood: Trees, brick: BrickWall, wool: Cloud, grain: Wheat, ore: Mountain };
+/** Stacked firewood logs in the Lucide stroke style: wood is the resource, not the forest. */
+export function WoodIcon({ strokeWidth = 2, ...props }: React.SVGProps<SVGSVGElement>) {
+  return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className="catan-wood-icon" {...props}>
+    <circle cx="12" cy="7" r="4.5" /><circle cx="7.5" cy="15.5" r="4.5" /><circle cx="16.5" cy="15.5" r="4.5" />
+    <circle cx="12" cy="7" r="1.4" /><circle cx="7.5" cy="15.5" r="1.4" /><circle cx="16.5" cy="15.5" r="1.4" />
+  </svg>;
+}
+const TerrainIcon = { wood: WoodIcon, brick: BrickWall, wool: Cloud, grain: Wheat, ore: Mountain };
 export function ResourceIcon({ resource }: { resource: Resource }) {
   const Icon = TerrainIcon[resource];
   return <Icon aria-hidden="true" style={{ color: RESOURCE_INFO[resource].color }} />;

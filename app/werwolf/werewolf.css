@@ -391,7 +391,8 @@
   .werewolf-theme .entry-local { display:flex; padding:18px; gap:12px; }
   .werewolf-theme .role-choice-grid { grid-template-columns:minmax(0,1fr); }
   .werewolf-theme .entry-local b { display:none; }
-  .werewolf-theme.wolf-dialog { top:auto; bottom:0; left:0; width:100%; max-width:100%; max-height:calc(100svh - 24px); padding:26px 20px max(24px,env(safe-area-inset-bottom)); border-radius:22px 22px 0 0; translate:none; transform:none; }
+  /* Lightning CSS drops `translate:none` when minifying, so the Tailwind translate variables are reset explicitly as well. */
+  .werewolf-theme.wolf-dialog { top:auto; bottom:0; left:0; width:100%; max-width:100%; max-height:calc(100svh - 24px); padding:26px 20px max(24px,env(safe-area-inset-bottom)); border-radius:22px 22px 0 0; --tw-translate-x:0; --tw-translate-y:0; translate:none; transform:none; }
   .werewolf-theme .player-chip { grid-template-columns:36px minmax(0,1fr) auto 26px; gap:8px; }
   .werewolf-theme .player-chip-copy strong { font-size:.875rem; }
   .werewolf-theme .player-chip:has(.player-remove) .player-presence { grid-column:2/4; grid-row:2; justify-self:start; min-height:20px; }
