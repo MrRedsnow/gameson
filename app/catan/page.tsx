@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { CatanGameUI, CatanRules, TargetPoints } from "@/components/catan/game-ui";
 import { CatanDiceOverlay } from "@/components/catan/dice";
-import { DEFAULT_TARGET_POINTS, PLAYER_COLORS, applyCatanAction, catanView, createCatanGame, localActorId, type CatanAction, type CatanGame, type CatanView } from "@/lib/catan";
+import { DEFAULT_TARGET_POINTS, PLAYER_COLORS, applyCatanAction, catanView, createCatanGame, localActorId, type CatanAction, type CatanGame, type CatanView, type Resources } from "@/lib/catan";
 import { describeLobby, resolveOnlineGameStartup, type GameSession } from "@/lib/game-session";
 
 const SESSION_KEY = "gameson-catan-session-v1";
@@ -35,6 +35,7 @@ export default function CatanPage() {
   const [mode, setMode] = useState<EntryMode>("home"); const [ready, setReady] = useState(false);
   const [session, setSession] = useState<GameSession | null>(null); const [state, setState] = useState<LobbyState | null>(null);
   const [localGame, setLocalGame] = useState<CatanGame | null>(null); const [localSaved, setLocalSaved] = useState(false); const [unlocked, setUnlocked] = useState<string | null>(null);
+  const [localTradeReceipts, setLocalTradeReceipts] = useState<{ playerId: string; resourcesBefore: Resources }[]>([]);
   const [notice, setNotice] = useState(""); const [busy, setBusy] = useState(false); const [connected, setConnected] = useState(true);
   const [playerName, setPlayerName] = useState(""); const [groupName, setGroupName] = useState(""); const [code, setCode] = useState("");
   const [names, setNames] = useState(["", "", ""]); const [target, setTarget] = useState(DEFAULT_TARGET_POINTS);
@@ -135,18 +136,28 @@ export default function CatanPage() {
     } catch (error) { setNotice((error as Error).message); }
   }
   async function sendLocal(action: CatanAction) {
-    if (!localGame || locked.current) return false;
+    if (!localGame || locked.current || localTradeReceipts.length) return false;
     locked.current = true;
     try {
     const next = applyCatanAction(localGame, localActorId(localGame), action);
-      if (localActorId(next) !== localActorId(localGame)) setUnlocked(null);
+      if (action.type === "accept_trade" && localGame.trade) {
+        // Let the accepting player collect first, then privately show the other
+        // player's receipt before returning the device to the active player.
+        setLocalTradeReceipts([localGame.trade.toId, localGame.trade.fromId].map((playerId) => ({ playerId, resourcesBefore: localGame.players.find((player) => player.id === playerId)!.resources })));
+      } else if (localActorId(next) !== localActorId(localGame)) setUnlocked(null);
       store(LOCAL_KEY, JSON.stringify(next)); setLocalGame(next); return true;
     } catch (error) { setNotice((error as Error).message); return false; }
     finally { locked.current = false; }
   }
   const resumeStoredSession = () => { if (!storedSession) return; setStoredSession(null); setStoredLobby(undefined); setSession(storedSession); window.history.replaceState({}, "", `/catan?lobby=${storedSession.lobbyId}`); };
   const discardStoredSession = () => { store(SESSION_KEY, null); setStoredSession(null); setStoredLobby(undefined); };
-  const actor = localGame ? localActorId(localGame) : null;
+  const localReceipt = localTradeReceipts[0];
+  const actor = localGame ? localReceipt?.playerId ?? localActorId(localGame) : null;
+  const finishLocalTradeReceipt = () => {
+    const remaining = localTradeReceipts.slice(1);
+    setLocalTradeReceipts(remaining);
+    if (localGame && (remaining[0]?.playerId ?? localActorId(localGame)) !== actor) setUnlocked(null);
+  };
   const isHost = Boolean(state && state.me.id === state.lobby.hostPlayerId);
   const inviteUrl = state && typeof window !== "undefined" ? `${window.location.origin}/catan?lobby=${state.lobby.id}&join=1` : "";
   const selectedLobby = mode === "join" ? nearby.find((item) => item.id === code) : undefined;
@@ -158,9 +169,9 @@ export default function CatanPage() {
     {notice && <div className="catan-notice" role="alert"><p>{notice}</p><Button variant="ghost" size="icon" aria-label="Hinweis schließen" onClick={() => setNotice("")}><X /></Button></div>}
     {!ready ? <p role="status">Spiel wird geladen …</p> : session && !state ? <section className="catan-panel"><h1>Lobby wird geladen …</h1><p role="status">{connected ? "Deine letzte Partie wird fortgesetzt." : "Die Verbindung fehlt. Wir versuchen es erneut."}</p><Button variant="outline" onClick={() => { setSession(null); back(); }}>Zur Spielauswahl von Catan</Button></section> : needsHandoff ? <section className="catan-handoff">
       <LockKeyhole aria-hidden="true" /><span className="catan-kicker">Handkarten bleiben geheim</span><h1>Weitergeben an<br /><span style={{ color: PLAYER_COLORS[localGame.players.find((p) => p.id === actor)!.color] }}>{localGame.players.find((p) => p.id === actor)!.name}</span></h1>
-      <p>{localGame.phase === "discard" ? "Du musst Rohstoffe abgeben." : localGame.trade ? "Für dich liegt ein Handelsangebot vor." : "Dein nächster Spielzug wartet."} Nur du schaust auf den Bildschirm.</p>
+      <p>{localReceipt ? "Dein Handel ist abgeschlossen. Schau dir deine erhaltenen Rohstoffe an." : localGame.phase === "discard" ? "Du musst Rohstoffe abgeben." : localGame.trade ? "Für dich liegt ein Handelsangebot vor." : "Dein nächster Spielzug wartet."} Nur du schaust auf den Bildschirm.</p>
       <Button className="catan-primary" onClick={() => setUnlocked(actor)}>Ich bin {localGame.players.find((p) => p.id === actor)!.name}</Button>
-    </section> : active ? <CatanGameUI key={localGame ? `${localGame.id}-${actor}` : state!.game!.id} game={localGame ? catanView(localGame, actor!) : state!.game!} send={localGame ? sendLocal : (move) => post("move", { move })} busy={busy || Boolean(session && !connected)} local={Boolean(localGame)} onHide={() => setUnlocked(null)} onRematch={localGame ? () => { setNames([...localGame.players].sort((a, b) => a.color - b.color).map((p) => p.name)); setTarget(localGame.targetPoints); setLocalGame(null); setMode("local"); store(LOCAL_KEY, null); setLocalSaved(false); } : isHost ? () => void post("reset") : undefined} /> : state ? <>
+    </section> : active ? <CatanGameUI key={localGame ? `${localGame.id}-${actor}` : state!.game!.id} game={localGame ? catanView(localGame, actor!) : state!.game!} send={localGame ? sendLocal : (move) => post("move", { move })} busy={busy || Boolean(localReceipt) || Boolean(session && !connected)} local={Boolean(localGame)} initialResources={localReceipt?.resourcesBefore} onResourcesCollected={localReceipt ? finishLocalTradeReceipt : undefined} onHide={() => setUnlocked(null)} onRematch={localGame ? () => { setNames([...localGame.players].sort((a, b) => a.color - b.color).map((p) => p.name)); setTarget(localGame.targetPoints); setLocalGame(null); setMode("local"); store(LOCAL_KEY, null); setLocalSaved(false); } : isHost ? () => void post("reset") : undefined} /> : state ? <>
       <section className="catan-lobby-heading"><span className="catan-kicker">Eure Catan-Lobby</span><h1>{state.lobby.name}</h1><p>Teilt den Code oder Einladungslink. Startet mit drei oder vier Personen.</p></section>
       <LobbyToolbar onInvite={() => setInviteOpen(true)} onSettings={isHost ? () => setSettingsOpen(true) : undefined} busy={busy} />
       <section className="catan-panel"><div className="catan-section-heading"><h2><Users />Mitspielende</h2><span>{state.members.length} / 4</span></div><ul className="catan-lobby-players">{state.members.map((p, i) => <li key={p.id}><span style={{ background: PLAYER_COLORS[i] }}>{p.name.slice(0, 1)}</span><div><strong>{p.name}{p.id === state.me.id ? " (du)" : ""}</strong>{p.id === state.lobby.hostPlayerId && <small>Spielleitung</small>}</div>{isHost && p.id !== state.me.id && <Button variant="ghost" size="icon" disabled={busy} onClick={() => void post("remove", { playerId: p.id })} aria-label={`${p.name} aus der Lobby entfernen`}><X /></Button>}</li>)}</ul>

@@ -14,19 +14,21 @@ function snapshotOf(game: CatanView): Snapshot {
 }
 
 /** Delay only the visible hand, never the authoritative game or its saved state. */
-export function useResourceRewards(game: CatanView) {
+export function useResourceRewards(game: CatanView, initialResources?: Resources) {
   const snapshot = snapshotOf(game);
-  const [presentation, setPresentation] = useState<Presentation>(() => ({ snapshot, reward: null, pending: emptyResources(), arrivals: 0 }));
+  const [presentation, setPresentation] = useState<Presentation>(() => ({ snapshot: initialResources ? { ...snapshot, resources: initialResources } : snapshot, reward: null, pending: emptyResources(), arrivals: 0 }));
   const previous = presentation.snapshot;
   if (previous.player !== snapshot.player || previous.turn !== snapshot.turn || previous.roll !== snapshot.roll || RESOURCES.some((resource) => previous.resources[resource] !== snapshot.resources[resource])) {
     const gains = emptyResources();
-    const newRoll = previous.player === snapshot.player && snapshot.roll && previous.roll !== snapshot.roll && game.dice![0] + game.dice![1] !== 7;
-    if (newRoll && typeof document !== "undefined" && !document.hidden) {
+    // Every confirmed resource gain uses the same collection animation, including
+    // bank/harbor trades and either side of an accepted player trade.
+    if (previous.player === snapshot.player && typeof document !== "undefined" && !document.hidden) {
       for (const resource of RESOURCES) gains[resource] = Math.max(0, snapshot.resources[resource] - previous.resources[resource]);
     }
     // Polls with identical hands keep the flight. A changed hand/turn cancels an
-    // obsolete flight so trades, discards and reconnects cannot leave stale counts.
-    setPresentation({ snapshot, reward: resourceCount(gains) ? { id: `${snapshot.player}:${snapshot.roll}`, gains } : null, pending: gains, arrivals: 0 });
+    // obsolete flight so later actions and reconnects cannot leave stale counts.
+    // The action sequence distinguishes multiple trades within the same roll.
+    setPresentation({ snapshot, reward: resourceCount(gains) ? { id: `${snapshot.player}:${game.sequence}`, gains } : null, pending: gains, arrivals: 0 });
   }
   const collect = useCallback((id: string, resource?: Resource) => {
     setPresentation((current) => {

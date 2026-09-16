@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRightLeft, BookOpen, Castle, Dices, Flag, Hammer, Hand, Landmark, LockKeyhole, Map as MapIcon, Route, ScrollText, Shield, Trophy, Users, WalletCards, type LucideIcon } from "lucide-react";
 import { Tabs as TabsPrimitive } from "radix-ui";
 import { Button } from "@/components/ui/button";
@@ -181,11 +181,15 @@ function Section({ title, Icon, aside, className = "", children }: { title: stri
   return <section className={`catan-section ${className}`}><div className="catan-section-heading"><h2><Icon aria-hidden="true" />{title}</h2>{aside}</div>{children}</section>;
 }
 
-export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematch }: { game: CatanView; send: Send; busy: boolean; local: boolean; onHide?: () => void; onRematch?: () => void }) {
+export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematch, initialResources, onResourcesCollected }: {
+  game: CatanView; send: Send; busy: boolean; local: boolean; onHide?: () => void; onRematch?: () => void;
+  initialResources?: Resources; onResourcesCollected?: () => void;
+}) {
   const [build, setBuild] = useState<BoardMode>(null); const [selection, setSelection] = useState<{ mode: BoardMode; id: number; phase: string; turn: number } | null>(null);
   const [choice, setChoice] = useState<{ key: string; tab: CatanTab } | null>(null);
   const cardsTarget = useRef<HTMLSpanElement>(null);
-  const { resources, reward, arrivals, collect } = useResourceRewards(game);
+  const { resources, reward, arrivals, collect } = useResourceRewards(game, initialResources);
+  useEffect(() => { if (!reward) onResourcesCollected?.(); }, [reward, onResourcesCollected]);
   const busy = sending || Boolean(reward);
   const me = game.me!; const isTurn = game.players[game.currentPlayer].id === me.id; const guidance = turnGuidance(game);
   const key = tabKey(game); const tab = choice && choice.key === key ? choice.tab : suggestedTab(game);
