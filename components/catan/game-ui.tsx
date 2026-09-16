@@ -55,6 +55,32 @@ function ResourcePicker({ label, value, maximum, onChange, disabled }: { label: 
 }
 function BagText({ bag }: { bag: Resources }) { return <span>{RESOURCES.filter((r) => bag[r]).map((r) => `${bag[r]} ${RESOURCE_INFO[r].label}`).join(", ")}</span>; }
 
+function TradeInventoryPreview({ resources, give, receive, label = "Dein Bestand", unavailable }: {
+  resources: Resources; give: Partial<Resources>; receive: Partial<Resources>; label?: string; unavailable?: string;
+}) {
+  const missing = RESOURCES.filter((r) => resources[r] < (give[r] ?? 0));
+  const reason = unavailable || (missing.length ? `Dir fehlen ${missing.map((r) => `${(give[r] ?? 0) - resources[r]} ${RESOURCE_INFO[r].label}`).join(", ")}.` : undefined);
+  return <section className="catan-trade-preview" aria-label={label}>
+    <h3>{label}</h3>
+    <table>
+      <caption className="sr-only">Deine Rohstoffe vor und nach dem Handel</caption>
+      <thead><tr><td />{RESOURCES.map((r) => <th scope="col" key={r} title={RESOURCE_INFO[r].label}><ResourceIcon resource={r} /><span className="catan-trade-resource-label">{RESOURCE_INFO[r].label}</span></th>)}</tr></thead>
+      <tbody>
+        <tr><th scope="row">Jetzt</th>{RESOURCES.map((r) => <td key={r}>{resources[r]}</td>)}</tr>
+        <tr><th scope="row">Danach</th>{RESOURCES.map((r) => {
+          const change = (receive[r] ?? 0) - (give[r] ?? 0);
+          return <td key={r} className={!reason && change ? change > 0 ? "is-gain" : "is-loss" : undefined}>
+            <strong>{reason ? <><span aria-hidden="true">—</span><span className="sr-only">Nicht möglich</span></> : resources[r] + change}</strong>
+            {!reason && <small>{change ? `${change > 0 ? "+" : "−"}${Math.abs(change)}` : <><span aria-hidden="true">±0</span><span className="sr-only">unverändert</span></>}</small>}
+          </td>;
+        })}</tr>
+      </tbody>
+    </table>
+    {reason && <p className="catan-trade-preview-hint">{reason}</p>}
+    <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{reason || `Nach dem Handel: ${RESOURCES.map((r) => `${resources[r] - (give[r] ?? 0) + (receive[r] ?? 0)} ${RESOURCE_INFO[r].label}`).join(", ")}.`}</span>
+  </section>;
+}
+
 function Discard({ game, send, busy }: { game: CatanView; send: Send; busy: boolean }) {
   const [bag, setBag] = useState(emptyResources()); const needed = game.discards[game.me!.id];
   return <section className="catan-panel catan-discard"><h2>Rohstoffe abgeben</h2><p>Wähle genau <strong>{needed}</strong> Karten. Entwicklungskarten zählen nicht mit.</p>
@@ -73,18 +99,21 @@ export function TradePanel({ game, send, busy }: { game: CatanView; send: Send; 
   return <div className="catan-trade-panel">
     {!open && <p className="catan-muted">Gehandelt wird in der Handels- und Bauphase, also nachdem gewürfelt wurde.</p>}
     {offer && <section className="catan-offer" aria-label="Aktuelles Handelsangebot"><strong>{game.players.find((p) => p.id === offer.fromId)!.name} → {game.players.find((p) => p.id === offer.toId)!.name}</strong>
+      {[offer.fromId, offer.toId].includes(me.id) && <TradeInventoryPreview resources={me.resources} give={offer.fromId === me.id ? offer.give : offer.receive} receive={offer.fromId === me.id ? offer.receive : offer.give} label="Dein Bestand bei Annahme" />}
       <p>Gibt <BagText bag={offer.give} /><br />Möchte <BagText bag={offer.receive} /></p>
       <div className="catan-button-row">{offer.toId === me.id && <Button disabled={busy || !open || !canAfford(me.resources, offer.receive)} onClick={() => void send({ type: "accept_trade", offerId: offer.id })}>Handel annehmen</Button>}
         {[offer.fromId, offer.toId, active.id].includes(me.id) && <Button variant="outline" disabled={busy || !open} onClick={() => void send({ type: "cancel_trade", offerId: offer.id })}>{offer.fromId === me.id ? "Zurückziehen" : "Ablehnen"}</Button>}</div>
       {offer.toId === me.id && !canAfford(me.resources, offer.receive) && <p className="catan-muted">Dir fehlen die gewünschten Rohstoffe. Du kannst ablehnen oder ein Gegenangebot machen.</p>}
     </section>}
     <Tabs defaultValue={offer || !isTurn ? "players" : "bank"}><TabsList className="catan-tabs"><TabsTrigger value="bank">Bank &amp; Häfen</TabsTrigger><TabsTrigger value="players">Mitspielende</TabsTrigger></TabsList>
-      <TabsContent value="bank"><p className="catan-muted">Dein Kurs für {RESOURCE_INFO[give].label}: <strong>{ratio}:1</strong></p>
+      <TabsContent value="bank"><TradeInventoryPreview resources={me.resources} give={{ [give]: ratio }} receive={{ [receive]: 1 }} unavailable={give === receive ? "Wähle zwei unterschiedliche Rohstoffarten." : !game.bank[receive] ? `Die Bank hat kein ${RESOURCE_INFO[receive].label} mehr.` : undefined} />
+        <p className="catan-muted">Dein Kurs für {RESOURCE_INFO[give].label}: <strong>{ratio}:1</strong></p>
         <div className="catan-two-fields"><ResourceSelect label={`Ich gebe ${ratio}`} value={give} onChange={setGive} disabled={busy} /><ResourceSelect label="Ich erhalte 1" value={receive} onChange={setReceive} disabled={busy} /></div>
         <Button className="catan-primary" disabled={busy || !isTurn || !open || give === receive || me.resources[give] < ratio || !game.bank[receive]} onClick={() => void send({ type: "bank_trade", give, receive })}><ArrowRightLeft />{ratio}:1 tauschen</Button>
         {!isTurn && <p className="catan-muted">Mit der Bank handelst du nur im eigenen Zug.</p>}
       </TabsContent>
-      <TabsContent value="players"><div className="catan-field"><span>Handel mit</span><Select value={selectedTo} onValueChange={setToId} disabled={busy}><SelectTrigger aria-label="Handel mit"><SelectValue /></SelectTrigger><SelectContent className="catan-select">{recipients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+      <TabsContent value="players"><TradeInventoryPreview resources={me.resources} give={offered} receive={wanted} label={offer?.toId === me.id ? "Dein Bestand beim Gegenangebot" : "Dein Bestand für dein Angebot"} unavailable={RESOURCES.some((r) => offered[r] && wanted[r]) ? "Wähle unterschiedliche Rohstoffarten zum Geben und Erhalten." : undefined} />
+        <div className="catan-field"><span>Handel mit</span><Select value={selectedTo} onValueChange={setToId} disabled={busy}><SelectTrigger aria-label="Handel mit"><SelectValue /></SelectTrigger><SelectContent className="catan-select">{recipients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
         <ResourcePicker label="Ich gebe" value={offered} maximum={me.resources} onChange={setOffered} disabled={busy} />
         <ResourcePicker label="Ich möchte" value={wanted} maximum={emptyResources(19)} onChange={setWanted} disabled={busy} />
         <Button className="catan-primary" disabled={busy || !open || !selectedTo || !resourceCount(offered) || !resourceCount(wanted) || !canAfford(me.resources, offered) || RESOURCES.some((r) => offered[r] && wanted[r]) || Boolean(offer && ![offer.fromId, offer.toId].includes(me.id))} onClick={async () => { if (await send({ type: "offer_trade", toId: selectedTo, give: offered, receive: wanted })) { setOffered(emptyResources()); setWanted(emptyResources()); } }}>{offer?.toId === me.id ? "Gegenangebot senden" : "Handel anbieten"}</Button>

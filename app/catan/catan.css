@@ -180,6 +180,29 @@
 .catan-offer { background:#384237; padding:16px; border:1px solid #baa371; border-radius:12px; margin-bottom:16px; }
 .catan-offer strong { color:#f3d497; }
 .catan-offer p { margin:12px 0; }
+.catan-trade-preview { margin:0 0 16px; padding:12px 8px 8px; border:1px solid #48636d; border-radius:10px; background:#132730; }
+.catan-trade-preview h3 { margin:0 4px 8px; color:#e8d3a8; font-size:.875rem; font-weight:700; }
+.catan-trade-preview table { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:4px 5px; text-align:center; font-variant-numeric:tabular-nums; }
+.catan-trade-preview thead td { width:58px; }
+.catan-trade-preview thead th { padding:0 0 4px; font-weight:400; }
+.catan-trade-preview thead svg { width:24px; height:24px; margin:0 auto 5px; }
+.catan-trade-resource-label { display:block; color:#c5d0d0; font-size:.75rem; }
+.catan-trade-preview tbody th { padding:6px 0; color:#b9c9ce; text-align:left; font-size:.875rem; font-weight:500; }
+.catan-trade-preview tbody td { padding:5px 0; border-radius:6px; color:#dfe8e7; font-size:1.125rem; }
+.catan-trade-preview tbody tr:last-child th { color:#f7efdf; font-weight:700; }
+.catan-trade-preview td strong { display:block; color:inherit; font-size:1.25rem; line-height:1.3; }
+.catan-trade-preview td small { display:block; color:#9eafb5; font-size:.75rem; line-height:1.4; }
+.catan-trade-preview td.is-gain { background:#28483d; color:#a9e6bb; }
+.catan-trade-preview td.is-loss { background:#493431; color:#ffc0a3; }
+.catan-trade-preview td.is-gain small, .catan-trade-preview td.is-loss small { color:inherit; }
+.catan-theme .catan-trade-preview-hint { margin:8px 4px 4px; color:#f4c593; font-size:.875rem; line-height:1.45; }
+.catan-offer .catan-trade-preview { margin-top:14px; }
+.catan-trade-panel [data-slot=tabs-content]>.catan-trade-preview { position:sticky; top:12px; z-index:5; box-shadow:0 8px 16px #0003; }
+@media(max-width:400px) {
+  .catan-trade-resource-label { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .catan-trade-preview { padding-inline:4px; }
+  .catan-trade-preview thead td { width:52px; }
+}
 .catan-resource-picker { border:0; padding:0; margin:20px 0; }
 .catan-resource-picker legend { margin-bottom:12px; font-size:.9375rem; font-weight:700; color:#e8d3a8; }
 .catan-resource-picker>div { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px 0; }
