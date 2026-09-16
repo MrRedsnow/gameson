@@ -89,9 +89,6 @@
 .slf-avatar[data-color="1"] { background:#f2e8c7; color:#876837; }
 .slf-avatar[data-color="2"] { background:#dcebee; color:#467986; }
 .slf-avatar[data-color="3"] { background:#efdfd8; color:#965f52; }
-.slf-invite { margin-top:25px; padding-top:18px; border-top:1px dashed #bdc9b8; display:grid; gap:8px; }
-.slf-invite>span { font-size:.75rem; color:#586e62; }
-.slf-invite>strong { font-size:2rem; letter-spacing:.18em; font-weight:750; }
 .slf-switch { display:flex; align-items:center; gap:18px; justify-content:space-between; padding:18px 0; font-size:.8125rem; }
 .slf-switch>span { display:grid; gap:4px; }
 .slf-switch small { color:#586e62; font-weight:400; }
@@ -101,8 +98,8 @@
 .slf-category-chips small { color:#78846b; font-size:.625rem; }
 .slf-rule-summary { display:flex; flex-wrap:wrap; gap:18px; border-top:1px dashed #bdc9b8; padding-top:18px; margin-top:24px; font-size:.875rem; }
 .slf-waiting { padding:16px 0; color:#586e62; font-size:.875rem; }
-.slf-leave { color:#586e62; margin-bottom:20px; }
-.slf-theme .slf-dialog { border-radius:16px; background:#f4f3ec; max-width:580px; max-height:calc(100dvh - 32px); min-height:0; overflow-y:auto; padding:26px; }
+/* Shape and position come from the shared .game-dialog; the paper only adds its own colours. */
+.slf-theme.slf-dialog { min-height:0; background:#f4f3ec; border-color:var(--border); }
 .slf-dialog [data-slot=dialog-title] { font-size:1.4rem; line-height:1.25; }
 .slf-dialog [data-slot=dialog-description] { color:#586e62; font-size:.875rem; line-height:1.6; }
 .slf-settings-form fieldset { margin-top:22px; border:0; padding:0; min-width:0; }

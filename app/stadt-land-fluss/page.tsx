@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Copy, DoorOpen, LogOut, PencilLine, Plus, Settings2, Users, X } from "lucide-react";
-import { GameBackLink, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
+import { ArrowLeft, ArrowRight, Check, DoorOpen, LogOut, PencilLine, Plus, Settings2, Users, X } from "lucide-react";
+import { ConfirmDialog, GameBackLink, GameDialog, LobbyInviteDialog, LobbyLeaveButton, LobbyToolbar, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { SlfAnswerSheet, SlfReview, SlfRules, SlfScoreboard, SlfSettingsForm, SlfTimerBar, SlfTimerDialog, useServerNow, type ServerClock } from "@/components/stadt-land-fluss/game-ui";
 import { describeLobby, resolveOnlineGameStartup, type GameSession } from "@/lib/game-session";
 import { DEFAULT_COLUMNS, DEFAULT_TIMER_SECONDS, formatTime, type SlfState } from "@/lib/stadt-land-fluss";
@@ -30,10 +29,11 @@ export default function StadtLandFlussPage() {
   const [clock, setClock] = useState<ServerClock>({ server: 0, at: 0 }); const now = useServerNow(clock);
   const [connected, setConnected] = useState(true); const [notice, setNotice] = useState(""); const [busy, setBusy] = useState(false);
   const [playerName, setPlayerName] = useState(""); const [groupName, setGroupName] = useState(""); const [code, setCode] = useState("");
-  const [settingsOpen, setSettingsOpen] = useState(false); const [timerOpen, setTimerOpen] = useState(false); const [copied, setCopied] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false); const [timerOpen, setTimerOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false); const [leaveOpen, setLeaveOpen] = useState(false);
   const [nearby, setNearby] = useState<Nearby[]>([]); const [storedSession, setStoredSession] = useState<GameSession | null>(null); const [storedLobby, setStoredLobby] = useState<ResumeLobbyInfo | null | undefined>();
   const latest = useRef<SlfState | null>(null); const locked = useRef(false); const activeSession = useRef<GameSession | null>(null);
-  const lastContact = useRef(0); const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lastContact = useRef(0);
   const store = useCallback((value: GameSession | null) => {
     try { if (value) localStorage.setItem(SESSION_KEY, JSON.stringify(value)); else localStorage.removeItem(SESSION_KEY); }
     catch { setNotice("Dein Browser kann die Lobby nicht speichern. Lass die Seite während des Spiels geöffnet."); }
@@ -56,7 +56,7 @@ export default function StadtLandFlussPage() {
       setReady(true);
     });
     if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
-    return () => { cancelAnimationFrame(frame); clearTimeout(copyTimer.current); };
+    return () => cancelAnimationFrame(frame);
   }, []);
   useEffect(() => {
     if (!session) return;
@@ -118,11 +118,7 @@ export default function StadtLandFlussPage() {
       return false;
     } finally { if (!quiet) { locked.current = false; setBusy(false); } }
   }, [acceptState, store]);
-  async function copyInvite() {
-    if (!state) return; const link = `${location.origin}/stadt-land-fluss?lobby=${state.lobby.id}`;
-    try { await navigator.clipboard.writeText(link); setCopied(true); clearTimeout(copyTimer.current); copyTimer.current = setTimeout(() => setCopied(false), 2500); }
-    catch { setNotice(`Einladungslink: ${link}`); }
-  }
+  const inviteUrl = state && typeof window !== "undefined" ? `${location.origin}/stadt-land-fluss?lobby=${state.lobby.id}` : "";
   const game = state?.game; const isHost = !!state && state.me.id === state.lobby.hostPlayerId;
   const resumeStoredSession = () => { if (!storedSession) return; activeSession.current = storedSession; setSession(storedSession); setStoredSession(null); setStoredLobby(undefined); window.history.replaceState({}, "", `/stadt-land-fluss?lobby=${storedSession.lobbyId}`); };
   const discardStoredSession = () => { store(null); setStoredSession(null); setStoredLobby(undefined); };
@@ -134,13 +130,13 @@ export default function StadtLandFlussPage() {
       {!connected && <div className="slf-offline" role="status">Verbindung unterbrochen. Wir verbinden dich erneut. Der Timer läuft weiter; nur rechtzeitig gespeicherte Antworten zählen.</div>}
       {!game ? <>
         <section className="slf-lobby-heading"><span className="slf-kicker">Gleich geht’s los</span><h1>{state.lobby.name}</h1><p>{isHost ? "Du bist der Lobby-Master. Lade deine Gruppe ein und lege eure Spalten fest." : "Der Lobby-Master legt die Spalten fest und startet das Spiel."}</p></section>
+        <LobbyToolbar onInvite={() => setInviteOpen(true)} onSettings={isHost ? () => setSettingsOpen(true) : undefined} busy={busy} />
         <div className="slf-lobby-grid"><section className="slf-panel"><div className="slf-section-heading"><h2><Users aria-hidden="true" />Eure Runde</h2><span>{state.members.length} / 22</span></div>
           <ul className="slf-lobby-players">{state.members.map((p, i) => <li key={p.id}><span className="slf-avatar" data-color={i % 4}>{p.name.slice(0, 1).toUpperCase()}</span><div><strong>{p.name}{p.id === state.me.id && " (du)"}</strong><small>{p.id === state.lobby.hostPlayerId ? "Lobby-Master" : "Mit dabei"}</small></div>{isHost && p.id !== state.me.id && <Button type="button" size="icon" variant="ghost" disabled={busy} aria-label={`${p.name} entfernen`} onClick={() => void send("remove", { playerId: p.id })}><X aria-hidden="true" /></Button>}</li>)}</ul>
-          <div className="slf-invite"><span>Lobbycode</span><strong>{state.lobby.id}</strong><Button type="button" variant="outline" onClick={() => void copyInvite()}>{copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}{copied ? "Kopiert" : "Einladungslink kopieren"}</Button></div>
-          {isHost && <label className="slf-switch" htmlFor="slf-discoverable"><span>Lobby in der Nähe anzeigen</span><Switch id="slf-discoverable" checked={state.lobby.discoverable} disabled={busy} onCheckedChange={(discoverable) => void send("settings", { discoverable })} aria-label="Lobby in der Nähe anzeigen" /></label>}
-        </section><section className="slf-panel"><div className="slf-section-heading"><h2><Settings2 aria-hidden="true" />Eure Spielregeln</h2>{isHost && <Button type="button" variant="ghost" onClick={() => setSettingsOpen(true)}>Bearbeiten</Button>}</div><div className="slf-category-chips">{state.lobby.settings.columns.map((column, i) => <span key={column}><small>{i + 1}</small>{column}</span>)}</div><div className="slf-rule-summary"><span>{state.lobby.settings.rounds} Runden</span><span>{state.lobby.settings.timerSeconds === null ? "Ohne Zeitlimit" : `${formatTime(state.lobby.settings.timerSeconds)} pro Runde`}</span></div>
+        </section><section className="slf-panel"><div className="slf-section-heading"><h2><Settings2 aria-hidden="true" />Eure Spielregeln</h2>{isHost && <Button type="button" variant="outline" onClick={() => setSettingsOpen(true)}><Settings2 aria-hidden="true" />Bearbeiten</Button>}</div><div className="slf-category-chips">{state.lobby.settings.columns.map((column, i) => <span key={column}><small>{i + 1}</small>{column}</span>)}</div><div className="slf-rule-summary"><span>{state.lobby.settings.rounds} Runden</span><span>{state.lobby.settings.timerSeconds === null ? "Ohne Zeitlimit" : `${formatTime(state.lobby.settings.timerSeconds)} pro Runde`}</span></div>
           {isHost ? <><Button type="button" className="slf-primary" disabled={busy || state.members.length < 2 || !connected} onClick={() => void send("start")}>Spiel starten<ArrowRight aria-hidden="true" /></Button>{state.members.length < 2 && <p className="slf-small slf-muted">Noch eine Person, dann könnt ihr starten.</p>}</> : <p className="slf-waiting">Warte auf den Start durch den Lobby-Master …</p>}
-        </section></div><Button type="button" className="slf-leave" variant="ghost" disabled={busy} onClick={() => void send("leave")}><LogOut aria-hidden="true" />Lobby verlassen</Button>
+        </section></div><LobbyLeaveButton busy={busy} onClick={() => setLeaveOpen(true)} />
+        {inviteOpen && <LobbyInviteDialog theme="slf" name={state.lobby.name} code={state.lobby.id} codeLabel="Lobbycode" url={inviteUrl} onClose={() => setInviteOpen(false)} onError={() => setNotice(`Einladungslink: ${inviteUrl}`)} />}
       </> : <>
         {game.phase === "writing" ? <SlfAnswerSheet key={game.round.id} game={game} meId={state.me.id} now={now} send={send} connected={connected} isHost={isHost} /> : <>
           {(game.phase === "results" || game.phase === "finished") && <><div className="slf-results-heading"><span className="slf-kicker">{game.phase === "finished" ? "Das war eure Partie" : "Runde geschafft"}</span><h1>{game.phase === "finished" ? "Wer hat die besten Wörter?" : "Jedes Wort zählt."}</h1></div><SlfScoreboard game={game} />
@@ -165,6 +161,10 @@ export default function StadtLandFlussPage() {
     </>}
     {storedSession && <ResumeSessionDialog theme="slf" lobby={storedLobby} onResume={resumeStoredSession} onDiscard={discardStoredSession} />}
     {state && timerOpen && isHost && <SlfTimerDialog key={state.game?.round.id ?? "lobby"} state={state} send={send} busy={busy} onClose={() => setTimerOpen(false)} />}
-    <Dialog open={settingsOpen && isHost} onOpenChange={setSettingsOpen}><DialogContent className="slf-theme slf-dialog"><DialogTitle>Eure Spielregeln</DialogTitle><DialogDescription>Legt eure Spalten und das Tempo fest. Änderungen gelten für die nächste Runde.</DialogDescription>{state && <SlfSettingsForm key={JSON.stringify(state.lobby.settings)} value={state.lobby.settings} busy={busy} roundsLocked={!!game} onSave={(settings) => send("settings", { settings }).then((ok) => { if (ok) setSettingsOpen(false); return ok; })} />}</DialogContent></Dialog>
+    {settingsOpen && isHost && state && <GameDialog theme="slf" kicker="Einstellungen" title="Eure Spielregeln" description="Legt eure Spalten und das Tempo fest. Änderungen gelten für die nächste Runde." busy={busy} closeLabel="Einstellungen schließen" onClose={() => setSettingsOpen(false)}>
+      <label className="slf-switch" htmlFor="slf-discoverable"><span>Lobby in der Nähe anzeigen</span><Switch id="slf-discoverable" checked={state.lobby.discoverable} disabled={busy} onCheckedChange={(discoverable) => void send("settings", { discoverable })} aria-label="Lobby in der Nähe anzeigen" /></label>
+      <SlfSettingsForm key={JSON.stringify(state.lobby.settings)} value={state.lobby.settings} busy={busy} roundsLocked={!!game} onSave={(settings) => send("settings", { settings }).then((ok) => { if (ok) setSettingsOpen(false); return ok; })} />
+    </GameDialog>}
+    {leaveOpen && <ConfirmDialog theme="slf" title="Lobby verlassen?" description={isHost ? "Du gibst deinen Platz frei. Die Lobby-Leitung geht an die nächste Person in der Runde." : "Du gibst deinen Platz frei. Über den Lobbycode kannst du jederzeit wieder beitreten."} confirmLabel="Lobby verlassen" cancelLabel="In der Lobby bleiben" confirmIcon={<LogOut aria-hidden="true" />} busy={busy} onCancel={() => setLeaveOpen(false)} onConfirm={() => { setLeaveOpen(false); void send("leave"); }} />}
   </main>;
 }

@@ -1,8 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import QRCode from "qrcode";
-import { GameBackLink, GameModes, GameRules, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
+import { ConfirmDialog, GameBackLink, GameDialog, GameModes, GameRules, LobbyInviteDialog, LobbyLeaveButton, LobbyToolbar, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
 import { ArrowLeft, ArrowUpRight, AudioLines, Check, ChevronRight, Crown, DoorOpen, Eye, LockKeyhole, Moon, Plus, Settings2, Skull, Sparkles, Users, Vote, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -140,7 +138,7 @@ function Stepper({ value, min, max, onChange }: { value: number; min: number; ma
 function ModalSheet({ children, className = "", labelledBy, close }: { children: ReactNode; className?: string; labelledBy: string; close: () => void }) {
   const previousFocus = useRef(typeof document !== "undefined" ? document.activeElement : null);
   const titles: Record<string, string> = { "wolf-invite-title": "Personen einladen", "wolf-settings-title": "Spielregeln", "wolf-role-title": "Deine geheime Rolle", "local-role-info-title": "Private Rolleninfo", "village-details-title": "Dorf und Abstimmungen" };
-  return <Dialog open onOpenChange={(open) => { if (!open) close(); }}><DialogContent className={`werewolf-theme wolf-dialog ${className}`} showCloseButton={false} aria-describedby={undefined} onCloseAutoFocus={(event) => { event.preventDefault(); if (previousFocus.current instanceof HTMLElement) previousFocus.current.focus(); }}><DialogTitle className="sr-only">{titles[labelledBy] ?? "Werwolf"}</DialogTitle>{children}</DialogContent></Dialog>;
+  return <Dialog open onOpenChange={(open) => { if (!open) close(); }}><DialogContent className={`werewolf-theme wolf-dialog game-dialog ${className}`} showCloseButton={false} aria-describedby={undefined} onCloseAutoFocus={(event) => { event.preventDefault(); if (previousFocus.current instanceof HTMLElement) previousFocus.current.focus(); }}><DialogTitle className="sr-only">{titles[labelledBy] ?? "Werwolf"}</DialogTitle>{children}</DialogContent></Dialog>;
 }
 
 function DeathCauseIcon({ cause }: { cause: DeathCause }) {
@@ -175,7 +173,7 @@ function VictimDeathAlert({ causes }: { causes: DeathCause[] }) {
     const timer = window.setTimeout(() => setVisible(false), 10000);
     return () => window.clearTimeout(timer);
   }, []);
-  return <Dialog open={visible} onOpenChange={setVisible}><DialogContent className="werewolf-theme wolf-dialog victim-notice" showCloseButton={false} aria-describedby="victim-death-description"><div className="role-orb team-wolf"><Skull aria-hidden="true" /></div><DialogTitle>Du bist ausgeschieden.</DialogTitle><DeathCauseList causes={causes} /><p id="victim-death-description">{causes.length ? causes.map((cause) => DEATH_CAUSE_INFO[cause].label).join(" · ") : "Die Todesursache ist unbekannt."} Du kannst die Partie weiterverfolgen.</p><p className="field-hint">Dieser Hinweis schließt nach zehn Sekunden von selbst. Du musst nichts bestätigen.</p><Button className="victim-death-dismiss" variant="outline" onClick={() => setVisible(false)}>Hinweis schließen</Button></DialogContent></Dialog>;
+  return <Dialog open={visible} onOpenChange={setVisible}><DialogContent className="werewolf-theme wolf-dialog game-dialog victim-notice" showCloseButton={false} aria-describedby="victim-death-description"><div className="role-orb team-wolf"><Skull aria-hidden="true" /></div><DialogTitle>Du bist ausgeschieden.</DialogTitle><DeathCauseList causes={causes} /><p id="victim-death-description">{causes.length ? causes.map((cause) => DEATH_CAUSE_INFO[cause].label).join(" · ") : "Die Todesursache ist unbekannt."} Du kannst die Partie weiterverfolgen.</p><p className="field-hint">Dieser Hinweis schließt nach zehn Sekunden von selbst. Du musst nichts bestätigen.</p><Button className="victim-death-dismiss" variant="outline" onClick={() => setVisible(false)}>Hinweis schließen</Button></DialogContent></Dialog>;
 }
 
 function VillageGuiltFrame({ count }: { count: number }) {
@@ -299,7 +297,7 @@ export default function WerewolfHome() {
 
   const leave = () => setLeaveOpen(true);
   const closesVillage = state?.me.isHost && state.lobby.status !== "playing";
-  const leaveDialog = <Dialog open={leaveOpen} onOpenChange={setLeaveOpen}><DialogContent className="werewolf-theme wolf-dialog" showCloseButton={false} aria-describedby="leave-description"><DialogTitle>{closesVillage ? "Dorf wirklich schließen?" : "Partie verlassen?"}</DialogTitle><p id="leave-description" className="dialog-copy">{closesVillage ? "Alle Personen werden getrennt und die Spieldaten dieser Lobby gelöscht." : "Deine Rolle bleibt in der laufenden Partie. Du verlässt die Ansicht auf diesem Gerät."}</p><div className="dialog-actions"><Button variant="outline" onClick={() => setLeaveOpen(false)} disabled={busy}>Im Dorf bleiben</Button><Button className="wolf-primary" disabled={busy} onClick={() => void confirmLeave()}><DoorOpen aria-hidden="true" />{closesVillage ? "Dorf schließen" : "Partie verlassen"}</Button></div></DialogContent></Dialog>;
+  const leaveDialog = leaveOpen && <ConfirmDialog theme="werewolf" title={closesVillage ? "Lobby wirklich schließen?" : "Lobby verlassen?"} description={closesVillage ? "Alle Personen werden getrennt und die Spieldaten dieser Lobby gelöscht." : "Deine Rolle bleibt in der laufenden Partie. Du verlässt die Ansicht auf diesem Gerät."} confirmLabel={closesVillage ? "Lobby schließen" : "Lobby verlassen"} cancelLabel="In der Lobby bleiben" confirmIcon={<DoorOpen aria-hidden="true" />} busy={busy} onCancel={() => setLeaveOpen(false)} onConfirm={() => void confirmLeave()} />;
 
   const resumeStoredSession = () => { if (!storedSession) return; setStoredSession(null); setStoredLobby(undefined); setSession(storedSession); };
   const discardStoredSession = () => { try { localStorage.removeItem("gameson:werewolf:session"); } catch { /* storage unavailable */ } setStoredSession(null); setStoredLobby(undefined); };
@@ -344,10 +342,9 @@ function LobbyForm({ kind, nearby = [], inviteLobbyId = "", onPick, onBack, onDo
 }
 
 function OnlineGame({ state, session, online, busy, post, leave, showError, receipt, clearReceipt }: { receipt: string; clearReceipt: () => void; state: LobbyState | null; session: Session; online: boolean; busy: boolean; post: PostAction; leave: () => void; showError: (error: unknown) => void }) {
-  const [inviteOpen, setInviteOpen] = useState(false); const [settingsOpen, setSettingsOpen] = useState(false); const [roleOpen, setRoleOpen] = useState(false); const [qr, setQr] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false); const [settingsOpen, setSettingsOpen] = useState(false); const [roleOpen, setRoleOpen] = useState(false);
   const [audioReady, setAudioReady] = useState(false); const playedCue = useRef(""); const playedWinnerCue = useRef(""); const announcedNight = useRef(""); const announcedInitialSleep = useRef("");
   const shareUrl = typeof window === "undefined" ? "" : `${window.location.origin}/werwolf?lobby=${session.lobbyId}`;
-  useEffect(() => { if (shareUrl) QRCode.toDataURL(shareUrl, { width: 420, margin: 1, color: { dark: "#192333", light: "#ffffff" } }).then(setQr).catch(() => undefined); }, [shareUrl]);
   useAutomaticAudioUnlock(audioReady, setAudioReady);
   const enableAudio = useCallback(async () => { try { if (await unlockWerewolfAudio()) setAudioReady(true); else showError(new Error("Der Browser blockiert den Ton noch. Tippe einmal auf den Bildschirm und versuche es dann erneut.")); } catch (error) { showError(error); } }, [showError]);
   useEffect(() => {
@@ -389,14 +386,14 @@ function OnlineGame({ state, session, online, busy, post, leave, showError, rece
   const me = state.players.find((player) => player.id === state.me.id);
   const showsFreshDeath = Boolean(me && !me.alive && (state.lobby.phase === "dawn" || state.lobby.phase === "results") && me.deathMatchNumber === state.lobby.matchNumber && me.deathCycle === state.lobby.night && me.deathSource === state.lobby.resolutionSource);
   const villageKillCount = countVillageDecisionDeaths(state.players);
-  return <main className="app-shell werewolf-shell online-game-shell"><WolfTopbar title={state.lobby.name} onBack={leave} online={online} />
+  return <main className="app-shell werewolf-shell online-game-shell"><WolfTopbar title={state.lobby.name} onBack={state.lobby.status === "waiting" ? undefined : leave} online={online} />
     <VillageGuiltFrame count={villageKillCount} />
     {receipt && <ConfirmationReceipt message={receipt} clear={clearReceipt} />}
     {!online && <p className="connection-warning" role="status">Verbindung unterbrochen. Bestätigungen werden erst nach einer Antwort des Servers als gespeichert angezeigt.</p>}
     {showsFreshDeath && me && <VictimDeathAlert key={`${me.deathMatchNumber}:${me.deathCycle}:${me.deathSource}`} causes={me.deathCauses} />}
-    {state.lobby.status === "waiting" ? <WaitingRoom state={state} busy={busy} post={post} invite={() => setInviteOpen(true)} settings={() => setSettingsOpen(true)} audioReady={audioReady} enableAudio={enableAudio} /> : <GamePhase state={state} busy={busy} post={post} close={leave} openRole={() => setRoleOpen(true)} mayorName={mayor?.name ?? null} />}
+    {state.lobby.status === "waiting" ? <WaitingRoom state={state} busy={busy} post={post} invite={() => setInviteOpen(true)} settings={() => setSettingsOpen(true)} leave={leave} audioReady={audioReady} enableAudio={enableAudio} /> : <GamePhase state={state} busy={busy} post={post} close={leave} openRole={() => setRoleOpen(true)} mayorName={mayor?.name ?? null} />}
     {(state.canClaimHost || (state.lobby.status !== "waiting" && shouldPlayHere && !audioReady)) && <div className="game-floating-actions">{state.canClaimHost && <Button className="claim-host" type="button" onClick={() => post("claim_host")}>Host ist weg · Leitung übernehmen</Button>}{state.lobby.status !== "waiting" && shouldPlayHere && !audioReady && <Button className="game-audio-enable" type="button" onClick={() => void enableAudio()}>Spielton aktivieren</Button>}</div>}
-    {inviteOpen && <InviteSheet qr={qr} name={state.lobby.name} url={shareUrl} close={() => setInviteOpen(false)} showError={showError} />}
+    {inviteOpen && <LobbyInviteDialog theme="werewolf" name={state.lobby.name} code={state.lobby.name} url={shareUrl} onClose={() => setInviteOpen(false)} onError={showError} />}
     {settingsOpen && <OnlineSettings state={state} busy={busy} post={post} close={() => setSettingsOpen(false)} />}
     {roleOpen && state.privateRole && <RoleSheet role={state.privateRole} close={() => setRoleOpen(false)} />}
   </main>;
@@ -406,7 +403,7 @@ function ConfirmationReceipt({ message, clear }: { message: string; clear?: () =
   return <div className="confirmation-receipt" role="status"><Check aria-hidden="true" /><span><strong>Letzte Bestätigung</strong>{message}</span>{clear && <Button variant="ghost" size="icon" onClick={clear} aria-label="Bestätigungshinweis schließen"><X aria-hidden="true" /></Button>}</div>;
 }
 
-function WaitingRoom({ state, busy, post, invite, settings, audioReady, enableAudio }: { state: LobbyState; busy: boolean; post: PostAction; invite: () => void; settings: () => void; audioReady: boolean; enableAudio: () => Promise<void> }) {
+function WaitingRoom({ state, busy, post, invite, settings, leave, audioReady, enableAudio }: { state: LobbyState; busy: boolean; post: PostAction; invite: () => void; settings: () => void; leave: () => void; audioReady: boolean; enableAudio: () => Promise<void> }) {
   const playsHere = state.lobby.audioMode === "all" || state.me.isHost;
   const lobbyReady = state.players.length >= 3;
   const missing = Math.max(0, 3 - state.players.length);
@@ -420,13 +417,15 @@ function WaitingRoom({ state, busy, post, invite, settings, audioReady, enableAu
     {state.me.isHost && !player.isHost && <Button variant="ghost" size="icon" className="player-remove" disabled={busy} aria-label={`${player.name} aus dem Dorf entfernen`} onClick={() => post("remove", { playerId: player.id })}><X aria-hidden="true" /></Button>}
   </div>;
   return <section className="lobby-workspace">
+    <LobbyToolbar onInvite={invite} onSettings={state.me.isHost ? settings : undefined} busy={busy} />
     <Card className="task-card"><CardContent><TaskStatus busy={busy} guidance={state.me.isHost ? { status: "action", label: "Du leitest die Runde", title: lobbyReady ? "Sind alle da? Dann geht’s los." : `Lade noch ${missing} ${missing === 1 ? "Person" : "Personen"} ein.`, instruction: lobbyReady ? "Prüfe die Namen unten. Wenn eure Gruppe vollständig ist, starte die Partie mit dem roten Knopf." : "Teile den Einladungslink oder lass die anderen den QR-Code scannen. Ihr braucht mindestens drei Personen.", requiresConfirmation: true } : { status: "waiting", label: "Du bist beigetreten · Nichts zu bestätigen", title: `Warte auf ${host}.`, instruction: `${host} startet die Partie, sobald alle da sind. Du musst nichts bestätigen; deine Rolle erscheint automatisch.`, requiresConfirmation: false }} /></CardContent></Card>
-    <Card className="lobby-members"><CardHeader><h2>Eure Gruppe <Badge variant="secondary">{state.players.length}</Badge></h2><Button variant="outline" size="sm" onClick={invite}><Plus aria-hidden="true" />Einladen</Button></CardHeader><CardContent><div className="player-groups">
+    <Card className="lobby-members"><CardHeader><h2>Eure Gruppe <Badge variant="secondary">{state.players.length}</Badge></h2></CardHeader><CardContent><div className="player-groups">
       <section className="player-group" aria-labelledby="wolf-ready-players"><header className="player-group-heading is-ready"><h3 id="wolf-ready-players"><i />Online</h3><span>{readyPlayers.length}</span></header><div className="player-grid">{readyPlayers.map(renderPlayer)}</div></section>
       {waitingPlayers.length > 0 && <section className="player-group" aria-labelledby="wolf-waiting-players"><header className="player-group-heading is-waiting"><h3 id="wolf-waiting-players"><i />Gerade offline</h3><span>{waitingPlayers.length}</span></header><div className="player-grid">{waitingPlayers.map(renderPlayer)}</div></section>}
     </div></CardContent></Card>
-    <Card className="lobby-rules-card"><CardHeader><h2>So spielt ihr</h2>{state.me.isHost && <Button variant="ghost" size="sm" onClick={settings}><Settings2 aria-hidden="true" />Anpassen</Button>}</CardHeader><CardContent><div className="lobby-summary-row"><span><Moon aria-hidden="true" />{state.lobby.wolfCount} {state.lobby.wolfCount === 1 ? "Werwolf" : "Werwölfe"}</span><span><Sparkles aria-hidden="true" />{state.lobby.selectedRoles.length ? `${state.lobby.selectedRoles.length} Zusatzrollen` : "Klassische Rollen"}</span>{state.lobby.mayorEnabled && <span><Crown aria-hidden="true" />Mit Bürgermeister</span>}</div>{state.lobby.selectedRoles.length > 0 && <div className="lobby-role-tags">{state.lobby.selectedRoles.map((role) => <Badge key={role} variant="secondary">{ROLE_INFO[role].label}</Badge>)}</div>}</CardContent></Card>
+    <Card className="lobby-rules-card"><CardHeader><h2>So spielt ihr</h2>{state.me.isHost && <Button variant="outline" size="sm" onClick={settings}><Settings2 aria-hidden="true" />Bearbeiten</Button>}</CardHeader><CardContent><div className="lobby-summary-row"><span><Moon aria-hidden="true" />{state.lobby.wolfCount} {state.lobby.wolfCount === 1 ? "Werwolf" : "Werwölfe"}</span><span><Sparkles aria-hidden="true" />{state.lobby.selectedRoles.length ? `${state.lobby.selectedRoles.length} Zusatzrollen` : "Klassische Rollen"}</span>{state.lobby.mayorEnabled && <span><Crown aria-hidden="true" />Mit Bürgermeister</span>}</div>{state.lobby.selectedRoles.length > 0 && <div className="lobby-role-tags">{state.lobby.selectedRoles.map((role) => <Badge key={role} variant="secondary">{ROLE_INFO[role].label}</Badge>)}</div>}</CardContent></Card>
     <Card className={`lobby-audio-card ${audioReady ? "ready" : ""}`}><CardContent><div className="audio-card-heading"><AudioLines aria-hidden="true" /><strong>Ansagen vorlesen lassen <Badge variant="outline">{playsHere && audioReady ? "Bereit" : "Automatisch"}</Badge></strong></div><p>{playsHere ? audioReady ? "Der Ton ist auf diesem Gerät eingeschaltet." : "Der Ton schaltet sich automatisch ein, sobald du hier etwas antippst. Du kannst ihn auch jetzt einschalten und testen." : `Die Ansagen laufen bei ${host}. Auf deinem Gerät ist nichts einzustellen.`}</p>{playsHere && <Button variant="outline" disabled={audioReady} onClick={() => void enableAudio()}>{audioReady ? <Check aria-hidden="true" /> : <AudioLines aria-hidden="true" />}{audioReady ? "Ton ist eingeschaltet" : "Ton einschalten"}</Button>}</CardContent></Card>
+    <LobbyLeaveButton busy={busy} onClick={leave} label={state.me.isHost ? "Lobby schließen" : "Lobby verlassen"} />
     {state.me.isHost && <ConfirmBar label={lobbyReady ? "Partie starten" : "Personen einladen"} summary={lobbyReady ? `${state.players.length} Personen in der Lobby` : `Es ${missing === 1 ? "fehlt noch eine Person" : `fehlen noch ${missing} Personen`}`} instruction={lobbyReady ? "Erst mit diesem Knopf werden die Rollen verteilt." : "Öffne die Einladung und teile sie mit deiner Gruppe."} busy={busy} stage={lobbyReady ? "Start bestätigen" : "Dein nächster Schritt"} onConfirm={lobbyReady ? () => post("start") : invite} />}
   </section>;
 }
@@ -451,7 +450,7 @@ function GamePhase({ state, busy, post, close, openRole, mayorName }: { state: L
 
 function SkipPhaseControl({ busy, post }: { busy: boolean; post: PostAction }) {
   const [open, setOpen] = useState(false);
-  return <><Button variant="ghost" className="skip-phase" onClick={() => setOpen(true)}>Runde hängt fest?</Button><Dialog open={open} onOpenChange={setOpen}><DialogContent className="werewolf-theme wolf-dialog" aria-describedby="skip-explanation"><DialogTitle>Ausstehende Aktionen überspringen?</DialogTitle><p id="skip-explanation">Verwende diesen Schritt nur, wenn jemand nicht mehr antwortet. Noch offene Entscheidungen werden übersprungen und die Runde geht weiter.</p><div className="dialog-actions"><Button variant="outline" onClick={() => setOpen(false)}>Weiter warten</Button><Button className="wolf-primary" disabled={busy} onClick={async () => { if (await post("skip")) setOpen(false); }}>Überspringen bestätigen</Button></div></DialogContent></Dialog></>;
+  return <><Button variant="ghost" className="skip-phase" onClick={() => setOpen(true)}>Runde hängt fest?</Button>{open && <ConfirmDialog theme="werewolf" title="Ausstehende Aktionen überspringen?" description="Verwende diesen Schritt nur, wenn jemand nicht mehr antwortet. Noch offene Entscheidungen werden übersprungen und die Runde geht weiter." confirmLabel="Überspringen bestätigen" cancelLabel="Weiter warten" busy={busy} onCancel={() => setOpen(false)} onConfirm={async () => { if (await post("skip")) setOpen(false); }} />}</>;
 }
 
 function VillageDetails({ players, rounds, mayorPlayerId, meId }: { players: PlayerView[]; rounds: VoteHistoryRound[]; mayorPlayerId: string | null; meId?: string }) {
@@ -547,13 +546,6 @@ function ResultsBoard({ state, post, close, busy }: { state: LobbyState; post: P
   </CardContent></Card>;
 }
 
-function InviteSheet({ qr, name, url, close, showError }: { qr: string; name: string; url: string; close: () => void; showError: (error: unknown) => void }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => { try { await navigator.clipboard.writeText(url); setCopied(true); } catch (error) { showError(error); } };
-  const share = async () => { try { if (navigator.share) await navigator.share({ title: `Werwolf · ${name}`, text: `Spiele mit in unserer Runde „${name}“`, url }); else await copy(); } catch (error) { if ((error as Error).name !== "AbortError") showError(error); } };
-  return <ModalSheet className="invite-sheet wolf-sheet" labelledBy="wolf-invite-title" close={close}><Button className="sheet-close" variant="ghost" size="icon" onClick={close} aria-label="Einladung schließen"><X aria-hidden="true" /></Button><span className="wolf-step">Gruppe einladen</span><h2 id="wolf-invite-title">So kommen die anderen dazu.</h2><p>QR-Code mit der Handy-Kamera scannen oder den Einladungslink öffnen. Danach nur noch den Namen eingeben.</p>{qr && <Image src={qr} alt={`Einladung zur Lobby ${name}`} width={300} height={300} unoptimized />}<strong className="group-code">{name}</strong><Button className="primary-button wolf-primary" onClick={share}>Einladung teilen<ArrowUpRight aria-hidden="true" /></Button><Button variant="outline" onClick={copy}>{copied ? <Check aria-hidden="true" /> : null}{copied ? "Link kopiert" : "Link kopieren"}</Button><p className="field-hint" role="status">{copied ? "Der Link ist kopiert. Du kannst ihn jetzt in eure Gruppe einfügen." : "Neue Personen erscheinen automatisch in der Lobby."}</p><Button variant="ghost" onClick={close}>Zurück zur Lobby</Button></ModalSheet>;
-}
-
 function RoleSheet({ role, close }: { role: PrivateRole; close: () => void }) { return <ModalSheet className="wolf-sheet role-sheet" labelledBy="wolf-role-title" close={close}><Button className="sheet-close" type="button" onClick={close} aria-label="Rollenkarte schließen"><X aria-hidden="true" /></Button><span className="step-label wolf-step">Nur für dich</span><div className={`role-orb team-${role.team}`}><RoleIcon role={role.role} /></div><h3 id="wolf-role-title">{role.label}</h3><p>{role.description}</p><div className="role-facts"><span><b>Team</b>{role.team === "village" ? "Dorf" : role.team === "wolf" ? "Rudel" : "Eigenes Ziel"}</span>{role.lover && <span><b>Verliebt mit</b>{role.lover}</span>}{role.roleModel && <span><b>Vorbild</b>{role.roleModel}</span>}{role.charmed && <span><b>Status</b>Verzaubert</span>}{role.role === "witch" && <span><b>Tränke</b>{role.healPotion ? "Heilung bereit" : "Heilung verbraucht"} · {role.poisonPotion ? "Gift bereit" : "Gift verbraucht"}</span>}{role.role === "elder" && <span><b>Wolfsangriff</b>{role.elderShield ? "Schutz ist bereit" : "Schutz verbraucht"}</span>}</div><Button className="primary-button wolf-primary" type="button" onClick={close}>Rollenkarte schließen</Button></ModalSheet>; }
 
 function RoleSelector({ count, wolves, roles, setRoles }: { count: number; wolves: number; roles: WerewolfRole[]; setRoles: (roles: WerewolfRole[]) => void }) {
@@ -572,10 +564,9 @@ function OnlineSettings({ state, busy, post, close }: { state: LobbyState; busy:
   const [audioGapSeconds, setAudioGapSeconds] = useState(state.lobby.audioGapSeconds);
   const rulesError = validateRoleSetup(Math.max(3, count), wolves, roles);
   const save = async () => { setSaveFailed(false); if (await post("settings", { wolfCount: wolves, selectedRoles: roles, mayorEnabled: mayor, discoverable, audioMode, audioGapSeconds })) close(); else setSaveFailed(true); };
-  return <ModalSheet className="settings-sheet wolf-sheet" labelledBy="wolf-settings-title" close={() => { if (!busy) close(); }}>
-    <Button className="sheet-close" variant="ghost" size="icon" disabled={busy} onClick={close} aria-label="Einstellungen verwerfen und schließen"><X aria-hidden="true" /></Button>
-    <h2 id="wolf-settings-title">Spielregeln anpassen</h2>
-    <div className="settings-scroll"><fieldset className="settings-fields" disabled={busy}>
+  const footer = <><p className={rulesError || saveFailed ? "setup-validation-error" : "field-hint"} role="status">{busy ? "Die Regeln werden gespeichert. Bitte kurz warten." : rulesError || (saveFailed ? "Speichern hat nicht funktioniert. Deine Auswahl bleibt erhalten. Bitte versuche es erneut." : "Noch nicht gespeichert. Bestätige deine Änderungen mit dem Knopf unten.")}</p><Button className="game-accept-action" disabled={busy || Boolean(rulesError)} onClick={save}>{busy ? "Regeln werden gespeichert …" : "Regeln speichern"}</Button></>;
+  return <GameDialog theme="werewolf" kicker="Einstellungen" title="Spielregeln anpassen" className="wolf-sheet" closeLabel="Einstellungen verwerfen und schließen" busy={busy} onClose={close} footer={footer}>
+    <fieldset className="settings-fields" disabled={busy}>
       <div className="settings-row"><span><strong>Werwölfe</strong><small>Empfohlen für eure Gruppe: {defaultWolfCount(Math.max(3, count))}</small></span><Stepper value={wolves} min={1} max={maxWolfCount(Math.max(3, count))} onChange={(value) => { setWolves(value); if (value < 2) setRoles(roles.filter((role) => role !== "white_werewolf")); }} /></div>
       <details className="optional-roles"><summary>Zusatzrollen <Badge variant="outline">{roles.length || "Optional"}</Badge></summary><RoleSelector count={count} wolves={wolves} roles={roles} setRoles={setRoles} /></details>
       <SettingSwitch id="online-mayor" title="Bürgermeister wählen" description="Seine Stimme zählt bei Dorfabstimmungen doppelt." checked={mayor} onCheckedChange={setMayor} />
@@ -584,9 +575,8 @@ function OnlineSettings({ state, busy, post, close }: { state: LobbyState; busy:
         <div className="settings-block"><span className="settings-label">Wo sollen die Ansagen laufen?</span><div className="segmented audio-mode-choice"><Button type="button" aria-pressed={audioMode === "all"} className={audioMode === "all" ? "active" : ""} onClick={() => setAudioMode("all")}><strong>Alle Geräte</strong><small>Gleichzeitig · Rollen bleiben unortbar</small></Button><Button type="button" aria-pressed={audioMode === "host"} className={audioMode === "host" ? "active" : ""} onClick={() => setAudioMode("host")}><strong>Nur Spielleitung</strong><small>Eine zentrale Stimme für die Gruppe</small></Button></div></div>
         <div className="settings-row"><span><strong>Pause zwischen den Ansagen</strong><small>Sekunden</small></span><Stepper value={audioGapSeconds} min={MIN_AUDIO_ANNOUNCEMENT_GAP_SECONDS} max={MAX_AUDIO_ANNOUNCEMENT_GAP_SECONDS} onChange={setAudioGapSeconds} /></div>
       </details>
-    </fieldset></div>
-    <div className="settings-footer"><p className={rulesError || saveFailed ? "setup-validation-error" : "field-hint"} role="status">{busy ? "Die Regeln werden gespeichert. Bitte kurz warten." : rulesError || (saveFailed ? "Speichern hat nicht funktioniert. Deine Auswahl bleibt erhalten. Bitte versuche es erneut." : "Noch nicht gespeichert. Bestätige deine Änderungen mit dem Knopf unten.")}</p><Button className="primary-button wolf-primary settings-submit" disabled={busy || Boolean(rulesError)} onClick={save}>{busy ? "Regeln werden gespeichert …" : "Regeln speichern"}</Button></div>
-  </ModalSheet>;
+    </fieldset>
+  </GameDialog>;
 }
 
 type LocalPlayer = { id: string; name: string; role: WerewolfRole; team: WerewolfTeam; alive: boolean; loverId: string | null; roleModelId: string | null; charmed: boolean; elderShield: boolean; healPotion: boolean; poisonPotion: boolean; lastProtectedId: string | null; deathCauses: DeathCause[] };
@@ -671,7 +661,7 @@ function LocalWerewolf({ onBack, showError }: { onBack: () => void; showError: (
     complete();
   };
 
-  const visionDialog = <Dialog open={Boolean(seerVision)}><DialogContent className="werewolf-theme wolf-dialog role-sheet" showCloseButton={false} aria-describedby="local-vision-description" onEscapeKeyDown={(event) => event.preventDefault()} onInteractOutside={(event) => event.preventDefault()}><div className="role-orb"><Eye aria-hidden="true" /></div><DialogTitle>Lies das Ergebnis. Dann bestätige es.</DialogTitle><p id="local-vision-description">{seerVision?.name} spielt <strong>{seerVision?.label}</strong>.</p><p className="field-hint">Merke dir die Rolle. Erst mit deiner Bestätigung geht es weiter.</p><Button className="primary-button wolf-primary" onClick={() => { if (!seerVision) return; const complete = seerVision.complete; setSeerVision(null); complete(); }}>Ergebnis gelesen · Weitergeben<Check aria-hidden="true" /></Button></DialogContent></Dialog>;
+  const visionDialog = <Dialog open={Boolean(seerVision)}><DialogContent className="werewolf-theme wolf-dialog game-dialog role-sheet" showCloseButton={false} aria-describedby="local-vision-description" onEscapeKeyDown={(event) => event.preventDefault()} onInteractOutside={(event) => event.preventDefault()}><div className="role-orb"><Eye aria-hidden="true" /></div><DialogTitle>Lies das Ergebnis. Dann bestätige es.</DialogTitle><p id="local-vision-description">{seerVision?.name} spielt <strong>{seerVision?.label}</strong>.</p><p className="field-hint">Merke dir die Rolle. Erst mit deiner Bestätigung geht es weiter.</p><Button className="primary-button wolf-primary" onClick={() => { if (!seerVision) return; const complete = seerVision.complete; setSeerVision(null); complete(); }}>Ergebnis gelesen · Weitergeben<Check aria-hidden="true" /></Button></DialogContent></Dialog>;
 
   if (phase === "setup") {
     const namesError = validNames.length < 3 ? "Trage zuerst mindestens drei Namen ein." : names.some((name) => name.trim().length < 2) ? "Fülle alle Namen mit mindestens zwei Zeichen aus oder entferne leere Felder." : new Set(validNames.map((name) => name.toLocaleLowerCase("de"))).size !== validNames.length ? "Jede Person braucht einen eigenen, eindeutigen Namen." : "";

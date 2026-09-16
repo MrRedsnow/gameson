@@ -26,8 +26,11 @@ test("bietet die alte Runde und ein neues Spiel an, solange die Verbindung gepr�
   const html = render({ lobby: undefined });
   assert.match(html, /Zurück zu deiner Runde\?/);
   assert.match(html, /class="resume-lobby" role="status"><span>Verbindung wird geprüft …<\/span>/);
-  assert.deepEqual(buttons(html), ["Zurück zur Runde", "Neues Spiel starten"]);
-  assert.match(html, new RegExp(`nach ${RESUME_DISCARD_SECONDS} Sekunden auf diesem Gerät verworfen`));
+  assert.deepEqual(buttons(html), ["Zurück zur Runde", "Laufende Runde verlassen"]);
+  assert.match(html, new RegExp(`nach ${RESUME_DISCARD_SECONDS} Sekunden verworfen`));
+  // Rejoining is the confirming colour; only leaving the round is red.
+  assert.match(html, /class="[^"]*game-accept-action[^"]*"[^>]*>Zurück zur Runde/);
+  assert.match(html, /class="[^"]*game-danger-action[^"]*"[^>]*>.*?Laufende Runde verlassen/);
 });
 
 test("nennt die gefundene Lobby mit Namen und Stand", () => {
@@ -37,15 +40,15 @@ test("nennt die gefundene Lobby mit Namen und Stand", () => {
   const offline = render({ lobby: { detail: "Gerade keine Verbindung. Du kannst trotzdem entscheiden." } });
   assert.match(offline, /Zurück zu deiner Runde\?/);
   assert.match(offline, /Gerade keine Verbindung/);
-  assert.deepEqual(buttons(offline), ["Zurück zur Runde", "Neues Spiel starten"]);
+  assert.deepEqual(buttons(offline), ["Zurück zur Runde", "Laufende Runde verlassen"]);
 });
 
 test("zählt beim Verwerfen sichtbar herunter und lässt bis zuletzt abbrechen", () => {
   const html = render({ lobby: { name: "Wohnzimmer", detail: "3 Personen · Runde läuft" }, remaining: 3 });
-  assert.match(html, /Runde wird verworfen/);
+  assert.match(html, /Du verlässt die Runde/);
   assert.match(html, /role="status" aria-live="polite" aria-atomic="true"><strong>3<\/strong><p>Noch 3 Sekunden, um es dir anders zu überlegen\./);
   assert.match(html, /class="resume-countdown-bar" aria-hidden="true"><span style="animation-duration:5s"><\/span>/);
-  assert.deepEqual(buttons(html), ["Abbrechen – Runde behalten"]);
+  assert.deepEqual(buttons(html), ["Abbrechen – in der Runde bleiben"]);
   assert.match(render({ lobby: undefined, remaining: 1 }), /Noch 1 Sekunde, um/);
   assert.equal(RESUME_DISCARD_SECONDS, 5);
 });

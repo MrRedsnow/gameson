@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Copy, Flag, LockKeyhole, LogOut, Plus, RotateCcw, Users, X } from "lucide-react";
-import { GameBackLink, GameModes, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
+import { ArrowLeft, Flag, LockKeyhole, LogOut, Plus, RotateCcw, Settings2, Users, X } from "lucide-react";
+import { ConfirmDialog, GameBackLink, GameDialog, GameModes, LobbyInviteDialog, LobbyLeaveButton, LobbyToolbar, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CatanGameUI, CatanRules, TargetPoints } from "@/components/catan/game-ui";
 import { DEFAULT_TARGET_POINTS, PLAYER_COLORS, applyCatanAction, catanView, createCatanGame, localActorId, type CatanAction, type CatanGame, type CatanView } from "@/lib/catan";
 import { describeLobby, resolveOnlineGameStartup, type GameSession } from "@/lib/game-session";
@@ -38,7 +37,8 @@ export default function CatanPage() {
   const [notice, setNotice] = useState(""); const [busy, setBusy] = useState(false); const [connected, setConnected] = useState(true);
   const [playerName, setPlayerName] = useState(""); const [groupName, setGroupName] = useState(""); const [code, setCode] = useState("");
   const [names, setNames] = useState(["", "", ""]); const [target, setTarget] = useState(DEFAULT_TARGET_POINTS);
-  const [confirmNew, setConfirmNew] = useState(false); const [copied, setCopied] = useState(false);
+  const [confirmNew, setConfirmNew] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false); const [settingsOpen, setSettingsOpen] = useState(false); const [leaveOpen, setLeaveOpen] = useState(false);
   const [storedSession, setStoredSession] = useState<GameSession | null>(null); const [storedLobby, setStoredLobby] = useState<ResumeLobbyInfo | null | undefined>(undefined);
   const [nearby, setNearby] = useState<NearbyLobby[]>([]);
   const stateRef = useRef<LobbyState | null>(null); const locked = useRef(false);
@@ -147,6 +147,7 @@ export default function CatanPage() {
   const discardStoredSession = () => { store(SESSION_KEY, null); setStoredSession(null); setStoredLobby(undefined); };
   const actor = localGame ? localActorId(localGame) : null;
   const isHost = Boolean(state && state.me.id === state.lobby.hostPlayerId);
+  const inviteUrl = state && typeof window !== "undefined" ? `${window.location.origin}/catan?lobby=${state.lobby.id}&join=1` : "";
   const selectedLobby = mode === "join" ? nearby.find((item) => item.id === code) : undefined;
   const active = localGame || state?.game;
   const needsHandoff = localGame && actor && unlocked !== actor && localGame.phase !== "finished";
@@ -160,12 +161,17 @@ export default function CatanPage() {
       <Button className="catan-primary" onClick={() => setUnlocked(actor)}>Ich bin {localGame.players.find((p) => p.id === actor)!.name}</Button>
     </section> : active ? <CatanGameUI key={localGame ? `${localGame.id}-${actor}` : state!.game!.id} game={localGame ? catanView(localGame, actor!) : state!.game!} send={localGame ? sendLocal : (move) => post("move", { move })} busy={busy || Boolean(session && !connected)} local={Boolean(localGame)} onHide={() => setUnlocked(null)} onRematch={localGame ? () => { setNames([...localGame.players].sort((a, b) => a.color - b.color).map((p) => p.name)); setTarget(localGame.targetPoints); setLocalGame(null); setMode("local"); store(LOCAL_KEY, null); setLocalSaved(false); } : isHost ? () => void post("reset") : undefined} /> : state ? <>
       <section className="catan-lobby-heading"><span className="catan-kicker">Eure Catan-Lobby</span><h1>{state.lobby.name}</h1><p>Teilt den Code oder Einladungslink. Startet mit drei oder vier Personen.</p></section>
-      <section className="catan-panel"><div className="catan-section-heading"><h2>Lobbycode</h2><strong className="catan-lobby-code">{state.lobby.id}</strong></div><div className="catan-button-row"><Button variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/catan?lobby=${state.lobby.id}&join=1`); setCopied(true); } catch { setNotice(`Einladungslink: ${window.location.origin}/catan?lobby=${state.lobby.id}&join=1`); } }}><Copy />{copied ? "Link kopiert" : "Einladungslink kopieren"}</Button></div></section>
+      <LobbyToolbar onInvite={() => setInviteOpen(true)} onSettings={isHost ? () => setSettingsOpen(true) : undefined} busy={busy} />
       <section className="catan-panel"><div className="catan-section-heading"><h2><Users />Mitspielende</h2><span>{state.members.length} / 4</span></div><ul className="catan-lobby-players">{state.members.map((p, i) => <li key={p.id}><span style={{ background: PLAYER_COLORS[i] }}>{p.name.slice(0, 1)}</span><div><strong>{p.name}{p.id === state.me.id ? " (du)" : ""}</strong>{p.id === state.lobby.hostPlayerId && <small>Spielleitung</small>}</div>{isHost && p.id !== state.me.id && <Button variant="ghost" size="icon" disabled={busy} onClick={() => void post("remove", { playerId: p.id })} aria-label={`${p.name} aus der Lobby entfernen`}><X /></Button>}</li>)}</ul>
-        <TargetPoints value={state.lobby.targetPoints} onChange={(targetPoints) => void post("settings", { targetPoints })} disabled={!isHost || busy} />
-        <div className="catan-target catan-discoverable"><label htmlFor="catan-discoverable"><strong>Lobby in der Nähe anzeigen</strong><small>Personen im selben Netzwerk sehen eure Lobby unter „Lobby beitreten“.</small></label><Switch id="catan-discoverable" checked={state.lobby.discoverable} disabled={!isHost || busy} onCheckedChange={(discoverable) => void post("settings", { discoverable })} /></div>
+        <div className="catan-target"><div><strong>Eure Spielregeln</strong><p>Siegpunktziel {state.lobby.targetPoints} · {state.lobby.discoverable ? "in der Nähe sichtbar" : "nicht in der Nähe sichtbar"}</p></div>{isHost && <Button variant="outline" onClick={() => setSettingsOpen(true)}><Settings2 />Bearbeiten</Button>}</div>
         {isHost ? <Button className="catan-primary" disabled={busy || state.members.length < 3} onClick={() => void post("start")}><Flag />{state.members.length < 3 ? `Noch ${3 - state.members.length} ${state.members.length === 2 ? "Person fehlt" : "Personen fehlen"}` : "Partie starten"}</Button> : <p className="catan-muted">Die Spielleitung startet, sobald alle da sind.</p>}
-      </section><Button variant="ghost" className="catan-leave" disabled={busy} onClick={() => void post("leave")}><LogOut />Lobby verlassen</Button><CatanRules />
+      </section><LobbyLeaveButton busy={busy} onClick={() => setLeaveOpen(true)} /><CatanRules />
+      {inviteOpen && <LobbyInviteDialog theme="catan" name={state.lobby.name} code={state.lobby.id} codeLabel="Lobbycode" url={inviteUrl} onClose={() => setInviteOpen(false)} onError={() => setNotice(`Einladungslink: ${inviteUrl}`)} />}
+      {settingsOpen && isHost && <GameDialog theme="catan" kicker="Einstellungen" title="Eure Spielregeln" description="Änderungen gelten sofort für die ganze Lobby." busy={busy} onClose={() => setSettingsOpen(false)} closeLabel="Einstellungen schließen" footer={<Button className="game-accept-action" disabled={busy} onClick={() => setSettingsOpen(false)}>Fertig</Button>}>
+        <TargetPoints value={state.lobby.targetPoints} onChange={(targetPoints) => void post("settings", { targetPoints })} disabled={busy} />
+        <div className="catan-target catan-discoverable"><label htmlFor="catan-discoverable"><strong>Lobby in der Nähe anzeigen</strong><small>Personen im selben Netzwerk sehen eure Lobby unter „Lobby beitreten“.</small></label><Switch id="catan-discoverable" checked={state.lobby.discoverable} disabled={busy} onCheckedChange={(discoverable) => void post("settings", { discoverable })} /></div>
+      </GameDialog>}
+      {leaveOpen && <ConfirmDialog theme="catan" title="Lobby verlassen?" description={isHost ? "Du gibst deinen Platz frei. Die Spielleitung geht an die nächste Person in der Lobby." : "Du gibst deinen Platz frei. Über den Lobbycode kannst du jederzeit wieder beitreten."} confirmLabel="Lobby verlassen" cancelLabel="In der Lobby bleiben" confirmIcon={<LogOut aria-hidden="true" />} busy={busy} onCancel={() => setLeaveOpen(false)} onConfirm={() => { setLeaveOpen(false); void post("leave"); }} />}
     </> : <>
       <section className="catan-intro"><span className="catan-kicker">Handel · Strategie · Inselglück</span><h1>Die Siedler<br />von <span>Catan.</span></h1><p>Straßen verbinden. Siedlungen wachsen.<br />Wer erreicht zuerst das Punktziel?</p><div className="catan-intro-meta"><span>3–4 Personen</span><span>60–120 Minuten</span><span>Ab 10 Jahren</span></div></section>
       {mode === "home" ? <>
@@ -184,6 +190,6 @@ export default function CatanPage() {
       <CatanRules />
     </>}
     {storedSession && <ResumeSessionDialog theme="catan" lobby={storedLobby} onResume={resumeStoredSession} onDiscard={discardStoredSession} />}
-    <Dialog open={confirmNew} onOpenChange={setConfirmNew}><DialogContent className="catan-theme catan-dialog"><DialogTitle>Neue lokale Partie starten?</DialogTitle><DialogDescription>Die bisher auf diesem Gerät gespeicherte Catan-Partie wird ersetzt.</DialogDescription><div className="catan-button-row"><Button variant="outline" onClick={() => setConfirmNew(false)}>Abbrechen</Button><Button onClick={() => { setConfirmNew(false); startLocal(); }}>Neue Partie starten</Button></div></DialogContent></Dialog>
+    {confirmNew && <ConfirmDialog theme="catan" title="Neue lokale Partie starten?" description="Die bisher auf diesem Gerät gespeicherte Catan-Partie wird ersetzt." confirmLabel="Neue Partie starten" cancelLabel="Gespeicherte Partie behalten" onCancel={() => setConfirmNew(false)} onConfirm={() => { setConfirmNew(false); startLocal(); }} />}
   </main>;
 }

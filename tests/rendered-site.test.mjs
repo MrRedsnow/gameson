@@ -215,9 +215,8 @@ test("hält zentrale UI-Rückmeldungen, Dialoge und mobile Aktionen zugänglich"
   assert.match(imposterSource, /const activeNotice = notice/);
   assert.match(werewolfSource, /const activeNotice = notice/);
   assert.match(imposterSource + werewolfSource, /role="alert" aria-live="assertive"/);
-  assert.match(imposterSource, /function ModalSheet/);
   assert.match(werewolfSource, /function ModalSheet/);
-  assert.match(imposterSource + werewolfSource, /aria-labelledby=\{labelledBy\}/);
+  assert.match(imposterSource, /<GameDialog theme="imposter"/);
   assert.match(imposterSource + werewolfSource, /Lokales Spiel – kein Internet nötig/);
   assert.match(werewolfSource, /game-floating-actions/);
   assert.match(werewolfSource, /<TabsTrigger value="village"/);
@@ -268,4 +267,29 @@ test("macht Catan-Lobbys im selben Netzwerk auffindbar", async () => {
   assert.match(schemaSource, /networkHash: text\("network_hash"\)\.notNull\(\)\.default\(""\)/);
   assert.match(dbSource, /ALTER TABLE catan_lobbies ADD COLUMN network_hash TEXT DEFAULT '' NOT NULL/);
   assert.match(css, /\.catan-theme \.nearby-list button \{/);
+});
+
+// Every lobby uses the same chrome: one window shape, one settings entry, one way out – themes stay untouched.
+test("baut Fenster, Einstellungen und das Verlassen in allen Lobbys gleich auf", async () => {
+  const files = ["app/imposter/page.tsx", "app/werwolf/page.tsx", "app/catan/page.tsx", "app/stadt-land-fluss/page.tsx"];
+  const sources = await Promise.all(files.map((file) => readFile(new URL(`../${file}`, import.meta.url), "utf8")));
+  const [css, entrySource, slfUi] = await Promise.all([
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../components/game-entry.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/stadt-land-fluss/game-ui.tsx", import.meta.url), "utf8"),
+  ]);
+  for (const [index, source] of sources.entries()) {
+    const game = files[index];
+    assert.doesNotMatch(source, /window\.(confirm|alert|prompt)\(/, game);
+    assert.match(source, /<LobbyToolbar /, game);
+    assert.match(source, /<LobbyLeaveButton /, game);
+    assert.match(source, /<LobbyInviteDialog theme="/, game);
+    for (const dialog of source.match(/<DialogContent className="[^"]*"/g) ?? []) assert.match(dialog, /game-dialog/, `${game}: ${dialog}`);
+  }
+  assert.match(entrySource, /gameDialogClass = \(theme: GameTheme, extra = ""\) => `\$\{DIALOG_THEME_CLASS\[theme\]\} game-dialog \$\{extra\}`\.trim\(\)/);
+  for (const dialog of slfUi.match(/<DialogContent className="[^"]*"/g) ?? []) assert.match(dialog, /game-dialog/, dialog);
+  assert.match(css, /@media \(max-width:600px\) \{[^}]*\.game-dialog \{[^}]*bottom:0;/);
+  assert.match(css, /\.game-accept-action \{[^}]*background:var\(--game-accept\);/);
+  assert.match(css, /\.game-danger-action \{[^}]*background:var\(--game-danger\);/);
+  assert.match(css, /\.werewolf-theme \{ --game-accept:var\(--wolf-gold\);/);
 });

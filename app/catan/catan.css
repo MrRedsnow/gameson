@@ -85,14 +85,12 @@
 .catan-section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
 .catan-section-heading h2 { display:flex; align-items:center; gap:8px; }
 .catan-section-heading h2 svg { width:20px; height:20px; color:#d6bd89; }
-.catan-lobby-code { font-size:1.5rem; letter-spacing:.1em; color:#f1d189; }
 .catan-button-row { display:flex; gap:10px; flex-wrap:wrap; }
 .catan-lobby-players { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
 .catan-lobby-players li { display:flex; gap:12px; align-items:center; min-height:60px; }
 .catan-lobby-players li>span { width:42px; height:42px; display:grid; place-items:center; border-radius:12px; color:#182630; font-size:1.25rem; font-weight:800; }
 .catan-lobby-players li>div { display:grid; flex:1; min-width:0; overflow-wrap:anywhere; }
 .catan-lobby-players small { color:#b6c8cc; font-size:.75rem; }
-.catan-leave { color:#b9c8ca; }
 .catan-handoff { max-width:510px; margin:60px auto; text-align:center; }
 .catan-handoff>svg { margin:0 auto 24px; width:42px; height:42px; color:#e1bf78; }
 .catan-handoff h1 { font-size:clamp(2rem,7vw,3rem); line-height:1.2; margin:16px 0 24px; overflow-wrap:anywhere; }
@@ -179,7 +177,8 @@
 .catan-victory { text-align:center; padding:28px 22px; }
 .catan-victory p { margin:12px 0 0; color:#c3ced0; }
 .catan-victory>svg { width:44px; height:44px; margin:0 auto 18px; color:#f2d388; }
-.catan-dialog { min-height:0; color:#f4f0e5; border-color:#54707c; background:#1b313e; max-height:90dvh; overflow:auto; }
+/* Shape and position come from the shared .game-dialog; the island only adds its own colours. */
+.catan-dialog { min-height:0; color:#f4f0e5; border-color:#54707c; background:#1b313e; }
 .catan-dialog [data-slot=dialog-description] { color:#bdcbd0; font-size:1rem; }
 @media(max-width:1000px) {
   .catan-shell-wide { max-width:780px; }

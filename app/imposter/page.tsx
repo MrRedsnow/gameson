@@ -1,9 +1,8 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
-import QRCode from "qrcode";
-import { GameBackLink, GameModes, GameRules, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { LogOut } from "lucide-react";
+import { ConfirmDialog, GameBackLink, GameDialog, GameModes, GameRules, LobbyInviteDialog, LobbyLeaveButton, LobbyToolbar, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateImposterSetup } from "@/lib/imposter-setup";
@@ -68,34 +67,6 @@ function Notice({ message, clear }: { message: string; clear: () => void }) {
   return <div className="notice" role="alert" aria-live="assertive"><span>{message}</span><button type="button" onClick={clear} aria-label="Hinweis schließen">×</button></div>;
 }
 
-function ModalSheet({ children, className = "", labelledBy, close }: { children: ReactNode; className?: string; labelledBy: string; close: () => void }) {
-  const dialogRef = useRef<HTMLElement>(null);
-  const closeRef = useRef(close);
-  useEffect(() => { closeRef.current = close; }, [close]);
-  useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    dialogRef.current?.querySelector<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled])")?.focus();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeRef.current();
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex='-1'])")];
-      if (!focusable.length) return;
-      const first = focusable[0]; const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-      previousFocus?.focus();
-    };
-  }, []);
-  return <div className="sheet-backdrop"><button className="sheet-dismiss" type="button" tabIndex={-1} aria-label="Dialog schließen" onClick={close} /><section ref={dialogRef} className={`bottom-sheet ${className}`} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1}>{children}</section></div>;
-}
-
 function HoldCard({ assignment, playerName, onSeen }: { assignment: Assignment; playerName?: string; onSeen?: () => void }) {
   const [holding, setHolding] = useState(false);
   const [seen, setSeen] = useState(false);
@@ -132,6 +103,7 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [storedSession, setStoredSession] = useState<Session | null>(null);
   const [storedLobby, setStoredLobby] = useState<ResumeLobbyInfo | null | undefined>(undefined);
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   const showError = useCallback((error: unknown) => setNotice(error instanceof Error ? error.message : "Etwas ist schiefgelaufen."), []);
 
@@ -214,20 +186,19 @@ export default function Home() {
     } catch (error) { showError(error); } finally { setBusy(false); }
   }, [fetchState, session, showError]);
 
-  const leaveToHome = async () => {
-    if (state?.me.isHost && (state.lobby.status === "waiting" || state.lobby.status === "results")) {
-      const message = state.lobby.status === "results" ? "Lobby beenden und alle Spieldaten löschen?" : "Lobby schließen? Alle Mitspieler werden getrennt.";
-      if (!window.confirm(message)) return;
-      if (session) {
-        setBusy(true);
-        try {
-          await api("/api/game", { method: "POST", headers: { Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ action: "close", lobbyId: session.lobbyId }) });
-        } catch (error) { showError(error); setBusy(false); return; }
-        setBusy(false);
-      }
-    } else if (state && state.lobby.status !== "waiting" && state.lobby.status !== "results" && !window.confirm("Runde wirklich verlassen? Dein Platz bleibt in der Lobby.")) return;
+  const closesLobby = Boolean(state?.me.isHost && (state.lobby.status === "waiting" || state.lobby.status === "results"));
+  const confirmLeave = async () => {
+    if (closesLobby && session) {
+      setBusy(true);
+      try {
+        await api("/api/game", { method: "POST", headers: { Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ action: "close", lobbyId: session.lobbyId }) });
+      } catch (error) { showError(error); setBusy(false); return; }
+      setBusy(false);
+    }
+    setLeaveOpen(false);
     setSession(null); setState(null); setAssignment(null); localStorage.removeItem("gameson:imposter:session"); window.history.replaceState({}, "", "/imposter"); setScreen("home");
   };
+  const leaveDialog = leaveOpen && <ConfirmDialog theme="imposter" title={closesLobby ? "Lobby wirklich schließen?" : "Lobby verlassen?"} description={closesLobby ? "Alle Mitspielenden werden getrennt und die Spieldaten dieser Lobby werden gelöscht." : "Du verlässt die Ansicht auf diesem Gerät. Dein Platz bleibt in der laufenden Runde."} confirmLabel={closesLobby ? "Lobby schließen" : "Lobby verlassen"} cancelLabel="In der Lobby bleiben" confirmIcon={<LogOut aria-hidden="true" />} busy={busy} onCancel={() => setLeaveOpen(false)} onConfirm={() => void confirmLeave()} />;
 
   const resumeStoredSession = () => {
     if (!storedSession) return;
@@ -240,7 +211,7 @@ export default function Home() {
   };
 
   const activeNotice = notice && <Notice message={notice} clear={() => setNotice("")} />;
-  if (session) return <><MultiGame state={state} assignment={assignment} session={session} online={online} busy={busy} post={post} onBack={leaveToHome} showError={showError} />{activeNotice}</>;
+  if (session) return <><MultiGame state={state} assignment={assignment} session={session} online={online} busy={busy} post={post} onBack={() => setLeaveOpen(true)} showError={showError} />{leaveDialog}{activeNotice}</>;
   if (screen === "create") return <><CreateLobby onBack={() => setScreen("home")} onCreated={setSession} showError={showError} />{activeNotice}</>;
   if (screen === "join") return <><JoinLobby nearby={nearby} inviteLobbyId={inviteLobbyId} onSelectLobby={setInviteLobbyId} onBack={() => { setInviteLobbyId(""); setScreen("home"); window.history.replaceState({}, "", "/imposter"); }} onJoined={setSession} showError={showError} />{activeNotice}</>;
   if (screen === "local") return <><LocalGame onBack={() => setScreen("home")} showError={showError} />{activeNotice}</>;
@@ -274,16 +245,14 @@ function JoinLobby({ nearby, inviteLobbyId, onSelectLobby, onBack, onJoined, sho
 }
 
 function MultiGame({ state, assignment, session, online, busy, post, onBack, showError }: { state: LobbyState | null; assignment: Assignment | null; session: Session; online: boolean; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; onBack: () => void; showError: (error: unknown) => void }) {
-  const [qr, setQr] = useState("");
   const shareUrl = typeof window === "undefined" ? "" : `${window.location.origin}/imposter?lobby=${session.lobbyId}`;
-  useEffect(() => { if (shareUrl) QRCode.toDataURL(shareUrl, { width: 420, margin: 1, color: { dark: "#171713", light: "#f4f0e7" } }).then(setQr).catch(() => undefined); }, [shareUrl]);
   if (!state) return <main className="app-shell center-shell"><div className="loader" /><p>Lobby wird geöffnet …</p></main>;
   const isBetween = state.lobby.status === "waiting" || state.lobby.status === "results";
   return (
     <main className="app-shell game-shell">
-      <Topbar title={state.lobby.name} onBack={onBack} online={online} />
+      <Topbar title={state.lobby.name} onBack={state.lobby.status === "waiting" ? undefined : onBack} online={online} />
       {!online && <div className="offline-banner">Verbindung unterbrochen – wir versuchen es weiter.</div>}
-      {state.lobby.status === "waiting" && <LobbyRoom state={state} qr={qr} shareUrl={shareUrl} busy={busy} post={post} showError={showError} />}
+      {state.lobby.status === "waiting" && <LobbyRoom state={state} shareUrl={shareUrl} busy={busy} post={post} onLeave={onBack} showError={showError} />}
       {state.lobby.status === "revealing" && <section className="round-screen"><div className="round-meta"><span>Runde {state.lobby.roundNumber}</span><span>{state.players.length} Spieler</span></div>{assignment ? <HoldCard assignment={assignment} playerName={state.me.name} /> : <div className="loader" />}{state.me.isHost ? <div className="host-action"><p>Wenn alle ihr Wort gesehen haben, öffne die Abstimmung.</p><button className="primary-button coral" disabled={busy} onClick={() => post("open_vote")}>Abstimmung starten</button></div> : <p className="waiting-copy">Besprecht eure Begriffe. Der Host öffnet gleich die Abstimmung.</p>}</section>}
       {state.lobby.status === "voting" && <Voting state={state} busy={busy} post={post} />}
       {state.lobby.status === "results" && <Results state={state} busy={busy} post={post} close={onBack} />}
@@ -292,7 +261,7 @@ function MultiGame({ state, assignment, session, online, busy, post, onBack, sho
   );
 }
 
-function LobbyRoom({ state, qr, shareUrl, busy, post, showError }: { state: LobbyState; qr: string; shareUrl: string; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; showError: (error: unknown) => void }) {
+function LobbyRoom({ state, shareUrl, busy, post, onLeave, showError }: { state: LobbyState; shareUrl: string; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; onLeave: () => void; showError: (error: unknown) => void }) {
   const [settingsOpen, setSettingsOpen] = useState(false); const [inviteOpen, setInviteOpen] = useState(false);
   const indexedPlayers = state.players.map((player, index) => ({ player, index }));
   const readyPlayers = indexedPlayers.filter(({ player }) => player.online);
@@ -302,22 +271,18 @@ function LobbyRoom({ state, qr, shareUrl, busy, post, showError }: { state: Lobb
     <span><strong>{player.name}{player.id === state.me.id && " (du)"}</strong><small>{player.isHost ? "Host" : player.online ? "bereit" : "nicht bereit"}</small></span>
     {state.me.isHost && player.id !== state.me.id ? <button aria-label={`${player.name} entfernen`} onClick={() => post("remove", { playerId: player.id })}>×</button> : <i className={player.online ? "online-dot" : "offline-dot"} />}
   </div>;
-  return <><section className="lobby-hero"><span className="live-badge"><i /> Lobby offen</span><h2>{state.players.length}<small>/22</small></h2><p>{state.players.length === 1 ? "Du bist zuerst da" : "Spieler sind bereit"}</p><div className="lobby-actions"><button onClick={() => setInviteOpen(true)}>QR &amp; Link</button>{state.me.isHost && <button onClick={() => setSettingsOpen(true)}>Einstellungen</button>}</div></section><section className="player-section"><div className="section-heading"><strong>Mitspieler</strong><span>mindestens 3</span></div><div className="player-groups"><section className="player-group" aria-labelledby="imposter-ready-players"><header className="player-group-heading is-ready"><h3 id="imposter-ready-players"><i />Online &amp; spielbereit</h3><span>{readyPlayers.length}</span></header><div className="player-list">{readyPlayers.map(renderPlayer)}</div></section><section className="player-group" aria-labelledby="imposter-waiting-players"><header className="player-group-heading is-waiting"><h3 id="imposter-waiting-players"><i />Nicht bereit</h3><span>{waitingPlayers.length}</span></header>{waitingPlayers.length ? <div className="player-list">{waitingPlayers.map(renderPlayer)}</div> : <p className="player-group-empty">Alle in der Lobby sind spielbereit.</p>}</section></div></section>{state.me.isHost ? <div className="sticky-action"><div><span>Wortpool</span><strong>{CATEGORIES.find((item) => item.id === state.lobby.pool)?.label ?? "Zufällig"} · {state.lobby.imposterCount} Imposter</strong></div><button className="primary-button coral" disabled={busy || state.players.length < 3} onClick={() => post("start")}>{state.players.length < 3 ? `Noch ${3 - state.players.length} ${3 - state.players.length === 1 ? "Person" : "Personen"}` : "Runde starten →"}</button></div> : <div className="sticky-action waiting"><div className="loader small" /><span>Der Host stellt die Runde ein …</span></div>}{inviteOpen && <InviteSheet name={state.lobby.name} qr={qr} shareUrl={shareUrl} close={() => setInviteOpen(false)} showError={showError} />}{settingsOpen && <SettingsSheet state={state} busy={busy} post={post} close={() => setSettingsOpen(false)} />}</>;
-}
-
-function InviteSheet({ name, qr, shareUrl, close, showError }: { name: string; qr: string; shareUrl: string; close: () => void; showError: (error: unknown) => void }) {
-  const share = async () => { try { if (navigator.share) await navigator.share({ title: `Imposter-Lobby ${name}`, text: `Komm in meine Imposter-Lobby „${name}“`, url: shareUrl }); else { await navigator.clipboard.writeText(shareUrl); } } catch (error) { if ((error as Error).name !== "AbortError") showError(error); } };
-  return <ModalSheet className="invite-sheet" labelledBy="imposter-invite-title" close={close}><button className="sheet-close" type="button" onClick={close} aria-label="Einladung schließen">×</button><span className="step-label">Einladen</span><h3 id="imposter-invite-title">Handy draufhalten.</h3>{qr && <Image src={qr} alt={`QR-Code zur Lobby ${name}`} width={300} height={300} unoptimized />}<p>Oder Gruppenname eingeben:</p><strong className="group-code">{name}</strong><button className="primary-button" type="button" onClick={share}>Link teilen</button></ModalSheet>;
+  return <><section className="lobby-hero"><span className="live-badge"><i /> Lobby offen</span><h2>{state.players.length}<small>/22</small></h2><p>{state.players.length === 1 ? "Du bist zuerst da" : "Spieler sind bereit"}</p></section><LobbyToolbar onInvite={() => setInviteOpen(true)} onSettings={state.me.isHost ? () => setSettingsOpen(true) : undefined} busy={busy} /><section className="player-section"><div className="section-heading"><strong>Mitspieler</strong><span>mindestens 3</span></div><div className="player-groups"><section className="player-group" aria-labelledby="imposter-ready-players"><header className="player-group-heading is-ready"><h3 id="imposter-ready-players"><i />Online &amp; spielbereit</h3><span>{readyPlayers.length}</span></header><div className="player-list">{readyPlayers.map(renderPlayer)}</div></section><section className="player-group" aria-labelledby="imposter-waiting-players"><header className="player-group-heading is-waiting"><h3 id="imposter-waiting-players"><i />Nicht bereit</h3><span>{waitingPlayers.length}</span></header>{waitingPlayers.length ? <div className="player-list">{waitingPlayers.map(renderPlayer)}</div> : <p className="player-group-empty">Alle in der Lobby sind spielbereit.</p>}</section></div></section>{state.me.isHost ? <div className="sticky-action"><div><span>Wortpool</span><strong>{CATEGORIES.find((item) => item.id === state.lobby.pool)?.label ?? "Zufällig"} · {state.lobby.imposterCount} Imposter</strong></div><button className="primary-button coral" disabled={busy || state.players.length < 3} onClick={() => post("start")}>{state.players.length < 3 ? `Noch ${3 - state.players.length} ${3 - state.players.length === 1 ? "Person" : "Personen"}` : "Runde starten →"}</button></div> : <div className="sticky-action waiting"><div className="loader small" /><span>Der Host stellt die Runde ein …</span></div>}<LobbyLeaveButton busy={busy} onClick={onLeave} label={state.me.isHost ? "Lobby schließen" : "Lobby verlassen"} />{inviteOpen && <LobbyInviteDialog theme="imposter" name={state.lobby.name} code={state.lobby.name} url={shareUrl} onClose={() => setInviteOpen(false)} onError={showError} />}{settingsOpen && <SettingsSheet state={state} busy={busy} post={post} close={() => setSettingsOpen(false)} />}</>;
 }
 
 function SettingsSheet({ state, busy, post, close }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void>; close: () => void }) {
   const [mode, setMode] = useState<ContentMode>(state.lobby.contentMode); const [pool, setPool] = useState(state.lobby.pool); const [imposters, setImposters] = useState(state.lobby.imposterCount); const [discoverable, setDiscoverable] = useState(state.lobby.discoverable); const [adultConfirmed, setAdultConfirmed] = useState(mode === "adult");
   const [crewWord, setCrewWord] = useState(""); const [imposterWord, setImposterWord] = useState("");
   const max = maxImposterCount(state.players.length);
-  const chooseMode = (next: ContentMode) => { if (next === "adult" && !adultConfirmed) { if (!window.confirm("Ich bestätige, dass alle Mitspieler mindestens 18 Jahre alt sind.")) return; setAdultConfirmed(true); } setMode(next); if (next === "family" && CATEGORIES.find((item) => item.id === pool)?.rating === "adult") setPool("random"); };
+  const [askAdult, setAskAdult] = useState(false);
+  const chooseMode = (next: ContentMode) => { if (next === "adult" && !adultConfirmed) return setAskAdult(true); setMode(next); if (next === "family" && CATEGORIES.find((item) => item.id === pool)?.rating === "adult") setPool("random"); };
   const save = async () => { await post("settings", { contentMode: mode, pool, imposterCount: imposters, discoverable, adultConfirmed: adultConfirmed || mode === "family" }); close(); };
   const addPair = async () => { await post("add_pair", { crewWord, imposterWord, rating: mode }); setCrewWord(""); setImposterWord(""); };
-  return <ModalSheet className="settings-sheet" labelledBy="imposter-settings-title" close={close}><button className="sheet-close" type="button" onClick={close} aria-label="Einstellungen schließen">×</button><span className="step-label">Rundeneinstellungen</span><h3 id="imposter-settings-title">So spielt ihr.</h3><div className="settings-block"><span className="settings-label">Inhalte</span><div className="segmented"><button type="button" aria-pressed={mode === "family"} className={mode === "family" ? "active" : ""} onClick={() => chooseMode("family")}>Jugendfrei</button><button type="button" aria-pressed={mode === "adult"} className={mode === "adult" ? "active" : ""} onClick={() => chooseMode("adult")}>Erwachsene 18+</button></div></div><div className="settings-block"><label htmlFor="pool">Wortpool</label><select id="pool" value={pool} onChange={(e) => setPool(e.target.value)}>{CATEGORIES.filter((item) => item.rating === "family" || mode === "adult").map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}</select></div><div className="settings-row"><span><strong>Imposter</strong><small>weniger als die Hälfte</small></span><Stepper value={imposters} min={1} max={max} onChange={setImposters} /></div><label className="switch-row" htmlFor="discoverable-toggle"><span><strong>In der Nähe sichtbar</strong><small>Zeigt die Lobby im gleichen Netz</small></span><input id="discoverable-toggle" aria-label="In der Nähe sichtbar" type="checkbox" checked={discoverable} onChange={(e) => setDiscoverable(e.target.checked)} /><i /></label><details className="custom-words"><summary>Eigenes Wortpaar hinzufügen <span>+</span></summary><div><input aria-label="Wort für die Gruppe" value={crewWord} onChange={(e) => setCrewWord(e.target.value)} placeholder="Wort für die Gruppe" maxLength={40} /><input aria-label="Ähnliches Imposter-Wort" value={imposterWord} onChange={(e) => setImposterWord(e.target.value)} placeholder="Ähnliches Imposter-Wort" maxLength={40} /><button className="secondary-button" type="button" disabled={busy || !crewWord || !imposterWord} onClick={addPair}>Wortpaar speichern</button><small>{state.customPairs?.length ?? 0} eigene Wortpaare in dieser Lobby</small></div></details><button className="primary-button coral settings-submit" type="button" disabled={busy} onClick={save}>Einstellungen übernehmen</button></ModalSheet>;
+  return <GameDialog theme="imposter" kicker="Rundeneinstellungen" title="So spielt ihr." className="settings-sheet" closeLabel="Einstellungen schließen" busy={busy} onClose={close} footer={<Button className="game-accept-action" type="button" disabled={busy} onClick={save}>Einstellungen übernehmen</Button>}><div className="settings-block"><span className="settings-label">Inhalte</span><div className="segmented"><button type="button" aria-pressed={mode === "family"} className={mode === "family" ? "active" : ""} onClick={() => chooseMode("family")}>Jugendfrei</button><button type="button" aria-pressed={mode === "adult"} className={mode === "adult" ? "active" : ""} onClick={() => chooseMode("adult")}>Erwachsene 18+</button></div></div><div className="settings-block"><label htmlFor="pool">Wortpool</label><select id="pool" value={pool} onChange={(e) => setPool(e.target.value)}>{CATEGORIES.filter((item) => item.rating === "family" || mode === "adult").map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}</select></div><div className="settings-row"><span><strong>Imposter</strong><small>weniger als die Hälfte</small></span><Stepper value={imposters} min={1} max={max} onChange={setImposters} /></div><label className="switch-row" htmlFor="discoverable-toggle"><span><strong>In der Nähe sichtbar</strong><small>Zeigt die Lobby im gleichen Netz</small></span><input id="discoverable-toggle" aria-label="In der Nähe sichtbar" type="checkbox" checked={discoverable} onChange={(e) => setDiscoverable(e.target.checked)} /><i /></label><details className="custom-words"><summary>Eigenes Wortpaar hinzufügen <span>+</span></summary><div><input aria-label="Wort für die Gruppe" value={crewWord} onChange={(e) => setCrewWord(e.target.value)} placeholder="Wort für die Gruppe" maxLength={40} /><input aria-label="Ähnliches Imposter-Wort" value={imposterWord} onChange={(e) => setImposterWord(e.target.value)} placeholder="Ähnliches Imposter-Wort" maxLength={40} /><button className="secondary-button" type="button" disabled={busy || !crewWord || !imposterWord} onClick={addPair}>Wortpaar speichern</button><small>{state.customPairs?.length ?? 0} eigene Wortpaare in dieser Lobby</small></div></details>{askAdult && <ConfirmDialog theme="imposter" title="Erwachsenen-Inhalte freigeben?" description="Bestätige, dass alle Mitspielenden mindestens 18 Jahre alt sind. Danach stehen auch die Wortpools ab 18 zur Auswahl." confirmLabel="Ja, alle sind 18+" cancelLabel="Jugendfrei bleiben" tone="accept" onCancel={() => setAskAdult(false)} onConfirm={() => { setAskAdult(false); setAdultConfirmed(true); setMode("adult"); }} />}</GameDialog>;
 }
 
 function Voting({ state, busy, post }: { state: LobbyState; busy: boolean; post: (action: string, values?: Record<string, unknown>) => Promise<void> }) {
@@ -355,6 +320,7 @@ function LocalGame({ onBack, showError }: { onBack: () => void; showError: (erro
   const [phase, setPhase] = useState<"setup" | "reveal" | "discuss" | "vote" | "results">("setup");
   const [names, setNames] = useState(["", "", ""]); const [mode, setMode] = useState<ContentMode>("family"); const [pool, setPool] = useState("random"); const [imposters, setImposters] = useState(1); const [imposterTouched, setImposterTouched] = useState(false); const [customPairs, setCustomPairs] = useState<{ crew: string; imposter: string; rating: ContentMode }[]>([]);
   const [crewDraft, setCrewDraft] = useState(""); const [imposterDraft, setImposterDraft] = useState(""); const [players, setPlayers] = useState<LocalPlayer[]>([]); const [index, setIndex] = useState(0); const [ready, setReady] = useState(false); const [choice, setChoice] = useState(""); const [votes, setVotes] = useState<Record<string, string>>({});
+  const [askAdult, setAskAdult] = useState(false);
   useEffect(() => { const id = window.setTimeout(() => { try { const saved = localStorage.getItem("imposter-local-names"); if (saved) { const parsed = JSON.parse(saved) as string[]; if (parsed.length >= 3) setNames(parsed); } } catch { /* empty */ } }, 0); return () => window.clearTimeout(id); }, []);
   useEffect(() => { localStorage.setItem("imposter-local-names", JSON.stringify(names)); }, [names]);
   const setup = validateImposterSetup(names, mode, pool, customPairs);
@@ -374,8 +340,9 @@ function LocalGame({ onBack, showError }: { onBack: () => void; showError: (erro
       <div className="local-options">
         <div className="segmented">
           <button type="button" aria-pressed={mode === "family"} className={mode === "family" ? "active" : ""} onClick={() => { setMode("family"); if (CATEGORIES.find((item) => item.id === pool)?.rating === "adult") setPool("random"); }}>Jugendfrei</button>
-          <button type="button" aria-pressed={mode === "adult"} className={mode === "adult" ? "active" : ""} onClick={() => { if (window.confirm("Ich bestätige, dass alle Mitspieler mindestens 18 Jahre alt sind.")) setMode("adult"); }}>Erwachsene 18+</button>
+          <button type="button" aria-pressed={mode === "adult"} className={mode === "adult" ? "active" : ""} onClick={() => setAskAdult(true)}>Erwachsene 18+</button>
         </div>
+        {askAdult && <ConfirmDialog theme="imposter" title="Erwachsenen-Inhalte freigeben?" description="Bestätige, dass alle Mitspielenden mindestens 18 Jahre alt sind. Danach stehen auch die Wortpools ab 18 zur Auswahl." confirmLabel="Ja, alle sind 18+" cancelLabel="Jugendfrei bleiben" tone="accept" onCancel={() => setAskAdult(false)} onConfirm={() => { setAskAdult(false); setMode("adult"); }} />}
         <label>Wortpool<select value={pool} aria-describedby="imposter-pool-status" onChange={(e) => setPool(e.target.value)}>{CATEGORIES.filter((item) => item.rating === "family" || mode === "adult").map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
         <p id="imposter-pool-status" className={`setup-hint${setup.wordPoolError ? " needs-input" : ""}`} role="status">{setup.wordPoolError || (pool === "custom" ? `${eligible.length} ${eligible.length === 1 ? "gespeichertes Wortpaar ist" : "gespeicherte Wortpaare sind"} bereit.` : "Die Wörter werden passend zu eurer Auswahl verteilt.")}</p>
         <div className="settings-row"><span><strong>Imposter</strong><small>Vorschlag: {defaultImposterCount(validNames.length || 3)}</small></span><Stepper value={effectiveImposters} min={1} max={maxImposterCount(validNames.length || 3)} onChange={(value) => { setImposterTouched(true); setImposters(value); }} /></div>

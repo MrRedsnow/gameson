@@ -258,10 +258,12 @@
 .werewolf-theme .ready .audio-ready-button { color:var(--wolf-moss); border-color:#2f6a4a; background:var(--wolf-moss-deep); opacity:1; }
 
 /* Auxiliary information is available on demand. */
-.werewolf-theme.wolf-dialog { display:block; width:min(600px,calc(100% - 32px)); max-width:600px; min-height:0; max-height:calc(100svh - 48px); padding:28px; overflow:auto; overscroll-behavior:contain; border:1px solid #33405f; border-radius:22px; background:linear-gradient(180deg,#181f36,#121829); color:var(--foreground); box-shadow:0 30px 100px #000000c7, inset 0 1px 0 #ffffff0f; }
+/* Shape and position come from the shared .game-dialog; the night only adds its own colours. */
+.werewolf-theme.wolf-dialog { min-height:0; border-color:#33405f; background:linear-gradient(180deg,#181f36,#121829); color:var(--foreground); box-shadow:0 30px 100px #000000c7, inset 0 1px 0 #ffffff0f; }
 .werewolf-theme.wolf-dialog h3 { margin:12px 38px 24px 0; font-size:1.75rem; font-weight:600; line-height:1.2; }
 .werewolf-theme.wolf-dialog h2:not(.sr-only) { margin:0 38px 18px 0; font-size:1.5rem; font-weight:600; line-height:1.3; }
-.werewolf-theme .sheet-close { display:grid; place-items:center; width:38px; height:38px; min-height:38px; top:20px; right:20px; padding:0; border:1px solid var(--wolf-line-strong); border-radius:10px; background:#1b2238; color:#c7cde0; }
+/* The role cards keep their own corner button; the shared window no longer supplies its position. */
+.werewolf-theme .sheet-close { position:absolute; display:grid; place-items:center; width:38px; height:38px; min-height:38px; top:20px; right:20px; padding:0; border:1px solid var(--wolf-line-strong); border-radius:10px; background:#1b2238; color:#c7cde0; }
 .werewolf-theme .sheet-close svg { width:18px; height:18px; }
 .werewolf-theme .wolf-dialog .confirm-dock { position:static; padding:20px 0 0; margin-top:24px; border-top:1px solid var(--border); background:transparent; box-shadow:none; backdrop-filter:none; }
 .werewolf-theme.wolf-dialog .confirm-dock { position:static; padding:20px 0 0; margin-top:24px; background:transparent; box-shadow:none; backdrop-filter:none; }
@@ -270,8 +272,8 @@
 .werewolf-theme .dialog-copy, .werewolf-theme .role-sheet>p { color:var(--muted-foreground); font-size:1rem; line-height:1.65; }
 .werewolf-theme .dialog-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
 .werewolf-theme.wolf-dialog.resume-dialog h2:not(.sr-only) { margin:0; }
-.werewolf-theme .invite-sheet img { width:min(100%,240px); height:auto; margin:24px auto; padding:12px; border:1px solid #f1e3c033; border-radius:14px; background:#fff; box-shadow:0 0 34px #f1e3c026; }
-.werewolf-theme .group-code { margin:12px 0 20px; color:var(--wolf-gold-soft); font-family:var(--wolf-display); font-size:1.5rem; font-weight:600; letter-spacing:.08em; }
+/* In the shared window the close button sits in the head row, so the title needs no room kept free beside it. */
+.werewolf-theme.wolf-dialog .game-dialog-heading h2:not(.sr-only) { margin:0; }
 .werewolf-theme .setting-toggle, .werewolf-theme .settings-row { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:78px; padding:18px 0; border-top:1px solid var(--border); }
 .werewolf-theme .setting-toggle>label, .werewolf-theme .settings-row>span { display:grid; flex:1; min-width:0; gap:4px; }
 .werewolf-theme .setting-toggle strong, .werewolf-theme .settings-row strong { font-size:.9375rem; font-weight:600; }
@@ -395,17 +397,10 @@
 .werewolf-theme .wolf-results>.task-status { margin-top:24px; }
 .werewolf-theme .victim-notice { text-align:center; }
 .werewolf-theme .victim-notice .victim-death-dismiss { width:100%; margin-top:18px; color:#c7cde0; border:1px solid var(--wolf-line-strong); background:#1b2238; }
-.werewolf-theme .invite-sheet>button:not(.sheet-close) { width:100%; margin-bottom:12px; }
-.werewolf-theme .invite-sheet>p { font-size:.9375rem; line-height:1.65; }
 .werewolf-theme .role-detail>p+p { margin-top:12px; }
 .werewolf-theme .local-secret-card p { max-width:none; }
 .werewolf-theme .wolf-results .task-status { margin-top:28px; }
-.werewolf-theme.wolf-dialog.settings-sheet { display:flex; flex-direction:column; gap:0; overflow:hidden; }
-.werewolf-theme .settings-scroll { min-height:0; overflow-y:auto; padding-right:5px; overscroll-behavior:contain; }
 .werewolf-theme .settings-fields { min-width:0; padding:0; border:0; }
-.werewolf-theme .settings-footer { flex-shrink:0; padding-top:16px; border-top:1px solid var(--border); }
-.werewolf-theme .settings-footer p { margin:0 0 12px; }
-.werewolf-theme .settings-footer .settings-submit { margin-top:0; }
 @media(prefers-reduced-motion:reduce) { .werewolf-theme *, .werewolf-theme *::before, .werewolf-theme *::after { animation:none!important; transition:none!important; } }
 @media(max-width:600px) {
   .werewolf-theme .werewolf-shell, .werewolf-theme .werewolf-home { padding:18px 18px 40px; }
@@ -433,8 +428,6 @@
   .werewolf-theme .entry-local { display:flex; padding:18px; gap:12px; }
   .werewolf-theme .role-choice-grid { grid-template-columns:minmax(0,1fr); }
   .werewolf-theme .entry-local b { display:none; }
-  /* Lightning CSS drops `translate:none` when minifying, so the Tailwind translate variables are reset explicitly as well. */
-  .werewolf-theme.wolf-dialog { top:auto; bottom:0; left:0; width:100%; max-width:100%; max-height:calc(100svh - 24px); padding:26px 20px max(24px,env(safe-area-inset-bottom)); border-radius:22px 22px 0 0; --tw-translate-x:0; --tw-translate-y:0; translate:none; transform:none; }
   .werewolf-theme .player-chip { grid-template-columns:36px minmax(0,1fr) auto 26px; gap:8px; }
   .werewolf-theme .player-chip-copy strong { font-size:.875rem; }
   .werewolf-theme .player-chip:has(.player-remove) .player-presence { grid-column:2/4; grid-row:2; justify-self:start; min-height:20px; }
