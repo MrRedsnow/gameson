@@ -38,12 +38,18 @@ export type DevCard = { id: string; type: Development; boughtOnTurn: number };
 export type CatanPlayer = { id: string; name: string; color: number; resources: Resources; development: DevCard[]; knights: number };
 export type CatanPhase = "setup_settlement" | "setup_road" | "roll" | "main" | "discard" | "robber" | "steal" | "free_roads" | "finished";
 export type TradeOffer = { id: number; fromId: string; toId: string; give: Resources; receive: Resources };
+export type CatanNotification = {
+  id: number; playerId: string | null; kind: "resources" | "card" | "award" | "robber";
+  tone: "gain" | "loss" | "info"; title: string; message: string; resources?: Resources;
+};
 export type CatanGame = {
   version: 1; id: string; board: Board; players: CatanPlayer[]; targetPoints: number; bank: Resources;
   deck: Development[]; currentPlayer: number; phase: CatanPhase; turn: number; setupIndex: number; setupVertex: number | null;
   robberHex: number; dice: [number, number] | null; playedDevelopment: boolean; freeRoads: number; returnPhase: "roll" | "main";
   discards: Record<string, number>; victims: string[]; longestRoad: string | null; largestArmy: string | null;
   trade: TradeOffer | null; winner: string | null; log: { id: number; text: string }[]; sequence: number;
+  // Optional for saved games created before notifications were introduced.
+  notifications?: CatanNotification[];
 };
 export type CatanAction =
   | { type: "build"; building: "road" | "settlement" | "city"; position: number }
@@ -159,7 +165,7 @@ export function createCatanGame(seats: { id: string; name: string }[], targetPoi
     version: 1, id: crypto.randomUUID(), board, players: [...players.slice(start), ...players.slice(0, start)], targetPoints: validateTargetPoints(targetPoints), bank: emptyResources(19),
     deck: shuffled<Development>([...Array<Development>(14).fill("knight"), ...Array<Development>(5).fill("victory"), "road_building", "road_building", "plenty", "plenty", "monopoly", "monopoly"], random),
     currentPlayer: 0, phase: "setup_settlement", turn: 0, setupIndex: 0, setupVertex: null, robberHex: board.hexes.find((h) => h.resource === "desert")!.id,
-    dice: null, playedDevelopment: false, freeRoads: 0, returnPhase: "main", discards: {}, victims: [], longestRoad: null, largestArmy: null, trade: null, winner: null, log: [], sequence: 0,
+    dice: null, playedDevelopment: false, freeRoads: 0, returnPhase: "main", discards: {}, victims: [], longestRoad: null, largestArmy: null, trade: null, winner: null, log: [], sequence: 0, notifications: [],
   };
   addLog(game, `${game.players[0].name} beginnt. Gründet zuerst reihum, dann in umgekehrter Reihenfolge.`);
   return game;
@@ -261,6 +267,65 @@ function produce(game: CatanGame, roll: number) {
     if (total > game.bank[r] && recipients.length > 1) { addLog(game, `Die Bank hat zu wenig ${RESOURCE_INFO[r].label}: Niemand erhält diesen Rohstoff.`); continue; }
     for (const i of recipients) transfer(game.bank, game.players[i].resources, { [r]: Math.min(demand[i][r], game.bank[r]) });
   }
+}
+
+/** Record each confirmed action, so opposite changes between two polls cannot cancel out. */
+function recordNotifications(before: CatanGame, game: CatanGame, actorId: string, action: CatanAction) {
+  const actor = before.players.find((p) => p.id === actorId)!;
+  const add = (notice: Omit<CatanNotification, "id">) => {
+    (game.notifications ??= []).push({ ...notice, id: ++game.sequence });
+  };
+  let source = "Rohstoffe";
+  let message = "Dein Rohstoffbestand hat sich geändert.";
+  switch (action.type) {
+    case "build":
+      source = before.phase === "setup_settlement" ? "Startrohstoffe" : "Baukosten";
+      message = before.phase === "setup_settlement" ? "Deine zweite Siedlung bringt dir Startrohstoffe." : `${actor.name} baut ${action.building === "road" ? "eine Straße" : action.building === "city" ? "eine Stadt" : "eine Siedlung"}.`;
+      break;
+    case "roll": source = "Würfelertrag"; message = `Gewürfelt: ${game.dice![0] + game.dice![1]}. Deine Siedlungen und Städte liefern Rohstoffe.`; break;
+    case "discard": source = "Räuber · Abgabe"; message = "Eine 7 wurde gewürfelt. Du gibst die Hälfte deiner Rohstoffkarten ab."; break;
+    case "steal": source = "Räuber · Diebstahl"; message = `${actor.name} stiehlt ${game.players.find((p) => p.id === action.victimId)!.name} eine Rohstoffkarte.`; break;
+    case "bank_trade": source = tradeRatio(before, actorId, action.give) < 4 ? "Hafenhandel" : "Bankhandel"; message = "Dein Tausch ist abgeschlossen."; break;
+    case "accept_trade": source = "Handel"; message = `${game.players.find((p) => p.id === before.trade!.fromId)!.name} und ${actor.name} haben getauscht.`; break;
+    case "buy_development": {
+      source = "Entwicklungskarte · Kauf"; message = "Du bezahlst eine Entwicklungskarte.";
+      const card = game.players.find((p) => p.id === actorId)!.development.at(-1)!;
+      add({ playerId: actorId, kind: "card", tone: "gain", title: `Neue Karte: ${DEVELOPMENT_INFO[card.type].label}`, message: DEVELOPMENT_INFO[card.type].description });
+      break;
+    }
+    case "play_development": {
+      const card = actor.development.find((c) => c.id === action.cardId)!;
+      source = DEVELOPMENT_INFO[card.type].label;
+      message = `${actor.name} spielt „${source}“${card.type === "monopoly" ? ` und fordert ${RESOURCE_INFO[action.resource!].label}` : ""}.`;
+      add({ playerId: null, kind: "card", tone: "info", title: source, message: `${message} ${DEVELOPMENT_INFO[card.type].description}` });
+      break;
+    }
+    case "move_robber":
+      add({ playerId: null, kind: "robber", tone: "info", title: "Räuber versetzt", message: `${actor.name} setzt den Räuber auf Feld ${action.hex + 1}. Dieses Feld liefert keine Rohstoffe, solange der Räuber dort steht.` });
+      break;
+  }
+  for (const player of game.players) {
+    const previous = before.players.find((p) => p.id === player.id)!;
+    const gains = emptyResources(); const losses = emptyResources();
+    for (const r of RESOURCES) {
+      gains[r] = Math.max(0, player.resources[r] - previous.resources[r]);
+      losses[r] = Math.max(0, previous.resources[r] - player.resources[r]);
+    }
+    // A trade has two receipts: its payment must stay visible alongside its gain.
+    for (const [tone, resources] of [["loss", losses], ["gain", gains]] as const) {
+      if (resourceCount(resources)) add({ playerId: player.id, kind: "resources", tone, title: source, message, resources });
+    }
+  }
+  for (const [key, title] of [["longestRoad", "Längste Handelsstraße"], ["largestArmy", "Größte Rittermacht"]] as const) {
+    if (before[key] === game[key]) continue;
+    if (before[key]) add({ playerId: before[key], kind: "award", tone: "loss", title: "Sonderkarte verloren", message: `Du verlierst „${title}“ und damit 2 Siegpunkte.` });
+    add({ playerId: null, kind: "award", tone: "info", title, message: game[key] ? `${game.players.find((p) => p.id === game[key])!.name} erhält diese Sonderkarte und 2 Siegpunkte.` : "Diese Sonderkarte ist jetzt unbesetzt." });
+  }
+  if (game.phase === "finished") for (const player of game.players) {
+    const points = player.development.filter((card) => card.type === "victory").length;
+    if (points) add({ playerId: null, kind: "card", tone: "info", title: "Siegpunktkarten aufgedeckt", message: `${player.name} deckt ${points} Siegpunktkarte${points === 1 ? "" : "n"} auf.` });
+  }
+  game.notifications = (game.notifications ?? []).slice(-256);
 }
 
 /** Throws before returning an updated snapshot. The caller's state is never mutated. */
@@ -415,16 +480,17 @@ export function applyCatanAction(original: CatanGame, actorId: string, action: C
     }
     default: throw new Error("Unbekannter Spielzug.");
   }
-  checkWinner(game); return game;
+  checkWinner(game); recordNotifications(original, game, actorId, action); return game;
 }
 
 export type PublicCatanPlayer = { id: string; name: string; color: number; resourceCount: number; developmentCount: number; knights: number; points: number; roadLength: number; pieces: ReturnType<typeof pieceCounts> };
 export type CatanView = Omit<CatanGame, "players" | "deck"> & { players: PublicCatanPlayer[]; deckCount: number; me: CatanPlayer | null };
 /** Explicit projection: opponents' hands, hidden VP and deck order never leave the server. */
 export function catanView(game: CatanGame, viewerId: string): CatanView {
-  const { players, deck, ...publicGame } = game;
+  const { players, deck, notifications, ...publicGame } = game;
   return {
     ...structuredClone(publicGame), deckCount: deck.length,
+    notifications: structuredClone((notifications ?? []).filter((notice) => notice.playerId === null || notice.playerId === viewerId)),
     players: players.map((p) => ({ id: p.id, name: p.name, color: p.color, resourceCount: resourceCount(p.resources), developmentCount: p.development.length, knights: p.knights,
       points: victoryPoints(game, p, game.phase === "finished"), roadLength: longestRoadLength(game.board, p.id), pieces: pieceCounts(game, p.id) })),
     me: structuredClone(players.find((p) => p.id === viewerId) ?? null),

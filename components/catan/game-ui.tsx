@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CatanBoard, ResourceIcon, boardAction, type BoardMode } from "./board";
 import { CatanDice } from "./dice";
-import { CatanResourceRewards, useResourceRewards } from "./resource-rewards";
+import { CatanNotificationPopup, useCatanNotifications } from "./resource-rewards";
 import { COSTS, DEVELOPMENT_INFO, MAX_TARGET_POINTS, MIN_TARGET_POINTS, PLAYER_COLORS, PLAYER_COLOR_NAMES, RESOURCES, RESOURCE_INFO, canAfford, emptyResources, legalCities, legalRoads, legalSettlements, resourceCount, tradeRatio, victoryPoints, type CatanAction, type CatanView, type Resource, type Resources } from "@/lib/catan";
 
 type Send = (action: CatanAction) => Promise<boolean>;
@@ -181,16 +181,16 @@ function Section({ title, Icon, aside, className = "", children }: { title: stri
   return <section className={`catan-section ${className}`}><div className="catan-section-heading"><h2><Icon aria-hidden="true" />{title}</h2>{aside}</div>{children}</section>;
 }
 
-export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematch, initialResources, onResourcesCollected }: {
+export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematch, afterNotificationSequence, onNotificationsRead }: {
   game: CatanView; send: Send; busy: boolean; local: boolean; onHide?: () => void; onRematch?: () => void;
-  initialResources?: Resources; onResourcesCollected?: () => void;
+  afterNotificationSequence?: number; onNotificationsRead?: () => void;
 }) {
   const [build, setBuild] = useState<BoardMode>(null); const [selection, setSelection] = useState<{ mode: BoardMode; id: number; phase: string; turn: number } | null>(null);
   const [choice, setChoice] = useState<{ key: string; tab: CatanTab } | null>(null);
   const cardsTarget = useRef<HTMLSpanElement>(null);
-  const { resources, reward, arrivals, collect } = useResourceRewards(game, initialResources);
-  useEffect(() => { if (!reward) onResourcesCollected?.(); }, [reward, onResourcesCollected]);
-  const busy = sending || Boolean(reward);
+  const { resources, notice, remaining, arrivals, collect } = useCatanNotifications(game, afterNotificationSequence);
+  useEffect(() => { if (!notice) onNotificationsRead?.(); }, [notice, onNotificationsRead]);
+  const busy = sending || Boolean(notice);
   const me = game.me!; const isTurn = game.players[game.currentPlayer].id === me.id; const guidance = turnGuidance(game);
   const key = tabKey(game); const tab = choice && choice.key === key ? choice.tab : suggestedTab(game);
   const selectTab = (next: CatanTab) => setChoice({ key, tab: next });
@@ -275,6 +275,6 @@ export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematc
       return <TabsPrimitive.Trigger key={id} value={id} className="catan-nav-tab"><span ref={id === "karten" ? cardsTarget : undefined} className="catan-nav-icon"><Icon aria-hidden="true" />{badge && <span key={id === "karten" ? arrivals : id} className={`catan-nav-badge ${badge.tone}${id === "karten" && arrivals ? " is-collecting" : ""}`} aria-hidden="true">{badge.text}</span>}</span><span className="catan-nav-label">{label}</span>{badge && <span className="sr-only">, {badge.description}</span>}</TabsPrimitive.Trigger>;
     })}</TabsPrimitive.List></nav>
     <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{arrivals ? `${handCount} Rohstoffkarten auf der Hand.` : ""}</span>
-    {reward && <CatanResourceRewards key={reward.id} reward={reward} target={cardsTarget} onCollect={collect} />}
+    {notice && <CatanNotificationPopup key={notice.id} notice={notice} remaining={remaining} target={cardsTarget} onCollect={collect} />}
   </TabsPrimitive.Root>;
 }
