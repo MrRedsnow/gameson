@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowRightLeft, BookOpen, Castle, Dices, Flag, Hammer, Hand, Landmark, LockKeyhole, Map as MapIcon, Route, ScrollText, Shield, Trophy, Users, WalletCards, type LucideIcon } from "lucide-react";
 import { Tabs as TabsPrimitive } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CatanBoard, ResourceIcon, boardAction, type BoardMode } from "./board";
+import { CatanDice } from "./dice";
+import { CatanResourceRewards, useResourceRewards } from "./resource-rewards";
 import { COSTS, DEVELOPMENT_INFO, MAX_TARGET_POINTS, MIN_TARGET_POINTS, PLAYER_COLORS, PLAYER_COLOR_NAMES, RESOURCES, RESOURCE_INFO, canAfford, emptyResources, legalCities, legalRoads, legalSettlements, resourceCount, tradeRatio, victoryPoints, type CatanAction, type CatanView, type Resource, type Resources } from "@/lib/catan";
 
 type Send = (action: CatanAction) => Promise<boolean>;
@@ -150,9 +152,12 @@ function Section({ title, Icon, aside, className = "", children }: { title: stri
   return <section className={`catan-section ${className}`}><div className="catan-section-heading"><h2><Icon aria-hidden="true" />{title}</h2>{aside}</div>{children}</section>;
 }
 
-export function CatanGameUI({ game, send, busy, local, onHide, onRematch }: { game: CatanView; send: Send; busy: boolean; local: boolean; onHide?: () => void; onRematch?: () => void }) {
+export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematch }: { game: CatanView; send: Send; busy: boolean; local: boolean; onHide?: () => void; onRematch?: () => void }) {
   const [build, setBuild] = useState<BoardMode>(null); const [selection, setSelection] = useState<{ mode: BoardMode; id: number; phase: string; turn: number } | null>(null);
   const [choice, setChoice] = useState<{ key: string; tab: CatanTab } | null>(null);
+  const cardsTarget = useRef<HTMLSpanElement>(null);
+  const { resources, reward, arrivals, collect } = useResourceRewards(game);
+  const busy = sending || Boolean(reward);
   const me = game.me!; const isTurn = game.players[game.currentPlayer].id === me.id; const guidance = turnGuidance(game);
   const key = tabKey(game); const tab = choice && choice.key === key ? choice.tab : suggestedTab(game);
   const selectTab = (next: CatanTab) => setChoice({ key, tab: next });
@@ -168,7 +173,7 @@ export function CatanGameUI({ game, send, busy, local, onHide, onRematch }: { ga
   const canBuild = game.phase !== "main" || (mode && mode !== "robber" && canAfford(me.resources, COSTS[mode]));
   const leaveBuildMode = () => { setBuild(null); setSelection(null); if (game.phase === "main") selectTab("bauen"); };
   const commit = async () => { if (selected === null) return; const action = boardAction(mode, selected); if (action && await send(action)) leaveBuildMode(); };
-  const handCount = resourceCount(me.resources); const needsDiscard = game.phase === "discard" && game.discards[me.id] > 0;
+  const handCount = resourceCount(resources); const needsDiscard = game.phase === "discard" && game.discards[me.id] > 0;
   const pieces = game.players.find((p) => p.id === me.id)!.pieces;
   const badges: Partial<Record<CatanTab, Badge>> = {
     karten: needsDiscard ? { text: String(game.discards[me.id]), tone: "is-alert", description: `${game.discards[me.id]} Karten abgeben` } : handCount ? { text: String(handCount), tone: handCount > 7 ? "is-warn" : "", description: handCount > 7 ? `${handCount} Rohstoffkarten, bei einer 7 musst du abgeben` : `${handCount} Rohstoffkarten` } : undefined,
@@ -182,14 +187,14 @@ export function CatanGameUI({ game, send, busy, local, onHide, onRematch }: { ga
       : <section className={`catan-turn ${isTurn ? "is-yours" : ""}`} aria-live="polite">
         <div className="catan-turn-row"><div className="catan-turn-copy"><span className="catan-kicker">{game.turn ? `Zug ${game.turn}` : "Gründungsphase"} · Ziel {game.targetPoints} Punkte</span><h1>{guidance.title}</h1><p>{guidance.text}</p></div>
           <div className="catan-turn-side">{local && onHide && <Button variant="ghost" size="icon" className="catan-hide-button" onClick={onHide} aria-label="Handkarten verdecken"><LockKeyhole /></Button>}
-            {game.dice && <div className="catan-dice" aria-label={`Würfel: ${game.dice[0]} und ${game.dice[1]}, Summe ${game.dice[0] + game.dice[1]}`}><span>{["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"][game.dice[0]]}</span><span>{["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"][game.dice[1]]}</span></div>}</div></div>
+            <CatanDice dice={game.dice} /></div></div>
         {isTurn && game.phase === "roll" && <div className="catan-turn-actions"><Button className="catan-primary catan-roll-button" disabled={busy} onClick={() => void send({ type: "roll" })}><Dices />Würfeln</Button></div>}
         {isTurn && game.phase === "main" && <div className="catan-turn-actions"><Button className="catan-end-turn" disabled={busy} onClick={async () => { if (await send({ type: "end_turn" })) { setBuild(null); setSelection(null); } }}>Zug beenden →</Button></div>}
       </section>}
     <div className="catan-score-strip" aria-label="Punktestand">{game.players.map((p) => <span key={p.id} className={game.players[game.currentPlayer].id === p.id ? "is-active" : ""} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties}><i className="catan-player-dot" aria-hidden="true" />{p.name}{p.id === me.id ? " (du)" : ""}<b>{p.id === me.id ? victoryPoints(game, me) : p.points}</b></span>)}</div>
 
     <TabsPrimitive.Content value="insel" forceMount className="catan-tab-panel">
-      <button type="button" className="catan-hand-strip" onClick={() => selectTab("karten")} aria-label={`Deine Karten öffnen: ${RESOURCES.map((r) => `${me.resources[r]} ${RESOURCE_INFO[r].label}`).join(", ")}`}>{RESOURCES.map((r) => <span key={r}><ResourceIcon resource={r} />{me.resources[r]}</span>)}</button>
+      <button type="button" className="catan-hand-strip" onClick={() => selectTab("karten")} aria-label={`Deine Karten öffnen: ${RESOURCES.map((r) => `${resources[r]} ${RESOURCE_INFO[r].label}`).join(", ")}`}>{RESOURCES.map((r) => <span key={r}><ResourceIcon resource={r} />{resources[r]}</span>)}</button>
       <CatanBoard game={game} mode={mode} choices={choices} selected={selected} onSelect={(id) => setSelection({ mode, id, phase: game.phase, turn: game.turn })} disabled={busy} />
       {mode && <div className="catan-build-confirm" aria-live="polite"><p>{selected === null ? `Wähle ${mode === "robber" ? "ein Feld" : "einen markierten Bauplatz"}. Bei Bedarf vergrößern.` : `${mode === "robber" ? "Räuber: Feld" : mode === "road" ? "Straße: Weg" : BUILDING_NAMES[mode] + ": Kreuzung"} ${selected + 1}`}</p><Button disabled={busy || selected === null || !canBuild} onClick={() => void commit()}>{mode === "robber" ? "Räuber versetzen" : "Bauen bestätigen"}</Button>{game.phase === "main" && <Button variant="ghost" onClick={leaveBuildMode}>Abbrechen</Button>}</div>}
       {isTurn && game.phase === "steal" && <section className="catan-panel"><h2>Wen möchtest du bestehlen?</h2>{game.victims.map((id) => <Button className="catan-primary" variant="outline" key={id} disabled={busy} onClick={() => void send({ type: "steal", victimId: id })}>{game.players.find((p) => p.id === id)!.name}</Button>)}</section>}
@@ -199,7 +204,7 @@ export function CatanGameUI({ game, send, busy, local, onHide, onRematch }: { ga
     <TabsPrimitive.Content value="karten" forceMount className="catan-tab-panel">
       {needsDiscard && <Discard key={`${game.turn}-${me.id}`} game={game} send={send} busy={busy} />}
       <Section title="Deine Rohstoffe" Icon={Hand} aside={<span className="catan-section-count">{handCount} Karten</span>}>
-        <div className="catan-resource-hand">{RESOURCES.map((r) => <div key={r}><ResourceIcon resource={r} /><strong>{me.resources[r]}</strong><span>{RESOURCE_INFO[r].label}</span></div>)}</div>
+        <div className="catan-resource-hand">{RESOURCES.map((r) => <div key={r}><ResourceIcon resource={r} /><strong>{resources[r]}</strong><span>{RESOURCE_INFO[r].label}</span></div>)}</div>
         <p className="catan-muted"><LockKeyhole />{handCount > 7 ? `Mehr als sieben Karten: Bei einer 7 musst du ${Math.floor(handCount / 2)} abgeben.` : `Nur für ${me.name} · Deine Punkte enthalten verdeckte Siegpunktkarten.`}</p>
       </Section>
       <Section title="Entwicklungskarten" Icon={Shield} aside={<span className="catan-section-count">{me.development.length} auf der Hand</span>}><DevelopmentCards game={game} send={send} busy={busy} /></Section>
@@ -225,7 +230,7 @@ export function CatanGameUI({ game, send, busy, local, onHide, onRematch }: { ga
     <TabsPrimitive.Content value="uebersicht" forceMount className="catan-tab-panel">
       <section className="catan-players" aria-label="Spielende und Punktestände">{game.players.map((p) => <div key={p.id} className={game.players[game.currentPlayer].id === p.id ? "is-active" : ""} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties}>
         <div><span className="catan-player-dot" /><strong>{p.name}{p.id === me.id ? " (du)" : ""}</strong><b>{p.id === me.id ? victoryPoints(game, me) : p.points}<small> / {game.targetPoints}</small></b></div>
-        <p>{PLAYER_COLOR_NAMES[p.color]} · {p.resourceCount} Rohstoffe · {p.developmentCount} Karten</p>
+        <p>{PLAYER_COLOR_NAMES[p.color]} · {p.id === me.id ? handCount : p.resourceCount} Rohstoffe · {p.developmentCount} Karten</p>
         <div className="catan-player-bonuses"><span title="Länge der Handelsstraße"><Route />{p.roadLength}</span><span title="Ausgespielte Ritter"><Shield />{p.knights}</span>{game.longestRoad === p.id && <span className="catan-award">Straße +2</span>}{game.largestArmy === p.id && <span className="catan-award">Ritter +2</span>}</div>
       </div>)}</section>
       <Section title="Spielverlauf" Icon={ScrollText}><ol className="catan-log-list">{[...game.log].reverse().map((entry) => <li key={entry.id}>{entry.text}</li>)}</ol></Section>
@@ -234,7 +239,9 @@ export function CatanGameUI({ game, send, busy, local, onHide, onRematch }: { ga
     </TabsPrimitive.Content>
 
     <nav className="catan-nav" aria-label="Spielmenü"><TabsPrimitive.List className="catan-nav-list" aria-label="Bereiche">{CATAN_TABS.map(({ id, label, Icon }) => { const badge = badges[id];
-      return <TabsPrimitive.Trigger key={id} value={id} className="catan-nav-tab"><span className="catan-nav-icon"><Icon aria-hidden="true" />{badge && <span className={`catan-nav-badge ${badge.tone}`} aria-hidden="true">{badge.text}</span>}</span><span className="catan-nav-label">{label}</span>{badge && <span className="sr-only">, {badge.description}</span>}</TabsPrimitive.Trigger>;
+      return <TabsPrimitive.Trigger key={id} value={id} className="catan-nav-tab"><span ref={id === "karten" ? cardsTarget : undefined} className="catan-nav-icon"><Icon aria-hidden="true" />{badge && <span key={id === "karten" ? arrivals : id} className={`catan-nav-badge ${badge.tone}${id === "karten" && arrivals ? " is-collecting" : ""}`} aria-hidden="true">{badge.text}</span>}</span><span className="catan-nav-label">{label}</span>{badge && <span className="sr-only">, {badge.description}</span>}</TabsPrimitive.Trigger>;
     })}</TabsPrimitive.List></nav>
+    <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{arrivals ? `${handCount} Rohstoffkarten auf der Hand.` : ""}</span>
+    {reward && <CatanResourceRewards key={reward.id} reward={reward} target={cardsTarget} onCollect={collect} />}
   </TabsPrimitive.Root>;
 }

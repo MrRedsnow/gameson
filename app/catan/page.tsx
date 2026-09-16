@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { CatanGameUI, CatanRules, TargetPoints } from "@/components/catan/game-ui";
+import { CatanDiceOverlay } from "@/components/catan/dice";
 import { DEFAULT_TARGET_POINTS, PLAYER_COLORS, applyCatanAction, catanView, createCatanGame, localActorId, type CatanAction, type CatanGame, type CatanView } from "@/lib/catan";
 import { describeLobby, resolveOnlineGameStartup, type GameSession } from "@/lib/game-session";
 
@@ -189,6 +190,7 @@ export default function CatanPage() {
       </section>}
       <CatanRules />
     </>}
+    <CatanDiceOverlay game={active} />
     {storedSession && <ResumeSessionDialog theme="catan" lobby={storedLobby} onResume={resumeStoredSession} onDiscard={discardStoredSession} />}
     {confirmNew && <ConfirmDialog theme="catan" title="Neue lokale Partie starten?" description="Die bisher auf diesem Gerät gespeicherte Catan-Partie wird ersetzt." confirmLabel="Neue Partie starten" cancelLabel="Gespeicherte Partie behalten" onCancel={() => setConfirmNew(false)} onConfirm={() => { setConfirmNew(false); startLocal(); }} />}
   </main>;
