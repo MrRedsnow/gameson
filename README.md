@@ -61,24 +61,31 @@ Waiting online lobbies are listed under „Lobby beitreten“ for devices on the
 network, like in Imposter and Werwolf; the host can hide a lobby with „Lobby in
 der Nähe anzeigen“.
 Local games are saved on the device and hide hands when passing it around.
-A running game fits its viewport without scrolling inside the five menus.
+A running game uses five menus with scrollable content when needed.
 The active player, dice, own score and resource counts stay visible; the menu and
 the current action stay pinned. In landscape, status and navigation move beside
-the game. Longer collections use visible page controls whose capacity follows
-the measured content height, including player scores, build choices and history.
-Development cards have their own pages; the rules are divided into short topics.
+the game. Build choices and compact player scores can be compared in one list;
+player details expand on demand. Development cards are grouped by type, showing
+their count and availability, and prefer an older playable copy. Large text can
+scroll the entire screen so headings and actions remain reachable. Rules and
+activity details are divided into short pages.
 
-The island fits its available space. Tapping a field or using the place arrows
+The island fits its available space. A larger island mode hides the surrounding
+menus and supports panning. Landscape gives more space to the map. Tapping a field or using the place arrows
 opens a close view with larger touch targets. A separate confirmation prevents
 accidental construction. Placement previews explain adjacent resources, number
 probabilities, robber blocks and ports. The build menu explains missing resources,
 pieces and legal positions. Rolling keeps the island visible, with trade offered
-when nothing can be built.
+when nothing can be built. A three-step setup guide explains placement, resources
+and number probabilities; it can be skipped and reopened during setup.
 
-Bank trades use three steps; player offers use four, ending with the exchange and
-the resulting stock. Incoming offers pin accept, decline and counteroffer actions.
+Bank trades show both resources, the harbor rate and resulting stock together,
+with one explicit confirmation; the selection stays available for repeat trades.
+Player offers use four steps, ending with the exchange and resulting stock.
+Incoming offers pin accept, decline and counteroffer actions.
 Resource changes update the hand immediately and appear in a private, nonblocking
-activity history. Gains and payments from one trade are grouped together. Shared
+activity history. A compact notice shows signed gains and losses even on small
+screens. Gains and payments from one trade are grouped together. Shared
 devices are passed only for a real turn, discard or trade decision; unread receipts
 wait for that person's next visit. Older saved local games retain unread markers.
 

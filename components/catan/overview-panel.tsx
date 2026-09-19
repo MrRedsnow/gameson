@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { GameBackLink } from "@/components/game-entry";
 import { PLAYER_COLORS, PLAYER_COLOR_NAMES, resourceCount, victoryPoints, type CatanView } from "@/lib/catan";
 import { type CatanActivity } from "@/lib/catan-notifications";
-import { BagText, Pager, PagedItems, Screen } from "./play-primitives";
+import { BagText, Pager, Screen } from "./play-primitives";
 
 const RULES = [
   { title: "Ziel des Spiels", text: "Erreiche das gewählte Siegpunktziel im eigenen Zug. Eine Siedlung zählt 1, eine Stadt 2 Punkte. Verdeckte Siegpunktkarten zählen mit. Die längste Handelsstraße und die größte Rittermacht bringen jeweils 2 Sonderpunkte." },
@@ -32,19 +32,19 @@ export function OverviewPanel({ game, page, setPage, activity, unread, onRead, l
     {rule === 0 && <p className="catan-inline-hint">Euer Ziel: {game.targetPoints} Punkte.</p>}
     <Pager index={rule} total={RULES.length} onChange={setRule} />
   </Screen>;
-  if (page === "log") return <Screen title="Spielverlauf" back={back}><PagedItems items={[...game.log].reverse()} itemHeight={82} render={(entry) => <p className="catan-log-entry" key={entry.id}>{entry.text}</p>} /></Screen>;
+  if (page === "log") return <Screen title="Spielverlauf" back={back}>{[...game.log].reverse().map((entry) => <p className="catan-log-entry" key={entry.id}>{entry.text}</p>)}</Screen>;
   if (page === "activity") {
     const entries = [...activity].reverse(); const index = Math.min(event, Math.max(0, entries.length - 1)); const entry = entries[index];
     return <Screen title="Deine Meldungen" back={back} headingAction={unread ? <Button variant="outline" size="icon" aria-label="Alle Meldungen als gelesen markieren" title="Alle als gelesen markieren" onClick={onRead}><CheckCheck /></Button> : undefined}>
       {entry ? <><article className="catan-activity-entry"><h3>{entry.title}</h3><p>{entry.message}</p>{resourceCount(entry.losses) > 0 && <p className="is-loss"><strong>Abgegeben:</strong> <BagText bag={entry.losses} /></p>}{resourceCount(entry.gains) > 0 && <p className="is-gain"><strong>Erhalten:</strong> <BagText bag={entry.gains} /></p>}</article><Pager index={index} total={entries.length} label="Meldung" onChange={setEvent} /></> : <p>Noch keine Meldungen. Deine Rohstoffe werden immer sofort aktualisiert.</p>}
     </Screen>;
   }
-  if (page === "scores") return <Screen title="Punktestand" back={back}><PagedItems items={game.players} itemHeight={162} render={(p) => <article className="catan-player-card" key={p.id} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties}>
-    <div><i className="catan-player-dot" /><h3>{p.name}{p.id === me.id ? " (du)" : ""}</h3><strong>{p.id === me.id ? victoryPoints(game, me) : p.points} / {game.targetPoints}</strong></div>
-    <p>{PLAYER_COLOR_NAMES[p.color]} · {p.resourceCount} Rohstoffkarten · {p.developmentCount} Entwicklungskarten</p>
-    <p>Straßenlänge {p.roadLength} · {p.knights} Ritter{game.longestRoad === p.id ? " · Straße +2 Punkte" : ""}{game.largestArmy === p.id ? " · Rittermacht +2 Punkte" : ""}</p>
-    <p>Vorrat: {15 - p.pieces.road} Straßen · {5 - p.pieces.settlement} Siedlungen · {4 - p.pieces.city} Städte</p>
-  </article>} /></Screen>;
+  if (page === "scores") return <Screen title="Punktestand" back={back}><div className="catan-score-list">{game.players.map((p) => <details className="catan-player-card" key={p.id} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties}>
+    <summary><i className="catan-player-dot" /><strong>{p.name}{p.id === me.id ? " (du)" : ""}</strong><b>{p.id === me.id ? victoryPoints(game, me) : p.points} / {game.targetPoints}</b><small>{p.resourceCount} Karten · {p.knights} Ritter · Straße {p.roadLength}</small></summary>
+    <div><p>{PLAYER_COLOR_NAMES[p.color]} · {p.resourceCount} Rohstoffkarten · {p.developmentCount} Entwicklungskarten</p>
+      <p>{game.longestRoad === p.id ? "Längste Straße: +2 Punkte. " : ""}{game.largestArmy === p.id ? "Größte Rittermacht: +2 Punkte." : ""}</p>
+      <p>Vorrat: {15 - p.pieces.road} Straßen · {5 - p.pieces.settlement} Siedlungen · {4 - p.pieces.city} Städte</p></div>
+  </details>)}</div></Screen>;
   const finished = game.phase === "finished"; const winner = game.players.find((p) => p.id === game.winner);
   return <Screen title={finished ? `${winner?.name} gewinnt!` : "Übersicht"} actions={finished && onRematch ? <Button className="catan-primary" disabled={busy} onClick={onRematch}>Neue Partie vorbereiten</Button> : turnActions}>
     {finished && <p className="catan-inline-hint"><Trophy /> {game.targetPoints} Punkte erreicht.</p>}

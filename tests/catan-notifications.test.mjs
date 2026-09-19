@@ -14,8 +14,8 @@ await build({
   absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", jsx: "automatic", outfile: output, logLevel: "silent",
 });
 after(() => rm(output, { force: true }));
-const { RESOURCES, COSTS, emptyResources, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads,
-  groupedActivity, restoreLocalSeen, localActorId } = createRequire(import.meta.url)(output);
+const { RESOURCES, COSTS, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads,
+  groupedActivity, activitySummary, restoreLocalSeen, localActorId } = createRequire(import.meta.url)(output);
 const seats = [{ id: "a", name: "Anna" }, { id: "b", name: "Ben" }, { id: "c", name: "Clara" }];
 function game() { const g = createCatanGame(seats, 12, () => 0); g.phase = "main"; g.turn = 2; return g; }
 function fund(g, id, values) {
@@ -184,4 +184,19 @@ test("Gruppierung filtert fremde private Angaben auch bei einer ungefilterten Ei
   const before = game(); fund(before, "a", { wood: 4 });
   const next = act(before, { type: "bank_trade", give: "wood", receive: "ore" });
   assert.equal(groupedActivity({ notifications: next.notifications, me: { id: "b" } }).length, 0);
+});
+
+test("Kurzmeldungen zeigen Gewinn und Zahlung mit Vorzeichen, ohne fremde Hände offenzulegen", () => {
+  const before = game(); fund(before, "a", { wood: 4 }); card(before, "knight");
+  const traded = act(before, { type: "bank_trade", give: "wood", receive: "ore" });
+  assert.equal(activitySummary(groupedActivity(catanView(traded, "a"))[0]), "+1 Erz · −4 Holz");
+  assert.deepEqual(groupedActivity(catanView(traded, "b")).map(activitySummary), []);
+  const played = act(traded, { type: "play_development", cardId: "knight" });
+  const publicCard = groupedActivity(catanView(played, "b"))[0];
+  assert.equal(activitySummary(publicCard), publicCard.message);
+  assert.match(activitySummary(publicCard), /Anna.*Ritter/);
+  const bought = game(); fund(bought, "a", COSTS.development);
+  const purchase = act(bought, { type: "buy_development" });
+  const payment = groupedActivity(catanView(purchase, "a")).find((entry) => entry.losses.ore);
+  assert.equal(activitySummary(payment), "−1 Wolle · −1 Getreide · −1 Erz");
 });

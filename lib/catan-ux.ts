@@ -1,6 +1,25 @@
-import { COSTS, RESOURCE_INFO, RESOURCES, legalCities, legalRoads, legalSettlements, type CatanView, type Resources } from "./catan";
+import { COSTS, DEVELOPMENT_INFO, RESOURCE_INFO, RESOURCES, legalCities, legalRoads, legalSettlements, type CatanView, type DevCard, type Development, type Resources } from "./catan";
 
 export type BuildKind = keyof typeof COSTS;
+
+export function developmentUnavailable(game: CatanView, card: DevCard): string | undefined {
+  if (card.type === "victory") return "Zählt bereits zu deinen Siegpunkten.";
+  if (game.players[game.currentPlayer].id !== game.me!.id) return "Du kannst Karten in deinem eigenen Zug spielen.";
+  if (!["roll", "main"].includes(game.phase)) return "Schließe zuerst deine aktuelle Aufgabe ab.";
+  if (game.playedDevelopment) return "Du hast in diesem Zug schon eine Entwicklungskarte gespielt.";
+  if (card.boughtOnTurn === game.turn) return "Neu gekauft: ab deinem nächsten Zug spielbar.";
+  if (card.type === "road_building" && !legalRoads(game, game.me!.id).length) return "Es gibt keinen freien Platz für eine weitere Straße.";
+}
+
+/** Select an older copy first so a newly bought duplicate never hides a playable card. */
+export function developmentGroups(game: CatanView) {
+  return (Object.keys(DEVELOPMENT_INFO) as Development[]).flatMap((type) => {
+    const cards = game.me!.development.filter((card) => card.type === type);
+    if (!cards.length) return [];
+    const card = cards.find((item) => item.boughtOnTurn < game.turn) ?? cards[0];
+    return [{ type, card, count: cards.length, fresh: cards.filter((item) => item.boughtOnTurn === game.turn).length, reason: developmentUnavailable(game, card) }];
+  });
+}
 
 export function missingResources(resources: Resources, cost: Partial<Resources>): string | undefined {
   const missing = RESOURCES.filter((r) => resources[r] < (cost[r] ?? 0));

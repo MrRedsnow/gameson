@@ -1,6 +1,14 @@
-import { RESOURCES, emptyResources, type CatanNotification, type CatanView } from "./catan";
+import { RESOURCE_INFO, RESOURCES, emptyResources, type CatanNotification, type CatanView } from "./catan";
 
 export type CatanActivity = { id: number; title: string; message: string; gains: ReturnType<typeof emptyResources>; losses: ReturnType<typeof emptyResources> };
+
+export function activitySummary(activity: CatanActivity) {
+  const changes = [
+    ...RESOURCES.filter((r) => activity.gains[r]).map((r) => `+${activity.gains[r]} ${RESOURCE_INFO[r].label}`),
+    ...RESOURCES.filter((r) => activity.losses[r]).map((r) => `−${activity.losses[r]} ${RESOURCE_INFO[r].label}`),
+  ];
+  return changes.length ? changes.join(" · ") : activity.message;
+}
 
 /** Merge the payment and receipt of one action; never include another player's private hand. */
 export function groupedActivity(game: Pick<CatanView, "notifications" | "me">, afterSequence = -1): CatanActivity[] {

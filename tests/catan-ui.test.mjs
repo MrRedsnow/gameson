@@ -17,7 +17,7 @@ await build({
   absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", jsx: "automatic", outfile: output, logLevel: "silent",
 });
 after(() => rm(output, { force: true }));
-const { CatanGameUI, CATAN_TABS, suggestedTab, WoodIcon, ResourceIcon, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads, COSTS, buildUnavailable, hasBuildOption, buildingPreview } = createRequire(import.meta.url)(output);
+const { CatanGameUI, CATAN_TABS, suggestedTab, WoodIcon, ResourceIcon, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads, COSTS, buildUnavailable, hasBuildOption, buildingPreview, developmentGroups } = createRequire(import.meta.url)(output);
 const render = (component, props) => renderToStaticMarkup(createElement(component, props));
 const send = async () => true;
 const seats = [{ id: "a", name: "Robin" }, { id: "b", name: "Mara" }, { id: "c", name: "Lea" }];
@@ -118,7 +118,7 @@ test("heftet die eigenen Rohstoffe über alle Menübereiche an", () => {
   assert.match(ui({ ...rich, phase: "discard", discards: { [me]: 4 } }, me), /<div class="catan-hand-bar is-alert">/);
 });
 
-test("Handel startet mit Hafen und Bank oder Mitspielenden und fragt dann Schritt für Schritt", () => {
+test("Handel startet mit der Wahl zwischen Hafen und Bank oder Mitspielenden", () => {
   let game = foundedGame();
   const active = game.players[game.currentPlayer].id; const other = game.players.find((p) => p.id !== active).id;
   game = applyCatanAction(game, active, { type: "roll" }, sequence([1, 3]));
@@ -189,4 +189,46 @@ test("eingehende Angebote zeigen die eigene Perspektive und haben Entscheidungsa
   assert.match(html, /Gegenangebot<\/button>/);
   assert.match(html, /Ablehnen<\/button>/);
   assert.doesNotMatch(html, /catan-event-overlay|Rohstoffe einsammeln/);
+});
+
+test("gruppierte Entwicklungskarten spielen eine ältere Kopie trotz neu gekaufter Karte zuerst", () => {
+  const game = foundedGame(); const id = game.players[game.currentPlayer].id;
+  game.turn = 4; game.phase = "main";
+  game.players[game.currentPlayer].development = [
+    { id: "new-knight", type: "knight", boughtOnTurn: 4 },
+    { id: "old-knight", type: "knight", boughtOnTurn: 2 },
+    { id: "point", type: "victory", boughtOnTurn: 4 },
+  ];
+  const groups = developmentGroups(catanView(game, id));
+  assert.deepEqual(groups.map((group) => group.type), ["knight", "victory"]);
+  const knight = groups[0];
+  assert.equal(knight.count, 2); assert.equal(knight.fresh, 1);
+  assert.equal(knight.card.id, "old-knight"); assert.equal(knight.reason, undefined);
+  const next = applyCatanAction(game, id, { type: "play_development", cardId: knight.card.id });
+  const remaining = developmentGroups(catanView(next, id))[0];
+  assert.equal(remaining.card.id, "new-knight"); assert.equal(remaining.count, 1);
+  assert.ok(remaining.reason, "Nach dem Ausspielen darf die neue Kopie nicht spielbar erscheinen.");
+  next.phase = "main";
+  assert.match(developmentGroups(catanView(next, id))[0].reason, /schon eine Entwicklungskarte gespielt/);
+  next.playedDevelopment = false;
+  assert.match(developmentGroups(catanView(next, id))[0].reason, /Neu gekauft/);
+  assert.throws(() => applyCatanAction(next, id, { type: "play_development", cardId: remaining.card.id }));
+  next.turn++;
+  assert.equal(developmentGroups(catanView(next, id))[0].reason, undefined);
+});
+
+test("Kartengruppen erklären fremde Züge, fehlende Straßenplätze und bereits gezählte Siegpunkte", () => {
+  const game = foundedGame(); const id = game.players[game.currentPlayer].id;
+  game.turn = 4;
+  game.players[game.currentPlayer].development = [
+    { id: "road", type: "road_building", boughtOnTurn: 2 },
+    { id: "point", type: "victory", boughtOnTurn: 4 },
+  ];
+  const view = catanView(game, id);
+  assert.equal(developmentGroups(view)[0].reason, undefined, "Auch vor dem Würfeln spielbar.");
+  assert.match(developmentGroups(view)[1].reason, /Zählt bereits/);
+  view.board.edges.forEach((edge) => { edge.owner = id; });
+  assert.match(developmentGroups(view)[0].reason, /keinen freien Platz/);
+  view.currentPlayer = (view.currentPlayer + 1) % view.players.length;
+  assert.match(developmentGroups(view)[0].reason, /eigenen Zug/);
 });
