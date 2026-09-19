@@ -1,44 +1,25 @@
-import { RESOURCES, emptyResources, type CatanNotification, type CatanView, type Resource } from "./catan";
+import { RESOURCES, emptyResources, type CatanNotification, type CatanView } from "./catan";
 
-export type NotificationQueue = {
-  player: string; sequence: number; notices: CatanNotification[]; collected: Resource[]; arrivals: number;
-};
+export type CatanActivity = { id: number; title: string; message: string; gains: ReturnType<typeof emptyResources>; losses: ReturnType<typeof emptyResources> };
 
-export function createNotificationQueue(game: CatanView, afterSequence = game.sequence): NotificationQueue {
-  return {
-    player: `${game.id}:${game.me!.id}`, sequence: game.sequence,
-    notices: (game.notifications ?? []).filter((notice) => notice.id > afterSequence), collected: [], arrivals: 0,
-  };
+/** Merge the payment and receipt of one action; never include another player's private hand. */
+export function groupedActivity(game: Pick<CatanView, "notifications" | "me">, afterSequence = -1): CatanActivity[] {
+  const groups = new Map<string, CatanActivity>();
+  let previous: CatanNotification | undefined;
+  let legacyKey = "";
+  for (const notice of game.notifications ?? []) {
+    if (notice.id <= afterSequence || (notice.playerId !== null && notice.playerId !== game.me?.id)) continue;
+    if (notice.actionId === undefined && !(previous && previous.id + 1 === notice.id && previous.kind === "resources" && notice.kind === "resources" && previous.tone === "loss" && notice.tone === "gain" && previous.title === notice.title && previous.message === notice.message)) legacyKey = `legacy:${notice.id}`;
+    const key = notice.actionId === undefined ? legacyKey : `${notice.actionId}:${notice.kind === "resources" ? "resources" : notice.title}`;
+    const group = groups.get(key) ?? { id: notice.id, title: notice.title, message: notice.message, gains: emptyResources(), losses: emptyResources() };
+    group.id = notice.id;
+    if (notice.resources) for (const r of RESOURCES) (notice.tone === "loss" ? group.losses : group.gains)[r] += notice.resources[r];
+    groups.set(key, group); previous = notice;
+  }
+  return [...groups.values()];
 }
 
-export function updateNotificationQueue(current: NotificationQueue, game: CatanView): NotificationQueue {
-  if (current.player !== `${game.id}:${game.me!.id}`) return createNotificationQueue(game);
-  if (game.sequence <= current.sequence) return current;
-  return { ...current, sequence: game.sequence, notices: [...current.notices, ...(game.notifications ?? []).filter((notice) => notice.id > current.sequence)] };
-}
-
-export function collectNotification(current: NotificationQueue, id: number, resource?: Resource): NotificationQueue {
-  if (current.notices[0]?.id !== id) return current;
-  if (!resource) return { ...current, notices: current.notices.slice(1), collected: [] };
-  if (current.collected.includes(resource)) return current;
-  return { ...current, collected: [...current.collected, resource], arrivals: current.arrivals + 1 };
-}
-
-/** Only delay the visible hand; rules and saved state always use the confirmed hand. */
-export function presentedResources(game: CatanView, queue: NotificationQueue) {
-  const pending = emptyResources();
-  queue.notices.forEach((notice, index) => {
-    if (notice.kind !== "resources" || notice.tone !== "gain" || !notice.resources) return;
-    for (const r of RESOURCES) if (index !== 0 || !queue.collected.includes(r)) pending[r] += notice.resources[r];
-  });
-  const resources = emptyResources();
-  for (const r of RESOURCES) resources[r] = Math.max(0, game.me!.resources[r] - pending[r]);
-  return resources;
-}
-
-/** Everyone affected gets a private turn to read their receipt on a shared device. */
-export function localNotificationRecipients(game: { players: { id: string }[]; notifications?: CatanNotification[] }, actorId: string, afterSequence: number) {
-  const notices = (game.notifications ?? []).filter((notice) => notice.id > afterSequence);
-  return [actorId, ...game.players.map((p) => p.id).filter((id) => id !== actorId)]
-    .filter((id) => notices.some((notice) => notice.playerId === null || notice.playerId === id));
+/** Older saved games queued receipt-only turns. Keep their unread markers, not those turns. */
+export function restoreLocalSeen(game: { players: { id: string }[]; sequence: number }, seen?: Record<string, number>, receipts: { playerId: string; afterSequence: number }[] = []) {
+  return Object.fromEntries(game.players.map((p) => [p.id, Math.max(0, Math.min(game.sequence, seen?.[p.id] ?? receipts.find((r) => r.playerId === p.id)?.afterSequence ?? game.sequence))]));
 }

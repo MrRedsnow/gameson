@@ -39,7 +39,7 @@ export type CatanPlayer = { id: string; name: string; color: number; resources: 
 export type CatanPhase = "setup_settlement" | "setup_road" | "roll" | "main" | "discard" | "robber" | "steal" | "free_roads" | "finished";
 export type TradeOffer = { id: number; fromId: string; toId: string; give: Resources; receive: Resources };
 export type CatanNotification = {
-  id: number; playerId: string | null; kind: "resources" | "card" | "award" | "robber";
+  id: number; actionId?: number; playerId: string | null; kind: "resources" | "card" | "award" | "robber";
   tone: "gain" | "loss" | "info"; title: string; message: string; resources?: Resources;
 };
 export type CatanGame = {
@@ -272,8 +272,9 @@ function produce(game: CatanGame, roll: number) {
 /** Record each confirmed action, so opposite changes between two polls cannot cancel out. */
 function recordNotifications(before: CatanGame, game: CatanGame, actorId: string, action: CatanAction) {
   const actor = before.players.find((p) => p.id === actorId)!;
+  const actionId = game.sequence;
   const add = (notice: Omit<CatanNotification, "id">) => {
-    (game.notifications ??= []).push({ ...notice, id: ++game.sequence });
+    (game.notifications ??= []).push({ ...notice, actionId, id: ++game.sequence });
   };
   let source = "Rohstoffe";
   let message = "Dein Rohstoffbestand hat sich geändert.";

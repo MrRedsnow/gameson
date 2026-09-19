@@ -5,19 +5,17 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after } from "node:test";
 import { build } from "esbuild";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const output = resolve(root, `.wrangler/test-artifacts/catan-notifications-${process.pid}.cjs`);
 await mkdir(resolve(root, ".wrangler/test-artifacts"), { recursive: true });
 await build({
-  stdin: { contents: 'export * from "./lib/catan"; export * from "./lib/catan-notifications"; export { CatanNotificationContent } from "./components/catan/resource-rewards";', resolveDir: root, loader: "tsx" },
+  stdin: { contents: 'export * from "./lib/catan"; export * from "./lib/catan-notifications";', resolveDir: root, loader: "tsx" },
   absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", jsx: "automatic", outfile: output, logLevel: "silent",
 });
 after(() => rm(output, { force: true }));
 const { RESOURCES, COSTS, emptyResources, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads,
-  createNotificationQueue, updateNotificationQueue, collectNotification, presentedResources, localNotificationRecipients, CatanNotificationContent } = createRequire(import.meta.url)(output);
+  groupedActivity, restoreLocalSeen, localActorId } = createRequire(import.meta.url)(output);
 const seats = [{ id: "a", name: "Anna" }, { id: "b", name: "Ben" }, { id: "c", name: "Clara" }];
 function game() { const g = createCatanGame(seats, 12, () => 0); g.phase = "main"; g.turn = 2; return g; }
 function fund(g, id, values) {
@@ -43,7 +41,7 @@ test("Räuber meldet dem Opfer den genauen Verlust und dem Dieb den Gewinn priva
   assert.equal(resources(next, "b")[0].resources.ore, 1);
   assert.match(resources(next, "b")[0].title, /Räuber/);
   assert.deepEqual(notices(next, "c"), []);
-  assert.deepEqual(localNotificationRecipients(next, "a", before.sequence), ["a", "b"]);
+  assert.equal(localActorId(next), "a", "Keine zusätzliche Übergabe nur für den Verlustbeleg.");
   checkChanges(before, next);
 });
 
@@ -59,7 +57,7 @@ test("Monopol informiert alle über die Karte und jede betroffene Hand über ihr
   assert.equal(resources(next, "a")[0].resources.wood, 5);
   assert.equal(resources(next, "b")[0].resources.wood, 3);
   assert.equal(resources(next, "c")[0].resources.wood, 2);
-  assert.deepEqual(localNotificationRecipients(next, "a", before.sequence), ["a", "b", "c"]);
+  assert.equal(localActorId(next), "a", "Monopol erzeugt keine Rundreise des Geräts.");
   checkChanges(before, next);
 });
 
@@ -95,7 +93,8 @@ test("Bankhandel und Spielerhandel zeigen Minus und Plus getrennt auf beiden Sei
   assert.deepEqual(notices(offer, "a"), []);
   const traded = act(offer, { type: "accept_trade", offerId: offer.trade.id }, "b");
   for (const id of ["a", "b"]) assert.deepEqual(resources(traded, id).map((n) => n.tone), ["loss", "gain"]);
-  assert.deepEqual(localNotificationRecipients(traded, "b", offer.sequence), ["b", "a"]);
+  assert.equal(localActorId(offer), "b");
+  assert.equal(localActorId(traded), "a");
   assert.deepEqual(notices(traded, "c"), []); checkChanges(offer, traded);
 });
 
@@ -135,30 +134,40 @@ test("Räuberbewegung und Wechsel einer Sonderkarte informieren alle, bisherigen
   assert.ok(notices(awarded, "c").some((n) => n.kind === "award" && /Anna/.test(n.message)));
 });
 
-test("Polling verliert gegenläufige Änderungen nicht und unterbricht keine laufende Meldung", () => {
+test("Aktivitäten fassen einen Handel zusammen, erhalten aber gegenläufige spätere Aktionen", () => {
   const before = game(); fund(before, "a", { wood: 4 }); fund(before, "b", { wood: 4 }); card(before, "monopoly");
-  let queue = createNotificationQueue(catanView(before, "a"));
   const traded = act(before, { type: "bank_trade", give: "wood", receive: "ore" });
   const after = act(traded, { type: "play_development", cardId: "monopoly", resource: "wood" });
+  const activity = groupedActivity(catanView(after, "a"), before.sequence);
+  assert.equal(activity.length, 3); // Ein Handel, die ausgespielte Karte, der Monopolertrag.
+  assert.equal(activity[0].losses.wood, 4);
+  assert.equal(activity[0].gains.ore, 1);
+  assert.equal(activity[2].gains.wood, 4);
   assert.equal(after.players[0].resources.wood, before.players[0].resources.wood);
-  queue = updateNotificationQueue(queue, catanView(after, "a"));
-  assert.deepEqual(queue.notices.filter((n) => n.resources?.wood).map((n) => n.tone), ["loss", "gain"]);
-  const first = queue.notices[0];
-  assert.equal(updateNotificationQueue(queue, catanView(after, "a")), queue);
-  const ended = act(after, { type: "end_turn" });
-  queue = updateNotificationQueue(queue, catanView(ended, "a"));
-  assert.equal(queue.notices[0], first);
-  assert.equal(collectNotification(queue, -1), queue);
-  queue = collectNotification(queue, first.id);
-  assert.equal(queue.notices[0].tone, "gain");
-  assert.equal(presentedResources(catanView(ended, "a"), queue).ore, 0);
-  queue = collectNotification(queue, queue.notices[0].id, "ore");
-  assert.equal(presentedResources(catanView(ended, "a"), queue).ore, 1);
-  assert.equal(queue.arrivals, 1);
-  assert.equal(collectNotification(queue, queue.notices[0].id, "ore"), queue);
-  assert.deepEqual(updateNotificationQueue(queue, catanView(ended, "b")).notices, []);
-  const restored = createNotificationQueue(catanView(after, "a"), first.id);
-  assert.ok(restored.notices.every((n) => n.id > first.id));
+  assert.equal(catanView(after, "a").me.resources.ore, 1, "Die bestätigte Hand ist sofort aktuell.");
+  assert.deepEqual(groupedActivity(catanView(after, "a"), after.sequence), []);
+  assert.equal(groupedActivity(catanView(after, "a"), traded.sequence).length, 2);
+  assert.ok(groupedActivity(catanView(after, "c")).every((entry) => !RESOURCES.some((r) => entry.gains[r] || entry.losses[r])));
+});
+
+test("aufeinanderfolgende Bankgeschäfte bleiben auch in alten Spielständen getrennt", () => {
+  const before = game(); fund(before, "a", { wood: 8 });
+  const first = act(before, { type: "bank_trade", give: "wood", receive: "ore" });
+  const second = act(first, { type: "bank_trade", give: "wood", receive: "ore" });
+  for (const legacy of [false, true]) {
+    const view = catanView(second, "a");
+    if (legacy) view.notifications.forEach((notice) => delete notice.actionId);
+    const activity = groupedActivity(view);
+    assert.equal(activity.length, 2);
+    for (const entry of activity) { assert.equal(entry.losses.wood, 4); assert.equal(entry.gains.ore, 1); }
+  }
+});
+
+test("alte Empfangsübergaben werden zu privaten ungelesenen Meldungen migriert", () => {
+  const saved = { players: seats, sequence: 100 };
+  assert.deepEqual(restoreLocalSeen(saved, undefined, [{ playerId: "b", afterSequence: 72 }]), { a: 100, b: 72, c: 100 });
+  assert.deepEqual(restoreLocalSeen(saved, { a: 40, b: 120, c: -1 }), { a: 40, b: 100, c: 0 });
+  assert.deepEqual(restoreLocalSeen(saved), { a: 100, b: 100, c: 100 });
 });
 
 test("ältere Spielstände erhalten Meldungen ohne Migration, abgelehnte Aktionen erzeugen keine", () => {
@@ -171,13 +180,8 @@ test("ältere Spielstände erhalten Meldungen ohne Migration, abgelehnte Aktione
   assert.deepEqual(next, original);
 });
 
-test("Fenster benennen Gewinne und Verluste mit Vorzeichen, Menge und Rohstoff", () => {
-  for (const [tone, sign, label] of [["loss", "−", "verloren"], ["gain", "+", "erhalten"]]) {
-    const notice = { id: 1, playerId: "a", kind: "resources", tone, title: "Räuber · Diebstahl", message: "Anna stiehlt Ben eine Rohstoffkarte.", resources: { ...emptyResources(), ore: 1 } };
-    const html = renderToStaticMarkup(createElement(CatanNotificationContent, { notice }));
-    assert.ok(html.includes(`Rohstoffe ${label}`));
-    assert.ok(html.includes(`${sign}1`));
-    assert.ok(html.includes("Erz"));
-    assert.ok(html.includes(`lucide-${tone === "loss" ? "minus" : "plus"}`));
-  }
+test("Gruppierung filtert fremde private Angaben auch bei einer ungefilterten Eingabe", () => {
+  const before = game(); fund(before, "a", { wood: 4 });
+  const next = act(before, { type: "bank_trade", give: "wood", receive: "ore" });
+  assert.equal(groupedActivity({ notifications: next.notifications, me: { id: "b" } }).length, 0);
 });

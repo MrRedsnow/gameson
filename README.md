@@ -61,21 +61,31 @@ Waiting online lobbies are listed under „Lobby beitreten“ for devices on the
 network, like in Imposter and Werwolf; the host can hide a lobby with „Lobby in
 der Nähe anzeigen“.
 Local games are saved on the device and hide hands when passing it around.
-A running game is laid out as an app shell that does not scroll as a page: a
-status row (who is on turn, the last roll, your score, and the explanation of the
-phase behind a tap), the own hand with the card total and the five resource
-counts, the scoreboard, then the area of the current menu, and above the menu a
-bar with the piece supply and the next step — roll, end turn, confirm a building,
-move the robber or discard. Earned cards fly into their own field of the hand row.
-The five menus (island, cards, build, trade, overview) are pinned to the bottom of
-the screen; the game switches to the menu whose task is currently yours, and the
-menu badges show hand size, pending offers and required discards. The island
-fills the rest of the screen, scales to fit its box and pans inside itself when
-zoomed, so the board is never scrolled out of reach; the page header steps aside
-during a game and the way back lives under „Übersicht“. Trade starts with the two
-counterparties, „Hafen & Bank“ and „Mitspielende“; an offer to a person is then
-built in three steps (with whom, what you give, what you want), each with the
-resulting stock.
+A running game fits its viewport without scrolling inside the five menus.
+The active player, dice, own score and resource counts stay visible; the menu and
+the current action stay pinned. In landscape, status and navigation move beside
+the game. Longer collections use visible page controls whose capacity follows
+the measured content height, including player scores, build choices and history.
+Development cards have their own pages; the rules are divided into short topics.
+
+The island fits its available space. Tapping a field or using the place arrows
+opens a close view with larger touch targets. A separate confirmation prevents
+accidental construction. Placement previews explain adjacent resources, number
+probabilities, robber blocks and ports. The build menu explains missing resources,
+pieces and legal positions. Rolling keeps the island visible, with trade offered
+when nothing can be built.
+
+Bank trades use three steps; player offers use four, ending with the exchange and
+the resulting stock. Incoming offers pin accept, decline and counteroffer actions.
+Resource changes update the hand immediately and appear in a private, nonblocking
+activity history. Gains and payments from one trade are grouped together. Shared
+devices are passed only for a real turn, discard or trade decision; unread receipts
+wait for that person's next visit. Older saved local games retain unread markers.
+
+For interactive UI checks, build once and run `node tests/catan-ux-preview.mjs`.
+The local-only preview on port 3002 renders the real components with prepared
+states for setup, trading, discarding, card play, long histories and game over.
+It is not an application route and is not included in the deployed UI.
 
 The table is defined by `drizzle/0007_catan.sql`; `drizzle/0008_catan_nearby.sql`
 adds the discovery columns, which the app also adds at runtime when they are
