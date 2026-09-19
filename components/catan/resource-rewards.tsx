@@ -57,8 +57,8 @@ export function CatanNotificationContent({ notice }: { notice: CatanNotification
   </>;
 }
 
-export function CatanNotificationPopup({ notice, remaining, target, onCollect }: {
-  notice: CatanNotification; remaining: number; target: RefObject<HTMLSpanElement | null>; onCollect: (id: number, resource?: Resource) => void;
+export function CatanNotificationPopup({ notice, remaining, targets, onCollect }: {
+  notice: CatanNotification; remaining: number; targets: RefObject<Partial<Record<Resource, HTMLElement | null>>>; onCollect: (id: number, resource?: Resource) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const paused = useRef(false);
@@ -93,15 +93,16 @@ export function CatanNotificationPopup({ notice, remaining, target, onCollect }:
       panel.style.opacity = String(fade);
       panel.style.transform = reducedMotion ? "none" : `translateY(${12 * (1 - fade)}px)`;
       overlay.dataset.stage = elapsed < FADE_MS + hold ? "popup" : "collecting";
-      const destination = target.current?.getBoundingClientRect();
-      if (!hasFlight || !destination?.width || !destination.height) {
+      // Every card aims at its own field in the pinned hand, so the counter it raises is the one it lands on.
+      const landings = hasFlight ? slots.map((slot) => targets.current?.[slot.dataset.rewardResource as Resource]?.getBoundingClientRect()) : [];
+      if (!hasFlight || landings.some((box) => !box?.width || !box.height)) {
         panel.style.opacity = String(fade * (1 - progress));
         if (progress === 1) { finish(); return; }
       } else {
         // Preserve the cards' flight into the hand after the readable receipt.
         slots.forEach((slot, index) => {
           if (arrived.has(index)) return;
-          const card = cards[index];
+          const card = cards[index]; const destination = landings[index]!;
           const travelProgress = clamp((elapsed - FADE_MS - hold - index * (reducedMotion ? 0 : STAGGER_MS)) / (reducedMotion ? 180 : FLIGHT_MS));
           if (reducedMotion) card.style.opacity = String(1 - travelProgress);
           else {
@@ -123,7 +124,7 @@ export function CatanNotificationPopup({ notice, remaining, target, onCollect }:
     };
     frame = requestAnimationFrame(animate);
     return () => { disposed = true; cancelAnimationFrame(frame); document.removeEventListener("visibilitychange", resetClock); };
-  }, [notice, target, onCollect]);
+  }, [notice, targets, onCollect]);
 
   if (typeof document === "undefined") return null;
   return createPortal(<div ref={root} className={`catan-resource-rewards catan-event-overlay is-${notice.tone}`}>

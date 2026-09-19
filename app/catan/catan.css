@@ -95,16 +95,24 @@
 .catan-handoff>svg { margin:0 auto 24px; width:42px; height:42px; color:#e1bf78; }
 .catan-handoff h1 { font-size:clamp(2rem,7vw,3rem); line-height:1.2; margin:16px 0 24px; overflow-wrap:anywhere; }
 .catan-handoff p { color:#bdcbd0; margin-bottom:24px; }
-.catan-turn { display:grid; gap:14px; padding:18px 20px; background:#1a303b; border:1px solid #3e5762; border-radius:16px; margin-bottom:12px; }
-.catan-turn-row { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
-.catan-turn-copy { flex:1; min-width:0; }
-.catan-turn .catan-kicker { font-size:.6875rem; letter-spacing:.1em; margin-bottom:8px; }
-.catan-turn-side { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
-.catan-turn-actions { display:flex; gap:10px; }
-.catan-theme .catan-turn-actions [data-slot=button] { flex:1; margin:0; }
+/* Who is on turn, the roll and your score never scroll away; the explanation opens from the same row. */
+.catan-status { flex:0 0 auto; display:flex; align-items:center; gap:8px; min-height:50px; padding:4px 6px 4px 10px; margin-bottom:8px; background:#1a303b; border:1px solid #3e5762; border-radius:13px; }
+.catan-status.is-yours { border-color:#c1a167; background:linear-gradient(110deg,#323a34,#1a303b); }
+.catan-theme .catan-status-main { display:flex; align-items:center; gap:9px; flex:1; min-width:0; padding:8px 2px; border:0; background:transparent; color:inherit; font:inherit; text-align:left; }
+.catan-status-main .catan-player-dot { width:11px; height:11px; }
+.catan-status-main strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9375rem; }
+.catan-status-caret { width:16px; height:16px; flex-shrink:0; color:#9fb3bb; transition:transform .15s ease; }
+.catan-status[data-open=true] .catan-status-caret { transform:rotate(180deg); }
+.catan-status .catan-dice { font-size:1.75rem; }
+.catan-status-points { flex-shrink:0; display:inline-flex; align-items:baseline; color:#f5d58d; font-weight:700; font-size:1rem; font-variant-numeric:tabular-nums; }
+.catan-status-points small { color:#9fb3bb; font-weight:400; font-size:.75rem; }
+.catan-status-offline { display:grid; place-items:center; flex-shrink:0; color:#ffd29a; }
+.catan-status-offline svg { width:18px; height:18px; }
 .catan-theme .catan-hide-button { color:#d5bd87; border:1px solid #3e5762; }
-.catan-turn.is-yours { border-color:#c1a167; background:linear-gradient(110deg,#323a34,#1a303b); }
-.catan-turn p { color:#c3ced0; margin-top:8px; max-width:800px; }
+.catan-theme .catan-status .catan-hide-button { width:38px; min-width:38px; height:38px; padding:8px; }
+.catan-turn-details { flex:0 0 auto; padding:12px 14px; margin-bottom:8px; border:1px solid #3e5762; border-radius:12px; background:#142731; }
+.catan-turn-details .catan-kicker { margin-bottom:6px; font-size:.6875rem; letter-spacing:.1em; }
+.catan-turn-details p { color:#c3ced0; font-size:.9375rem; }
 .catan-dice { display:flex; flex-shrink:0; gap:3px; font-size:2.6rem; line-height:1; color:#ffe7b1; }
 .catan-dice-rolling .catan-dice { opacity:0; }
 .catan-dice-overlay { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; gap:clamp(18px,5vw,32px); background:transparent; pointer-events:none; user-select:none; overflow:hidden; color:#ffe7b1; font-family:Arial,Helvetica,sans-serif; font-size:clamp(5rem,18vw,8rem); font-weight:400; line-height:1; }
@@ -149,21 +157,28 @@
 .catan-player-bonuses span { display:flex; align-items:center; gap:4px; }
 .catan-player-bonuses svg { width:14px; height:14px; }
 .catan-player-bonuses .catan-award { color:#f4d390; }
-.catan-board-panel { border:1px solid #3e5964; border-radius:16px; background:#132a34; overflow:hidden; }
-.catan-board-toolbar { display:flex; align-items:center; justify-content:space-between; padding:8px 14px; font-size:.875rem; font-weight:700; }
-.catan-board-toolbar small { font-size:.75rem; color:#b8c9cf; font-weight:400; }
-.catan-board-toolbar>div { display:flex; }
-.catan-board-scroll { width:100%; overflow:auto; overscroll-behavior:contain; border-block:1px solid #33505e; }
-.catan-board { display:block; height:auto; min-width:100%; user-select:none; }
+.catan-board-panel { position:relative; flex:1; min-height:0; display:flex; border:1px solid #3e5964; border-radius:16px; background:#132a34; overflow:hidden; }
+.catan-board-scroll { flex:1; min-width:0; overflow:auto; overscroll-behavior:contain; }
+.catan-board { display:block; user-select:none; }
+.catan-board-zoom { position:absolute; right:10px; bottom:10px; z-index:5; display:flex; flex-direction:column; gap:6px; }
+.catan-theme .catan-board-zoom [data-slot=button] { width:40px; min-width:40px; height:40px; padding:9px; border:1px solid #55707c; border-radius:50%; background:#0f2029e0; color:#e8d5a6; }
+.catan-theme .catan-board-zoom [data-slot=button]:disabled { opacity:.3; }
 .catan-map-target { cursor:pointer; }
 .catan-map-target:hover { filter:brightness(1.12); }
 .catan-map-target:focus-visible { outline:none !important; filter:drop-shadow(0 0 5px white); }
-.catan-board-legend { display:flex; flex-wrap:wrap; justify-content:center; padding:12px; gap:10px 14px; }
-.catan-board-legend span { display:flex; align-items:center; gap:5px; font-size:.75rem; color:#c2d0d3; }
-.catan-board-legend svg { width:16px; height:16px; }
-.catan-board-legend b { font-size:.75rem; background:#0c1b25; padding:0 4px; border:1px solid #8fa3af; border-radius:4px; }
-.catan-build-confirm { position:sticky; bottom:calc(var(--catan-nav-height) + 10px); z-index:20; margin-top:12px; display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px; border:1px solid #c7ac76; background:#213b46; box-shadow:0 8px 28px #0005; border-radius:12px; }
-.catan-build-confirm p { flex:1; min-width:150px; font-size:.9375rem; }
+.catan-rule-legend { display:flex; flex-wrap:wrap; gap:10px 14px; margin:16px 0; }
+.catan-rule-legend span { display:flex; align-items:center; gap:5px; font-size:.8125rem; color:#c2d0d3; }
+.catan-rule-legend svg { width:16px; height:16px; }
+.catan-rule-legend b { font-size:.75rem; background:#0c1b25; padding:0 4px; border:1px solid #8fa3af; border-radius:4px; }
+/* The next step always sits above the menu, so no task can hide behind a scroll. */
+.catan-action-bar { flex:0 0 auto; display:grid; gap:9px; margin-top:10px; padding:10px 12px; border:1px solid #4a6470; border-radius:13px; background:#172c36; }
+.catan-action-bar.is-task { border-color:#c7ac76; background:#213b46; }
+.catan-action-row { display:flex; align-items:center; gap:10px; }
+.catan-theme .catan-action-hint { margin:0; font-size:.875rem; line-height:1.4; color:#e2eaea; }
+.catan-action-buttons { display:flex; flex-wrap:nowrap; justify-content:flex-end; gap:8px; margin-left:auto; }
+.catan-theme .catan-action-buttons [data-slot=button] { padding-inline:14px; }
+.catan-theme .catan-action-bar [data-slot=button] { width:auto; margin:0; min-height:44px; }
+.catan-theme .catan-action-bar .catan-roll-button { min-height:44px; font-size:1rem; }
 .catan-log-list { max-height:320px; overflow:auto; margin:0; padding:0 0 0 22px; font-size:.875rem; color:#bdccd0; }
 .catan-log-list li { margin:8px 0; }
 .catan-section { border:1px solid #49606a; border-radius:14px; padding:16px; background:#1b303b; margin-bottom:14px; }
@@ -180,10 +195,6 @@
 .catan-theme .catan-muted { font-size:.875rem; color:#b9c9ce; margin:14px 0; line-height:1.5; }
 .catan-muted>svg { display:inline-block; width:13px; height:13px; margin-right:5px; vertical-align:middle; }
 .catan-theme .catan-roll-button { min-height:56px; font-size:1.125rem; }
-.catan-theme .catan-tabs { width:100%; height:auto; display:flex; padding:5px; gap:2px; background:#0e212b; border:1px solid #36525e; border-radius:12px; }
-.catan-theme .catan-tabs [data-slot=tabs-trigger] { min-height:44px; padding:9px 8px; flex:1; border-radius:8px; color:#aabfc8; font-size:.875rem; white-space:normal; line-height:1.25; gap:6px; }
-.catan-theme .catan-tabs [data-state=active] { background:#3a5159; color:#fff0c9; box-shadow:none; }
-.catan-theme [data-slot=tabs-content] { padding-top:12px; }
 .catan-build-actions { display:grid; gap:10px; }
 .catan-build-actions [data-slot=button] { justify-content:flex-start; padding:14px; gap:14px; background:#1b303b; border:1px solid #49606a; text-align:left; color:#f2ede0; }
 .catan-build-actions [data-slot=button]>svg { width:22px; height:22px; color:#dfc58e; }
@@ -212,12 +223,32 @@
 .catan-trade-preview td.is-gain small, .catan-trade-preview td.is-loss small { color:inherit; }
 .catan-theme .catan-trade-preview-hint { margin:8px 4px 4px; color:#f4c593; font-size:.875rem; line-height:1.45; }
 .catan-offer .catan-trade-preview { margin-top:14px; }
-.catan-trade-panel [data-slot=tabs-content]>.catan-trade-preview { position:sticky; top:12px; z-index:5; box-shadow:0 8px 16px #0003; }
 @media(max-width:400px) {
   .catan-trade-resource-label { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   .catan-trade-preview { padding-inline:4px; }
   .catan-trade-preview thead td { width:52px; }
 }
+/* Trade starts with the two counterparties; the offer to a person is then built in three steps. */
+.catan-trade-options { display:grid; gap:10px; }
+.catan-theme .catan-trade-option { display:flex; align-items:center; gap:14px; width:100%; min-height:66px; padding:14px; border:1px solid #49606a; border-radius:12px; background:#1b303b; color:#f2ede0; text-align:left; }
+.catan-theme .catan-trade-option:hover:not(:disabled), .catan-theme .catan-trade-partner:hover:not(:disabled) { border-color:#c7ac76; background:#243c47; }
+.catan-trade-option>svg:first-child { width:22px; height:22px; color:#dfc58e; flex-shrink:0; }
+.catan-trade-option>span { display:grid; gap:4px; flex:1; min-width:0; }
+.catan-trade-option strong { font-size:1.0625rem; }
+.catan-trade-option small, .catan-trade-partner small { font-size:.8125rem; font-weight:400; line-height:1.45; color:#bacbd1; }
+.catan-trade-option>svg:last-child, .catan-trade-partner>svg { width:18px; height:18px; color:#d1b67a; flex-shrink:0; }
+.catan-trade-head { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+.catan-trade-head>div { flex:1; min-width:0; }
+.catan-trade-head .catan-kicker { margin-bottom:2px; font-size:.6875rem; letter-spacing:.1em; }
+.catan-trade-head h3 { overflow-wrap:anywhere; }
+.catan-theme .catan-trade-head [data-slot=button] { flex-shrink:0; border:1px solid #3e5762; color:#d5bd87; }
+.catan-trade-partners { display:grid; gap:10px; margin-top:14px; }
+.catan-theme .catan-trade-partner { display:flex; align-items:center; gap:12px; width:100%; min-height:62px; padding:12px 14px; border:1px solid #49606a; border-radius:12px; background:#1b303b; color:#f2ede0; text-align:left; }
+.catan-trade-partner .catan-player-dot { width:14px; height:14px; border:1px solid #0e1f28; }
+.catan-trade-partner>span { display:grid; gap:3px; flex:1; min-width:0; }
+.catan-trade-partner strong { font-size:1rem; overflow-wrap:anywhere; }
+.catan-theme .catan-trade-summary { margin:14px 0; padding:10px 12px; border-left:3px solid #bd9c60; border-radius:0 8px 8px 0; background:#263a41; font-size:.875rem; color:#d3dfe1; }
+.catan-trade-summary strong { color:#f3d497; }
 .catan-resource-picker { border:0; padding:0; margin:20px 0; }
 .catan-resource-picker legend { margin-bottom:12px; font-size:.9375rem; font-weight:700; color:#e8d3a8; }
 .catan-resource-picker>div { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px 0; }
@@ -238,6 +269,7 @@
 }
 @media(max-width:600px) {
   .catan-shell { padding:16px 14px max(28px,env(safe-area-inset-bottom)); }
+  .catan-shell-play { padding-top:8px; padding-bottom:0; }
   .catan-header { gap:12px; margin-bottom:22px; padding-bottom:18px; }
   .catan-header .game-back-link { font-size:.8125rem; }
   .catan-header .catan-connection { width:100%; text-align:center; font-size:.75rem; }
@@ -245,38 +277,59 @@
   .catan-intro h1 { font-size:3.25rem; }
   .catan-intro { padding-top:0; }
   .catan-panel { padding:18px; }
-  .catan-turn { padding:16px; gap:12px; }
-  .catan-turn-row { gap:10px; }
-  .catan-turn h1 { font-size:1.5rem; }
-  .catan-turn p { font-size:.9375rem; }
+  .catan-status { gap:6px; min-height:46px; padding-left:8px; }
+  .catan-status .catan-dice { font-size:1.5rem; }
+  .catan-turn-details { padding:10px 12px; }
   .catan-dice { font-size:2.2rem; }
+  .catan-action-bar { padding:9px 10px; }
+  .catan-supply { gap:9px; font-size:.875rem; }
   .catan-players { gap:8px; margin-bottom:12px; }
   .catan-players>div { padding:10px; }
-  .catan-build-confirm { padding:12px; }
-  .catan-build-confirm>p { width:100%; flex:auto; }
   .catan-theme .game-mode { padding:14px; gap:10px; }
   .catan-theme .game-mode-icon { padding:8px; }
   .catan-board-toolbar small { display:none; }
   .catan-score-strip>span { font-size:.75rem; padding:5px 9px; }
   .catan-section { padding:14px; }
+  .catan-hand-bar { padding:5px; border-radius:11px; }
+  .catan-theme .catan-hand-strip { gap:4px; }
+  .catan-hand-strip>span { min-height:36px; gap:3px; padding:3px; font-size:.875rem; }
+  .catan-hand-strip>.catan-hand-total { padding-inline:7px; }
+  .catan-hand-strip svg { width:16px; height:16px; }
+  .catan-theme .catan-trade-option { padding:12px; gap:10px; }
 }
-/* Pinned menu: five areas, always one tap away. Panels stay mounted so half-built trades survive a look at the island. */
-.catan-play { padding-bottom:calc(var(--catan-nav-height) + 18px); }
-.catan-tab-panel { outline:none; }
+/* Pinned menu: five areas, always one tap away. Panels stay mounted so half-built trades survive a look at the island.
+ * A running game is an app shell: status, hand, score and the next step hold their place, only the area between them scrolls. */
+.catan-shell-play { display:flex; flex-direction:column; height:100dvh; padding-top:10px; padding-bottom:0; }
+.catan-shell-play>.catan-notice { position:static; flex:0 0 auto; margin:0 0 10px; }
+.catan-shell-play .catan-play { flex:1; }
+.catan-play { display:flex; flex-direction:column; min-height:0; padding-bottom:var(--catan-nav-height); }
+.catan-tab-panel { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; outline:none; }
 .catan-tab-panel[data-state=inactive] { display:none; }
+.catan-tab-insel { display:flex; flex-direction:column; overflow:hidden; }
+.catan-theme .catan-steal { margin-bottom:10px; padding:14px 16px; }
+.catan-theme .catan-steal h2 { margin-bottom:10px; font-size:1rem; }
+.catan-theme .catan-play .game-back-link { display:inline-flex; margin:18px 0 0; color:#b9c9ce; font-size:.875rem; }
 .catan-score-strip { display:flex; gap:8px; overflow-x:auto; margin:0 0 14px; padding:2px 0 6px; scrollbar-width:none; }
 .catan-score-strip::-webkit-scrollbar { display:none; }
 .catan-score-strip>span { flex:0 0 auto; display:inline-flex; align-items:center; gap:7px; padding:6px 11px; border:1px solid #394e58; border-radius:99px; background:#172a34; font-size:.8125rem; font-weight:600; color:#dfe6e5; }
 .catan-score-strip>span.is-active { border-color:var(--player-color); background:#223a44; }
 .catan-score-strip b { color:#f5d58d; font-size:.9375rem; font-variant-numeric:tabular-nums; }
-.catan-theme .catan-hand-strip { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; width:100%; margin:0 0 12px; padding:0; border:0; background:transparent; color:inherit; font:inherit; }
+/* The own hand is pinned above every menu: the current resources stay in view while building, trading or reading the log. */
+.catan-hand-bar { position:sticky; top:8px; z-index:30; margin:0 0 12px; padding:6px; border:1px solid #44606d; border-radius:13px; background:#101f28f2; box-shadow:0 10px 26px #00000059; }
+@supports (backdrop-filter:blur(1px)) { .catan-hand-bar { background:#101f28d9; backdrop-filter:blur(14px); } }
+.catan-hand-bar.is-warn { border-color:#b8772a; }
+.catan-hand-bar.is-alert { border-color:#c74a3c; }
+.catan-theme .catan-hand-strip { display:grid; grid-template-columns:auto repeat(5,minmax(0,1fr)); gap:6px; width:100%; margin:0; padding:0; border:0; background:transparent; color:inherit; font:inherit; }
 .catan-hand-strip>span { display:flex; align-items:center; justify-content:center; gap:5px; min-height:38px; padding:4px; border:1px solid #3d5762; border-radius:9px; background:#132730; font-size:.9375rem; font-weight:700; font-variant-numeric:tabular-nums; }
 .catan-hand-strip svg { width:17px; height:17px; }
 .catan-hand-strip:hover>span { border-color:#6a8794; }
-.catan-supply { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-top:4px; font-size:.875rem; color:#c0cdd0; }
-.catan-supply span { display:inline-flex; align-items:center; gap:5px; }
-.catan-supply svg { width:15px; height:15px; color:#d5bd87; }
-.catan-supply-label { color:#e8d3a8; font-weight:700; }
+.catan-hand-strip>.catan-hand-total { gap:4px; padding-inline:10px; border-color:#5a7684; background:#1d3541; color:#f3dda8; }
+.catan-hand-total svg { color:#e3c485; }
+.catan-hand-bar.is-warn .catan-hand-strip>.catan-hand-total { border-color:#b8772a; background:#3b2b17; color:#ffd9a4; }
+.catan-hand-bar.is-alert .catan-hand-strip>.catan-hand-total { border-color:#c74a3c; background:#3e201c; color:#ffcabf; }
+.catan-supply { display:flex; align-items:center; gap:11px; font-size:.9375rem; font-weight:650; color:#cddada; font-variant-numeric:tabular-nums; }
+.catan-supply span { display:inline-flex; align-items:center; gap:4px; }
+.catan-supply svg { width:16px; height:16px; color:#d5bd87; }
 .catan-theme .catan-hide-hand { width:100%; margin-bottom:14px; }
 .catan-discard { border-color:#c7ac76; background:#2f3a35; }
 .catan-nav { position:fixed; left:0; right:0; bottom:0; z-index:40; background:#0f1d24f2; border-top:1px solid #34505b; padding-bottom:env(safe-area-inset-bottom); box-shadow:0 -8px 30px #0006; }

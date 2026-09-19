@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRightLeft, BookOpen, Castle, Dices, Flag, Hammer, Hand, Landmark, LockKeyhole, Map as MapIcon, Route, ScrollText, Shield, Trophy, Users, WalletCards, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, BookOpen, Castle, ChevronDown, ChevronRight, Dices, Flag, Hammer, Hand, Landmark, LockKeyhole, Map as MapIcon, Route, ScrollText, Shield, Trophy, Users, WalletCards, WifiOff, type LucideIcon } from "lucide-react";
 import { Tabs as TabsPrimitive } from "radix-ui";
+import { GameBackLink } from "@/components/game-entry";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CatanBoard, ResourceIcon, boardAction, type BoardMode } from "./board";
 import { CatanDice } from "./dice";
 import { CatanNotificationPopup, useCatanNotifications } from "./resource-rewards";
@@ -31,6 +31,7 @@ export function CatanRules() {
     </ol>
     <p>Du gewinnst, sobald du im eigenen Zug das Ziel erreichst. Vorräte und Bank sind begrenzt.</p>
     <div className="catan-rule-costs">{Object.entries(COSTS).map(([kind, cost]) => <div key={kind}><strong>{BUILDING_NAMES[kind]}</strong><Cost cost={cost} /></div>)}</div>
+    <div className="catan-rule-legend">{RESOURCES.map((r) => <span key={r}><ResourceIcon resource={r} />{RESOURCE_INFO[r].label}</span>)}<span><b>R</b> Räuber</span></div>
     <a href="https://www.catan.com/sites/default/files/2021-06/catan_base_rules_2020_200707.pdf" target="_blank" rel="noreferrer">Offizielle Regeln &amp; Almanach (PDF)</a>
   </div></details>;
 }
@@ -88,14 +89,19 @@ function Discard({ game, send, busy }: { game: CatanView; send: Send; busy: bool
     <Button className="catan-primary" disabled={busy || resourceCount(bag) !== needed || !canAfford(game.me!.resources, bag)} onClick={() => void send({ type: "discard", resources: bag })}>{resourceCount(bag)} / {needed} Karten abgeben</Button>
   </section>;
 }
+function TradeStepHead({ kicker, title, onBack }: { kicker: string; title: string; onBack: () => void }) {
+  return <div className="catan-trade-head"><Button type="button" variant="ghost" size="icon" aria-label="Einen Schritt zurück" onClick={onBack}><ArrowLeft /></Button><div><span className="catan-kicker">{kicker}</span><h3>{title}</h3></div></div>;
+}
+/* Trading asks one question per screen: first the counterparty, then what you give and what you want in return. */
 export function TradePanel({ game, send, busy }: { game: CatanView; send: Send; busy: boolean }) {
   const me = game.me!; const active = game.players[game.currentPlayer]; const isTurn = active.id === me.id; const open = game.phase === "main";
   const recipients = game.players.filter((p) => p.id !== me.id && (isTurn || p.id === active.id));
-  const [toId, setToId] = useState(recipients[0]?.id ?? "");
+  const [view, setView] = useState<"choice" | "bank" | "players">("choice"); const [step, setStep] = useState<"give" | "receive" | null>(null); const [toId, setToId] = useState("");
   const [give, setGive] = useState<Resource>("wood"); const [receive, setReceive] = useState<Resource>("brick");
   const [offered, setOffered] = useState(emptyResources()); const [wanted, setWanted] = useState(emptyResources());
-  const selectedTo = recipients.some((p) => p.id === toId) ? toId : recipients[0]?.id;
-  const ratio = tradeRatio(game, me.id, give); const offer = game.trade;
+  const offer = game.trade; const partner = recipients.find((p) => p.id === toId); const stage = partner && step ? step : "who";
+  const ratio = tradeRatio(game, me.id, give); const bestRatio = Math.min(...RESOURCES.map((r) => tradeRatio(game, me.id, r)));
+  const mixed = RESOURCES.some((r) => offered[r] && wanted[r]) ? "Wähle unterschiedliche Rohstoffarten zum Geben und Erhalten." : undefined;
   return <div className="catan-trade-panel">
     {!open && <p className="catan-muted">Gehandelt wird in der Handels- und Bauphase, also nachdem gewürfelt wurde.</p>}
     {offer && <section className="catan-offer" aria-label="Aktuelles Handelsangebot"><strong>{game.players.find((p) => p.id === offer.fromId)!.name} → {game.players.find((p) => p.id === offer.toId)!.name}</strong>
@@ -105,20 +111,34 @@ export function TradePanel({ game, send, busy }: { game: CatanView; send: Send; 
         {[offer.fromId, offer.toId, active.id].includes(me.id) && <Button variant="outline" disabled={busy || !open} onClick={() => void send({ type: "cancel_trade", offerId: offer.id })}>{offer.fromId === me.id ? "Zurückziehen" : "Ablehnen"}</Button>}</div>
       {offer.toId === me.id && !canAfford(me.resources, offer.receive) && <p className="catan-muted">Dir fehlen die gewünschten Rohstoffe. Du kannst ablehnen oder ein Gegenangebot machen.</p>}
     </section>}
-    <Tabs defaultValue={offer || !isTurn ? "players" : "bank"}><TabsList className="catan-tabs"><TabsTrigger value="bank">Bank &amp; Häfen</TabsTrigger><TabsTrigger value="players">Mitspielende</TabsTrigger></TabsList>
-      <TabsContent value="bank"><TradeInventoryPreview resources={me.resources} give={{ [give]: ratio }} receive={{ [receive]: 1 }} unavailable={give === receive ? "Wähle zwei unterschiedliche Rohstoffarten." : !game.bank[receive] ? `Die Bank hat kein ${RESOURCE_INFO[receive].label} mehr.` : undefined} />
-        <p className="catan-muted">Dein Kurs für {RESOURCE_INFO[give].label}: <strong>{ratio}:1</strong></p>
-        <div className="catan-two-fields"><ResourceSelect label={`Ich gebe ${ratio}`} value={give} onChange={setGive} disabled={busy} /><ResourceSelect label="Ich erhalte 1" value={receive} onChange={setReceive} disabled={busy} /></div>
-        <Button className="catan-primary" disabled={busy || !isTurn || !open || give === receive || me.resources[give] < ratio || !game.bank[receive]} onClick={() => void send({ type: "bank_trade", give, receive })}><ArrowRightLeft />{ratio}:1 tauschen</Button>
-        {!isTurn && <p className="catan-muted">Mit der Bank handelst du nur im eigenen Zug.</p>}
-      </TabsContent>
-      <TabsContent value="players"><TradeInventoryPreview resources={me.resources} give={offered} receive={wanted} label={offer?.toId === me.id ? "Dein Bestand beim Gegenangebot" : "Dein Bestand für dein Angebot"} unavailable={RESOURCES.some((r) => offered[r] && wanted[r]) ? "Wähle unterschiedliche Rohstoffarten zum Geben und Erhalten." : undefined} />
-        <div className="catan-field"><span>Handel mit</span><Select value={selectedTo} onValueChange={setToId} disabled={busy}><SelectTrigger aria-label="Handel mit"><SelectValue /></SelectTrigger><SelectContent className="catan-select">{recipients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+    {view === "choice" ? <div className="catan-trade-options">
+      <p className="catan-muted">Wähle zuerst, mit wem du handeln willst.</p>
+      <button type="button" className="catan-trade-option" disabled={busy} onClick={() => setView("bank")}><Landmark aria-hidden="true" /><span><strong>Hafen &amp; Bank</strong><small>Fester Kurs ab {bestRatio}:1 · nur im eigenen Zug</small></span><ChevronRight aria-hidden="true" /></button>
+      <button type="button" className="catan-trade-option" disabled={busy || !recipients.length} onClick={() => { setView("players"); setStep(null); }}><Users aria-hidden="true" /><span><strong>Mitspielende</strong><small>{isTurn ? "Angebot an eine Person am Tisch" : `Angebot an ${active.name} senden`}</small></span><ChevronRight aria-hidden="true" /></button>
+    </div> : view === "bank" ? <section className="catan-trade-step">
+      <TradeStepHead kicker="Fester Kurs" title="Hafen & Bank" onBack={() => setView("choice")} />
+      <div className="catan-two-fields"><ResourceSelect label={`Ich gebe ${ratio}`} value={give} onChange={setGive} disabled={busy} /><ResourceSelect label="Ich erhalte 1" value={receive} onChange={setReceive} disabled={busy} /></div>
+      <TradeInventoryPreview resources={me.resources} give={{ [give]: ratio }} receive={{ [receive]: 1 }} unavailable={give === receive ? "Wähle zwei unterschiedliche Rohstoffarten." : !game.bank[receive] ? `Die Bank hat kein ${RESOURCE_INFO[receive].label} mehr.` : undefined} />
+      <p className="catan-muted">Dein Kurs für {RESOURCE_INFO[give].label}: <strong>{ratio}:1</strong>{isTurn ? "" : " · Mit der Bank handelst du nur im eigenen Zug."}</p>
+      <Button className="catan-primary" disabled={busy || !isTurn || !open || give === receive || me.resources[give] < ratio || !game.bank[receive]} onClick={() => void send({ type: "bank_trade", give, receive })}><ArrowRightLeft />{ratio}:1 tauschen</Button>
+    </section> : <section className="catan-trade-step">
+      {stage === "who" ? <>
+        <TradeStepHead kicker="Schritt 1 von 3" title="Mit wem willst du handeln?" onBack={() => setView("choice")} />
+        <div className="catan-trade-partners">{recipients.map((p) => <button type="button" key={p.id} className="catan-trade-partner" style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties} disabled={busy} onClick={() => { setToId(p.id); setStep("give"); }}><i className="catan-player-dot" aria-hidden="true" /><span><strong>{p.name}</strong><small>{p.resourceCount} Rohstoffe · {p.developmentCount} Entwicklungskarten</small></span><ChevronRight aria-hidden="true" /></button>)}</div>
+        {!recipients.length && <p className="catan-muted">Gerade ist niemand da, mit dem du handeln kannst.</p>}
+      </> : stage === "give" ? <>
+        <TradeStepHead kicker="Schritt 2 von 3" title={`Was gibst du ${partner!.name}?`} onBack={() => setStep(null)} />
         <ResourcePicker label="Ich gebe" value={offered} maximum={me.resources} onChange={setOffered} disabled={busy} />
+        <TradeInventoryPreview resources={me.resources} give={offered} receive={emptyResources()} label="Dein Bestand nach dem Geben" />
+        <Button className="catan-primary" disabled={busy || !resourceCount(offered) || !canAfford(me.resources, offered)} onClick={() => setStep("receive")}>Weiter: Was möchtest du?<ChevronRight /></Button>
+      </> : <>
+        <TradeStepHead kicker="Schritt 3 von 3" title={`Was möchtest du von ${partner!.name}?`} onBack={() => setStep("give")} />
+        <p className="catan-trade-summary">An <strong>{partner!.name}</strong> · Du gibst <BagText bag={offered} /></p>
         <ResourcePicker label="Ich möchte" value={wanted} maximum={emptyResources(19)} onChange={setWanted} disabled={busy} />
-        <Button className="catan-primary" disabled={busy || !open || !selectedTo || !resourceCount(offered) || !resourceCount(wanted) || !canAfford(me.resources, offered) || RESOURCES.some((r) => offered[r] && wanted[r]) || Boolean(offer && ![offer.fromId, offer.toId].includes(me.id))} onClick={async () => { if (await send({ type: "offer_trade", toId: selectedTo, give: offered, receive: wanted })) { setOffered(emptyResources()); setWanted(emptyResources()); } }}>{offer?.toId === me.id ? "Gegenangebot senden" : "Handel anbieten"}</Button>
-      </TabsContent>
-    </Tabs>
+        <TradeInventoryPreview resources={me.resources} give={offered} receive={wanted} label={offer?.toId === me.id ? "Dein Bestand beim Gegenangebot" : "Dein Bestand für dein Angebot"} unavailable={mixed} />
+        <Button className="catan-primary" disabled={busy || !open || !resourceCount(offered) || !resourceCount(wanted) || !canAfford(me.resources, offered) || Boolean(mixed) || Boolean(offer && ![offer.fromId, offer.toId].includes(me.id))} onClick={async () => { if (await send({ type: "offer_trade", toId: partner!.id, give: offered, receive: wanted })) { setOffered(emptyResources()); setWanted(emptyResources()); setStep(null); setView("choice"); } }}>{offer?.toId === me.id ? "Gegenangebot senden" : "Handel anbieten"}</Button>
+      </>}
+    </section>}
   </div>;
 }
 function DevelopmentCards({ game, busy, send }: { game: CatanView; busy: boolean; send: Send }) {
@@ -181,19 +201,46 @@ function Section({ title, Icon, aside, className = "", children }: { title: stri
   return <section className={`catan-section ${className}`}><div className="catan-section-heading"><h2><Icon aria-hidden="true" />{title}</h2>{aside}</div>{children}</section>;
 }
 
-export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematch, afterNotificationSequence, onNotificationsRead }: {
-  game: CatanView; send: Send; busy: boolean; local: boolean; onHide?: () => void; onRematch?: () => void;
+/* One pinned row carries what must never scroll away: whose turn it is, what was rolled and your score.
+ * Tapping the phase opens its explanation, so the long guidance costs no permanent space. */
+function TurnStatus({ game, guidance, offline, open, onToggle, local, onHide }: {
+  game: CatanView; guidance: { title: string; text: string }; offline: boolean; open: boolean; onToggle: () => void; local: boolean; onHide?: () => void;
+}) {
+  const me = game.me!; const active = game.players[game.currentPlayer];
+  return <div className={`catan-status ${active.id === me.id ? "is-yours" : ""}`} data-open={open} style={{ "--player-color": PLAYER_COLORS[active.color] } as React.CSSProperties} aria-live="polite">
+    <button type="button" className="catan-status-main" aria-expanded={open} aria-controls="catan-turn-details" onClick={onToggle}>
+      <i className="catan-player-dot" aria-hidden="true" /><strong>{guidance.title}</strong><ChevronDown aria-hidden="true" className="catan-status-caret" /><span className="sr-only">, Erklärung {open ? "schließen" : "öffnen"}</span>
+    </button>
+    {offline && <span className="catan-status-offline" title="Verbindung unterbrochen"><WifiOff aria-hidden="true" /><span className="sr-only">Verbindung unterbrochen</span></span>}
+    <CatanDice dice={game.dice} />
+    <span className="catan-status-points" title="Deine Siegpunkte">{victoryPoints(game, me)}<small>/{game.targetPoints}</small><span className="sr-only"> Siegpunkte</span></span>
+    {local && onHide && <Button variant="ghost" size="icon" className="catan-hide-button" onClick={onHide} aria-label="Handkarten verdecken"><LockKeyhole /></Button>}
+  </div>;
+}
+function Supply({ pieces }: { pieces: { road: number; settlement: number; city: number } }) {
+  return <div className="catan-supply" aria-label="Dein Vorrat">
+    <span title="Straßen im Vorrat"><Route aria-hidden="true" />{15 - pieces.road}<span className="sr-only"> Straßen</span></span>
+    <span title="Siedlungen im Vorrat"><Flag aria-hidden="true" />{5 - pieces.settlement}<span className="sr-only"> Siedlungen</span></span>
+    <span title="Städte im Vorrat"><Castle aria-hidden="true" />{4 - pieces.city}<span className="sr-only"> Städte</span></span>
+  </div>;
+}
+
+export function CatanGameUI({ game, send, busy: sending, local, offline = false, onHide, onRematch, afterNotificationSequence, onNotificationsRead }: {
+  game: CatanView; send: Send; busy: boolean; local: boolean; offline?: boolean; onHide?: () => void; onRematch?: () => void;
   afterNotificationSequence?: number; onNotificationsRead?: () => void;
 }) {
   const [build, setBuild] = useState<BoardMode>(null); const [selection, setSelection] = useState<{ mode: BoardMode; id: number; phase: string; turn: number } | null>(null);
   const [choice, setChoice] = useState<{ key: string; tab: CatanTab } | null>(null);
-  const cardsTarget = useRef<HTMLSpanElement>(null);
+  const [detail, setDetail] = useState<{ key: string; open: boolean } | null>(null);
+  const handCells = useRef<Partial<Record<Resource, HTMLElement | null>>>({});
   const { resources, notice, remaining, arrivals, collect } = useCatanNotifications(game, afterNotificationSequence);
   useEffect(() => { if (!notice) onNotificationsRead?.(); }, [notice, onNotificationsRead]);
   const busy = sending || Boolean(notice);
   const me = game.me!; const isTurn = game.players[game.currentPlayer].id === me.id; const guidance = turnGuidance(game);
   const key = tabKey(game); const tab = choice && choice.key === key ? choice.tab : suggestedTab(game);
   const selectTab = (next: CatanTab) => setChoice({ key, tab: next });
+  // Unfamiliar tasks explain themselves until this player closes them; rolling and building do not need the text.
+  const detailsOpen = detail && detail.key === key ? detail.open : isTurn && !["main", "roll"].includes(game.phase);
   let mode: BoardMode = null;
   if (isTurn) {
     if (game.phase === "setup_settlement") mode = "settlement";
@@ -215,23 +262,38 @@ export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematc
   };
   const buildHint = !isTurn ? "Bauen kannst du nur im eigenen Zug." : game.phase === "roll" ? "Erst würfeln, dann bauen." : game.phase !== "main" ? "Schließe zuerst die aktuelle Aufgabe ab." : "Bauwerk wählen, dann auf der Insel den markierten Platz bestätigen.";
   const finished = game.phase === "finished";
+  /* The bar above the menu always holds the next step, so no task can hide behind a scroll.
+   * When the step belongs to another area, it offers the way there instead of its buttons. */
+  const goTo = (target: CatanTab, label: string) => <Button className="catan-primary" onClick={() => selectTab(target)}>{label}</Button>;
+  let step: { hint?: string; actions?: React.ReactNode } = {};
+  if (finished) step = {};
+  else if (needsDiscard) step = tab === "karten" ? { hint: `Wähle genau ${game.discards[me.id]} Karten zum Abgeben.` } : { actions: goTo("karten", `${game.discards[me.id]} Karten abgeben`) };
+  else if (mode) step = tab !== "insel" ? { actions: goTo("insel", `${mode === "robber" ? "Räuber" : BUILDING_NAMES[mode]} auf der Insel setzen`) } : {
+    hint: selected === null ? `Wähle ${mode === "robber" ? "ein Feld" : "einen markierten Bauplatz"} auf der Insel.` : `${mode === "robber" ? "Räuber: Feld" : mode === "road" ? "Straße: Weg" : BUILDING_NAMES[mode] + ": Kreuzung"} ${selected + 1}`,
+    actions: <>{game.phase === "main" && <Button variant="ghost" onClick={leaveBuildMode}>Abbrechen</Button>}<Button className="catan-primary" disabled={busy || selected === null || !canBuild} onClick={() => void commit()}>{mode === "robber" ? "Räuber versetzen" : "Bauen bestätigen"}</Button></>,
+  };
+  else if (isTurn && game.phase === "steal") step = tab === "insel" ? { hint: "Wähle auf der Insel, wen du bestiehlst." } : { actions: goTo("insel", "Person zum Bestehlen wählen") };
+  else if (isTurn && game.phase === "roll") step = { actions: <Button className="catan-primary catan-roll-button" disabled={busy} onClick={() => void send({ type: "roll" })}><Dices />Würfeln</Button> };
+  else if (isTurn && game.phase === "main") step = { actions: <Button className="catan-end-turn" disabled={busy} onClick={async () => { if (await send({ type: "end_turn" })) { setBuild(null); setSelection(null); } }}>Zug beenden →</Button> };
   return <TabsPrimitive.Root className="catan-play" value={tab} onValueChange={(next) => selectTab(next as CatanTab)}>
-    {finished ? <section className="catan-panel catan-victory"><Trophy aria-hidden="true" /><h1>Die Insel hat einen Sieger.</h1><p>{guidance.title} {guidance.text}</p>{onRematch && <Button className="catan-primary" disabled={busy} onClick={onRematch}>Neue Partie vorbereiten</Button>}</section>
-      : <section className={`catan-turn ${isTurn ? "is-yours" : ""}`} aria-live="polite">
-        <div className="catan-turn-row"><div className="catan-turn-copy"><span className="catan-kicker">{game.turn ? `Zug ${game.turn}` : "Gründungsphase"} · Ziel {game.targetPoints} Punkte</span><h1>{guidance.title}</h1><p>{guidance.text}</p></div>
-          <div className="catan-turn-side">{local && onHide && <Button variant="ghost" size="icon" className="catan-hide-button" onClick={onHide} aria-label="Handkarten verdecken"><LockKeyhole /></Button>}
-            <CatanDice dice={game.dice} /></div></div>
-        {isTurn && game.phase === "roll" && <div className="catan-turn-actions"><Button className="catan-primary catan-roll-button" disabled={busy} onClick={() => void send({ type: "roll" })}><Dices />Würfeln</Button></div>}
-        {isTurn && game.phase === "main" && <div className="catan-turn-actions"><Button className="catan-end-turn" disabled={busy} onClick={async () => { if (await send({ type: "end_turn" })) { setBuild(null); setSelection(null); } }}>Zug beenden →</Button></div>}
-      </section>}
+    <TurnStatus game={game} guidance={guidance} offline={offline} open={detailsOpen} onToggle={() => setDetail({ key, open: !detailsOpen })} local={local} onHide={onHide} />
+    {detailsOpen && <div className="catan-turn-details" id="catan-turn-details">
+      <span className="catan-kicker">{game.turn ? `Zug ${game.turn}` : "Gründungsphase"} · Ziel {game.targetPoints} Punkte</span><p>{guidance.text}</p>
+    </div>}
+    {/* The own hand stays pinned above every menu, so the current resources are in view while building, trading or reading the log. */}
+    <div className={`catan-hand-bar ${needsDiscard ? "is-alert" : handCount > 7 ? "is-warn" : ""}`}>
+      <button type="button" className="catan-hand-strip" onClick={() => selectTab("karten")} aria-label={`Deine Karten öffnen: ${RESOURCES.map((r) => `${resources[r]} ${RESOURCE_INFO[r].label}`).join(", ")}`}>
+        <span className="catan-hand-total"><Hand aria-hidden="true" />{handCount}</span>
+        {RESOURCES.map((r) => <span key={r} ref={(node) => { handCells.current[r] = node; }} title={RESOURCE_INFO[r].label}><ResourceIcon resource={r} />{resources[r]}</span>)}
+      </button>
+    </div>
     <div className="catan-score-strip" aria-label="Punktestand">{game.players.map((p) => <span key={p.id} className={game.players[game.currentPlayer].id === p.id ? "is-active" : ""} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties}><i className="catan-player-dot" aria-hidden="true" />{p.name}{p.id === me.id ? " (du)" : ""}<b>{p.id === me.id ? victoryPoints(game, me) : p.points}</b></span>)}</div>
 
-    <TabsPrimitive.Content value="insel" forceMount className="catan-tab-panel">
-      <button type="button" className="catan-hand-strip" onClick={() => selectTab("karten")} aria-label={`Deine Karten öffnen: ${RESOURCES.map((r) => `${resources[r]} ${RESOURCE_INFO[r].label}`).join(", ")}`}>{RESOURCES.map((r) => <span key={r}><ResourceIcon resource={r} />{resources[r]}</span>)}</button>
-      <CatanBoard game={game} mode={mode} choices={choices} selected={selected} onSelect={(id) => setSelection({ mode, id, phase: game.phase, turn: game.turn })} disabled={busy} />
-      {mode && <div className="catan-build-confirm" aria-live="polite"><p>{selected === null ? `Wähle ${mode === "robber" ? "ein Feld" : "einen markierten Bauplatz"}. Bei Bedarf vergrößern.` : `${mode === "robber" ? "Räuber: Feld" : mode === "road" ? "Straße: Weg" : BUILDING_NAMES[mode] + ": Kreuzung"} ${selected + 1}`}</p><Button disabled={busy || selected === null || !canBuild} onClick={() => void commit()}>{mode === "robber" ? "Räuber versetzen" : "Bauen bestätigen"}</Button>{game.phase === "main" && <Button variant="ghost" onClick={leaveBuildMode}>Abbrechen</Button>}</div>}
-      {isTurn && game.phase === "steal" && <section className="catan-panel"><h2>Wen möchtest du bestehlen?</h2>{game.victims.map((id) => <Button className="catan-primary" variant="outline" key={id} disabled={busy} onClick={() => void send({ type: "steal", victimId: id })}>{game.players.find((p) => p.id === id)!.name}</Button>)}</section>}
+    {/* The island fills what is left of the screen and pans inside itself, so the board never scrolls out of reach. */}
+    <TabsPrimitive.Content value="insel" forceMount className="catan-tab-panel catan-tab-insel">
+      {isTurn && game.phase === "steal" && <section className="catan-panel catan-steal"><h2>Wen möchtest du bestehlen?</h2><div className="catan-button-row">{game.victims.map((id) => <Button variant="outline" key={id} disabled={busy} onClick={() => void send({ type: "steal", victimId: id })}>{game.players.find((p) => p.id === id)!.name}</Button>)}</div></section>}
       {game.phase === "discard" && !needsDiscard && <p className="catan-wait-hint">Andere geben gerade Rohstoffe ab. Danach geht es weiter.</p>}
+      <CatanBoard game={game} mode={mode} choices={choices} selected={selected} onSelect={(id) => setSelection({ mode, id, phase: game.phase, turn: game.turn })} disabled={busy} />
     </TabsPrimitive.Content>
 
     <TabsPrimitive.Content value="karten" forceMount className="catan-tab-panel">
@@ -252,7 +314,6 @@ export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematc
           return <Button variant="outline" className={mode === kind ? "is-selected" : ""} aria-pressed={mode === kind} key={kind} disabled={busy || !isTurn || game.phase !== "main" || !canAfford(me.resources, COSTS[kind]) || !legal.length} onClick={() => { setBuild(kind); setSelection(null); selectTab("insel"); }}><Icon /><span><strong>{BUILDING_NAMES[kind]}</strong><Cost cost={COSTS[kind]} /></span></Button>;
         })}<Button variant="outline" disabled={busy || !isTurn || game.phase !== "main" || !game.deckCount || !canAfford(me.resources, COSTS.development)} onClick={() => void send({ type: "buy_development" })}><Shield /><span><strong>Entwicklungskarte kaufen</strong><Cost cost={COSTS.development} /></span></Button></div>
         <p className="catan-muted">{buildHint}</p>
-        <div className="catan-supply" aria-label="Dein Vorrat"><span className="catan-supply-label">Vorrat</span><span><Route aria-hidden="true" />{15 - pieces.road} Straßen</span><span><Flag aria-hidden="true" />{5 - pieces.settlement} Siedlungen</span><span><Castle aria-hidden="true" />{4 - pieces.city} Städte</span></div>
       </Section>
     </TabsPrimitive.Content>
 
@@ -261,6 +322,7 @@ export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematc
     </TabsPrimitive.Content>
 
     <TabsPrimitive.Content value="uebersicht" forceMount className="catan-tab-panel">
+      {finished && <section className="catan-panel catan-victory"><Trophy aria-hidden="true" /><h1>Die Insel hat einen Sieger.</h1><p>{guidance.title} {guidance.text}</p>{onRematch && <Button className="catan-primary" disabled={busy} onClick={onRematch}>Neue Partie vorbereiten</Button>}</section>}
       <section className="catan-players" aria-label="Spielende und Punktestände">{game.players.map((p) => <div key={p.id} className={game.players[game.currentPlayer].id === p.id ? "is-active" : ""} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties}>
         <div><span className="catan-player-dot" /><strong>{p.name}{p.id === me.id ? " (du)" : ""}</strong><b>{p.id === me.id ? victoryPoints(game, me) : p.points}<small> / {game.targetPoints}</small></b></div>
         <p>{PLAYER_COLOR_NAMES[p.color]} · {p.id === me.id ? handCount : p.resourceCount} Rohstoffe · {p.developmentCount} Karten</p>
@@ -269,12 +331,19 @@ export function CatanGameUI({ game, send, busy: sending, local, onHide, onRematc
       <Section title="Spielverlauf" Icon={ScrollText}><ol className="catan-log-list">{[...game.log].reverse().map((entry) => <li key={entry.id}>{entry.text}</li>)}</ol></Section>
       {local && onHide && !finished && <Button variant="outline" className="catan-hide-hand" onClick={onHide}><LockKeyhole />Handkarten verdecken und Gerät weitergeben</Button>}
       <CatanRules />
+      {/* The play screen hides the page header, so the way out of the game lives here. */}
+      <GameBackLink />
     </TabsPrimitive.Content>
 
+    {!finished && <div className={`catan-action-bar ${step.hint || step.actions ? "is-task" : ""}`}>
+      {step.hint && <p className="catan-action-hint" aria-live="polite">{step.hint}</p>}
+      {/* A running task states itself and keeps its buttons on one line; the supply holds the row the rest of the time. */}
+      <div className="catan-action-row">{!step.hint && <Supply pieces={pieces} />}{step.actions && <div className="catan-action-buttons">{step.actions}</div>}</div>
+    </div>}
     <nav className="catan-nav" aria-label="Spielmenü"><TabsPrimitive.List className="catan-nav-list" aria-label="Bereiche">{CATAN_TABS.map(({ id, label, Icon }) => { const badge = badges[id];
-      return <TabsPrimitive.Trigger key={id} value={id} className="catan-nav-tab"><span ref={id === "karten" ? cardsTarget : undefined} className="catan-nav-icon"><Icon aria-hidden="true" />{badge && <span key={id === "karten" ? arrivals : id} className={`catan-nav-badge ${badge.tone}${id === "karten" && arrivals ? " is-collecting" : ""}`} aria-hidden="true">{badge.text}</span>}</span><span className="catan-nav-label">{label}</span>{badge && <span className="sr-only">, {badge.description}</span>}</TabsPrimitive.Trigger>;
+      return <TabsPrimitive.Trigger key={id} value={id} className="catan-nav-tab"><span className="catan-nav-icon"><Icon aria-hidden="true" />{badge && <span key={id === "karten" ? arrivals : id} className={`catan-nav-badge ${badge.tone}${id === "karten" && arrivals ? " is-collecting" : ""}`} aria-hidden="true">{badge.text}</span>}</span><span className="catan-nav-label">{label}</span>{badge && <span className="sr-only">, {badge.description}</span>}</TabsPrimitive.Trigger>;
     })}</TabsPrimitive.List></nav>
     <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{arrivals ? `${handCount} Rohstoffkarten auf der Hand.` : ""}</span>
-    {notice && <CatanNotificationPopup key={notice.id} notice={notice} remaining={remaining} target={cardsTarget} onCollect={collect} />}
+    {notice && <CatanNotificationPopup key={notice.id} notice={notice} remaining={remaining} targets={handCells} onCollect={collect} />}
   </TabsPrimitive.Root>;
 }

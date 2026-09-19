@@ -61,10 +61,21 @@ Waiting online lobbies are listed under „Lobby beitreten“ for devices on the
 network, like in Imposter and Werwolf; the host can hide a lobby with „Lobby in
 der Nähe anzeigen“.
 Local games are saved on the device and hide hands when passing it around.
-The play screen is organised as five menus pinned to the bottom of the screen
-(island, cards, build, trade, overview); the game switches to the menu whose
-task is currently yours, and the menu badges show hand size, pending offers and
-required discards.
+A running game is laid out as an app shell that does not scroll as a page: a
+status row (who is on turn, the last roll, your score, and the explanation of the
+phase behind a tap), the own hand with the card total and the five resource
+counts, the scoreboard, then the area of the current menu, and above the menu a
+bar with the piece supply and the next step — roll, end turn, confirm a building,
+move the robber or discard. Earned cards fly into their own field of the hand row.
+The five menus (island, cards, build, trade, overview) are pinned to the bottom of
+the screen; the game switches to the menu whose task is currently yours, and the
+menu badges show hand size, pending offers and required discards. The island
+fills the rest of the screen, scales to fit its box and pans inside itself when
+zoomed, so the board is never scrolled out of reach; the page header steps aside
+during a game and the way back lives under „Übersicht“. Trade starts with the two
+counterparties, „Hafen & Bank“ and „Mitspielende“; an offer to a person is then
+built in three steps (with whom, what you give, what you want), each with the
+resulting stock.
 
 The table is defined by `drizzle/0007_catan.sql`; `drizzle/0008_catan_nearby.sql`
 adds the discovery columns, which the app also adds at runtime when they are

@@ -31,15 +31,13 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled }
     role: "button" as const, tabIndex: disabled ? -1 : 0, "aria-label": label, "aria-pressed": selected === id, "aria-disabled": disabled,
     onClick: () => activate(id), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(id); } },
   });
+  // The island fills the play area; at its fit size it is centred, and only a zoomed board pans.
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
-    <div className="catan-board-toolbar"><span>Die Insel <small>· {mode ? "Markierung auswählen" : "19 Landschaften"}</small></span><div>
-      <Button variant="ghost" size="icon" aria-label="Spielfeld verkleinern" disabled={zoom === 1} onClick={() => setZoom(1)}><ZoomOut /></Button>
-      <Button variant="ghost" size="icon" aria-label="Spielfeld vergrößern" disabled={zoom === 1.75} onClick={() => setZoom(1.75)}><ZoomIn /></Button>
-    </div></div>
     {/* Keyboard focus lets users pan the enlarged board with arrow keys. */}
     {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
     <div className="catan-board-scroll" tabIndex={0} aria-label="Spielfeld, bei Vergrößerung seitlich verschiebbar">
-      <svg className="catan-board" viewBox="-306 -278 612 556" style={{ width: `${zoom * 100}%`, maxWidth: "none" }} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen">
+      {/* Width and height both follow the zoom, so the viewBox scales the island to fit its box and only a zoomed board pans. */}
+      <svg className="catan-board" viewBox="-306 -278 612 556" style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%`, maxWidth: "none" }} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen">
         <title>Catan – Spielbrett</title>
         <defs><radialGradient id="catan-sea"><stop stopColor="#224b5b" /><stop offset="1" stopColor="#142b35" /></radialGradient></defs>
         <rect x="-306" y="-278" width="612" height="556" rx="22" fill="url(#catan-sea)" />
@@ -100,7 +98,10 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled }
         })}
       </svg>
     </div>
-    <div className="catan-board-legend">{(Object.keys(RESOURCE_INFO) as Resource[]).map((r) => <span key={r}><ResourceIcon resource={r} />{RESOURCE_INFO[r].label}</span>)}<span><b>R</b> Räuber</span></div>
+    <div className="catan-board-zoom">
+      <Button variant="ghost" size="icon" aria-label="Spielfeld vergrößern" disabled={zoom === 1.75} onClick={() => setZoom(1.75)}><ZoomIn /></Button>
+      <Button variant="ghost" size="icon" aria-label="Spielfeld verkleinern" disabled={zoom === 1} onClick={() => setZoom(1)}><ZoomOut /></Button>
+    </div>
   </section>;
 }
 
