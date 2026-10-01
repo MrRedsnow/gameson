@@ -90,6 +90,9 @@ The base game includes randomized terrain with nonadjacent red number tokens,
 snake-order setup, resource production, limited bank/pieces, domestic and harbor
 trade, robber/discard/steal, all 25 development cards and both special awards.
 Online hands and deck order stay server-side; turn updates use atomic revisions.
+Confirmed updates reach every connected player through authenticated WebSockets.
+The client reconciles every minute and falls back to 2.5-second HTTP polling while
+reconnecting; repeated revisions cannot replay construction effects.
 Waiting online lobbies are listed under „Lobby beitreten“ for devices on the same
 network, like in Imposter and Werwolf; the host can hide a lobby with „Lobby in
 der Nähe anzeigen“.
@@ -107,10 +110,10 @@ can scroll the entire screen so headings and actions remain reachable. Rules
 use topic accordions with shared build costs; private receipts are expandable
 entries ordered newest first and retain their unread markers.
 
-The island fits its available space. A larger island mode keeps status, resources
-and navigation visible and supports panning. Landscape gives more space to the
-map. Tapping a field or using the place arrows
-opens a close view with larger touch targets. A separate confirmation prevents
+The island fits its available space and supports panning, pinch zoom and reset.
+Fullscreen keeps status and resources above the map, with Cards, Build, Trade and
+Overview in a vertical right-hand menu. Hover previews and pinned click/touch
+menus reuse the existing forms; the bottom navigation is hidden. A separate confirmation prevents
 accidental construction. Placement previews explain adjacent resources, number
 probabilities, robber blocks and ports. The build menu explains missing resources,
 pieces and legal positions. Tabs are the single entrypoints for building and
@@ -126,6 +129,13 @@ Slender roads connect painted cottages and cities with a taller central building
 roof colors identify their owners. Painted timber piers and rowing boats mark the harbors, and a painted
 ocean texture fills the whole map area. Material-colored resource pictograms are
 shared by the inventory, card overview, trade, costs and harbor badges.
+The ocean follows the camera with a slower, stronger parallax movement. Confirmed
+roads unroll over 700 ms; settlements and city upgrades rise from their foundation
+with a short dust pulse over 750 ms. Every player's visible island animates these
+confirmed board changes. Camera and fullscreen-menu changes preserve the effects;
+reduced motion, hidden views and restored games show finished pieces immediately.
+Local setup roads keep the outgoing player's private view for 800 ms before the
+ordinary handoff screen; hiding the hand ends that transition immediately.
 Artwork and generation prompts are documented in `assets/catan/README.md`.
 The island's speaker button optionally enables synthesized
 sheep and wood-chopping effects when receiving those resources or inspecting a
@@ -145,6 +155,14 @@ For interactive UI checks, build once and run `node tests/catan-ux-preview.mjs`.
 The local-only preview on port 3002 renders the real components with prepared
 states for setup, trading, discarding, card play, long histories and game over.
 It is not an application route and is not included in the deployed UI.
+For deterministic own and remote construction checks, use
+`CATAN_QA_FIXTURE=catan-construction.tsx node tests/catan-ux-preview.mjs`.
+
+The Worker exports `CatanLobbyLive`; the generated Worker configuration includes
+the `CATAN_LIVE` Durable Object binding and `catan-live-v1` SQLite namespace
+migration. Deployment must retain this configuration for push updates. No new
+D1 migration is required for realtime delivery; the existing Ubuntu proxy already
+supports WebSocket upgrades.
 
 The table is defined by `drizzle/0007_catan.sql`; `drizzle/0008_catan_nearby.sql`
 adds the discovery columns, which the app also adds at runtime when they are

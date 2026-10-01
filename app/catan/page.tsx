@@ -8,13 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { CatanGameUI, CatanRules, TargetPoints } from "@/components/catan/game-ui";
 import { CatanDiceOverlay } from "@/components/catan/dice";
-import { DEFAULT_TARGET_POINTS, PLAYER_COLORS, applyCatanAction, catanView, createCatanGame, localActorId, type CatanAction, type CatanGame, type CatanView } from "@/lib/catan";
+import { useBuildHandoff } from "@/components/catan/use-build-handoff";
+import { DEFAULT_TARGET_POINTS, PLAYER_COLORS, applyCatanAction, catanView, createCatanGame, localActorId, type CatanAction, type CatanGame } from "@/lib/catan";
+import { buildHandoffViewer } from "@/lib/catan-build-handoff";
 import { restoreLocalSeen } from "@/lib/catan-notifications";
 import { describeLobby, resolveOnlineGameStartup, type GameSession } from "@/lib/game-session";
+import { startCatanLive, type CatanLiveConnection } from "@/lib/catan-live-client";
+import type { CatanLobbyState } from "@/lib/catan-live";
 
 const SESSION_KEY = "gameson-catan-session-v1";
 const LOCAL_KEY = "gameson-catan-local-v1";
-type LobbyState = { lobby: { id: string; name: string; hostPlayerId: string; targetPoints: number; discoverable: boolean; revision: number }; members: { id: string; name: string }[]; me: { id: string; name: string }; game: CatanView | null };
+type LobbyState = CatanLobbyState;
 type ResponseData = { session?: GameSession; state?: LobbyState; left?: boolean; error?: string };
 type EntryMode = "home" | "create" | "join" | "local";
 type NearbyLobby = { id: string; name: string; player_count: number };
@@ -44,11 +48,23 @@ export default function CatanPage() {
   const [inviteOpen, setInviteOpen] = useState(false); const [settingsOpen, setSettingsOpen] = useState(false); const [leaveOpen, setLeaveOpen] = useState(false);
   const [storedSession, setStoredSession] = useState<GameSession | null>(null); const [storedLobby, setStoredLobby] = useState<ResumeLobbyInfo | null | undefined>(undefined);
   const [nearby, setNearby] = useState<NearbyLobby[]>([]);
+  const [animationBaseline, setAnimationBaseline] = useState(0);
   const stateRef = useRef<LobbyState | null>(null); const locked = useRef(false);
+  const liveRef = useRef<{ session: GameSession; connection: CatanLiveConnection } | null>(null);
+  const pendingLeave = useRef<{ session: GameSession; completed: boolean } | null>(null);
+  const completeOnlineLeave = useCallback(() => {
+    setSession(null); setState(null); stateRef.current = null;
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* The in-memory session is still cleared. */ }
+    setNotice(""); setMode("home"); window.history.replaceState({}, "", "/catan");
+  }, []);
+  const releaseBuildHandoff = useCallback(() => { locked.current = false; setBusy(false); setUnlocked(null); }, []);
+  const buildHandoff = useBuildHandoff(releaseBuildHandoff);
   const store = (key: string, value: string | null) => { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { setNotice("Der Browser kann den Spielstand nicht speichern. Halte diese Seite geöffnet, bis die Partie beendet ist."); } };
-  const acceptState = useCallback((next: LobbyState) => {
-    if (stateRef.current?.lobby.id === next.lobby.id && stateRef.current.lobby.revision > next.lobby.revision) return;
-    stateRef.current = next; setState(next); setConnected(true);
+  const acceptState = useCallback((next: LobbyState, baseline = false) => {
+    setConnected(true);
+    if (stateRef.current?.lobby.id === next.lobby.id && stateRef.current.lobby.revision >= next.lobby.revision) return;
+    if (baseline) setAnimationBaseline((value) => value + 1);
+    stateRef.current = next; setState(next);
   }, []);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -67,29 +83,36 @@ export default function CatanPage() {
     return () => { cancelAnimationFrame(frame); document.removeEventListener("visibilitychange", hide); };
   }, []);
   const refresh = useCallback(async (current: GameSession) => {
+    if (liveRef.current?.session.lobbyId === current.lobbyId && liveRef.current.session.token === current.token) {
+      await liveRef.current.connection.refresh();
+      return;
+    }
     const next = await request<LobbyState>(`/api/catan?lobby=${encodeURIComponent(current.lobbyId)}`, { headers: { Authorization: `Bearer ${current.token}` } });
     acceptState(next);
   }, [acceptState]);
   useEffect(() => {
     if (!session) return;
-    let cancelled = false; let timer: ReturnType<typeof setTimeout>;
-    const poll = async () => {
-      try {
-        const next = await request<LobbyState>(`/api/catan?lobby=${encodeURIComponent(session.lobbyId)}`, { headers: { Authorization: `Bearer ${session.token}` } });
-        if (!cancelled) acceptState(next);
-      } catch (error) {
-        if (cancelled) return;
-        setConnected(false);
-        if (error instanceof ApiError && [401, 404].includes(error.status)) {
-          setSession(null); setState(null); stateRef.current = null;
-          store(SESSION_KEY, null); setNotice(error.message); setMode("join"); setCode(session.lobbyId);
+    const live = startCatanLive(session, {
+      initialState: stateRef.current ?? undefined,
+      onState: (next, { baseline }) => acceptState(next, baseline),
+      onConnection: setConnected,
+      onRevoked: (_status, message) => {
+        if (pendingLeave.current?.session === session) {
+          pendingLeave.current.completed = true;
+          completeOnlineLeave();
           return;
         }
-      }
-      if (!cancelled) timer = setTimeout(() => void poll(), 2500);
+        setSession(null); setState(null); stateRef.current = null;
+        try { localStorage.removeItem(SESSION_KEY); } catch { /* The expired in-memory session is still cleared. */ }
+        setNotice(message); setMode("join"); setCode(session.lobbyId);
+      },
+    });
+    liveRef.current = { session, connection: live };
+    return () => {
+      live.dispose(); if (liveRef.current?.connection === live) liveRef.current = null;
+      if (pendingLeave.current?.session === session && pendingLeave.current.completed) pendingLeave.current = null;
     };
-    void poll(); return () => { cancelled = true; clearTimeout(timer); };
-  }, [session, acceptState]);
+  }, [session, acceptState, completeOnlineLeave]);
   // Waiting lobbies on the same network are offered under "Lobby beitreten" while this device is not playing.
   useEffect(() => {
     if (session || localGame || (mode !== "home" && mode !== "join")) return;
@@ -118,16 +141,20 @@ export default function CatanPage() {
   async function post(action: string, extra: Record<string, unknown> = {}): Promise<boolean> {
     if (locked.current || !session || !stateRef.current) return false;
     locked.current = true; setBusy(true); setNotice("");
+    const leaving = action === "leave" ? { session, completed: false } : null;
+    if (leaving) pendingLeave.current = leaving;
     try {
       const data = await request<ResponseData>("/api/catan", { method: "POST", headers: { Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ action, lobbyId: session.lobbyId, revision: stateRef.current.lobby.revision, ...extra }) });
+      if (leaving?.completed) return true;
       if (data.state) acceptState(data.state);
-      if (data.left) { store(SESSION_KEY, null); setSession(null); setState(null); stateRef.current = null; setMode("home"); window.history.replaceState({}, "", "/catan"); }
+      if (data.left) { if (leaving) leaving.completed = true; completeOnlineLeave(); }
       return true;
     } catch (error) {
+      if (leaving?.completed) return true;
       setNotice(error instanceof ApiError ? error.message : "Die Bestätigung fehlt. Der Spielstand wird neu geladen; prüfe deinen Zug, bevor du ihn erneut sendest.");
-      try { await refresh(session); } catch { setConnected(false); }
-      return false;
-    } finally { locked.current = false; setBusy(false); }
+      try { await refresh(session); } catch { if (!leaving?.completed) setConnected(false); }
+      return leaving?.completed ?? false;
+    } finally { if (pendingLeave.current === leaving && !leaving?.completed) pendingLeave.current = null; locked.current = false; setBusy(false); }
   }
   function startLocal() {
     try {
@@ -140,27 +167,35 @@ export default function CatanPage() {
   async function sendLocal(action: CatanAction) {
     if (!localGame || locked.current) return false;
     locked.current = true;
+    let holding = false;
     try {
       const previousActor = localActorId(localGame);
       const next = applyCatanAction(localGame, previousActor, action);
-      if (localActorId(next) !== previousActor) setUnlocked(null);
-      store(LOCAL_KEY, JSON.stringify({ ...next, localSeen })); setLocalGame(next); return true;
+      store(LOCAL_KEY, JSON.stringify({ ...next, localSeen })); setLocalGame(next);
+      if (localActorId(next) !== previousActor) {
+        holding = action.type === "build" && buildHandoff.start({ gameId: next.id, sequence: next.sequence, viewerId: previousActor });
+        if (holding) setBusy(true);
+        else setUnlocked(null);
+      }
+      return true;
     } catch (error) { setNotice((error as Error).message); return false; }
-    finally { locked.current = false; }
+    finally { if (!holding) locked.current = false; }
   }
   const resumeStoredSession = () => { if (!storedSession) return; setStoredSession(null); setStoredLobby(undefined); setSession(storedSession); window.history.replaceState({}, "", `/catan?lobby=${storedSession.lobbyId}`); };
   const discardStoredSession = () => { store(SESSION_KEY, null); setStoredSession(null); setStoredLobby(undefined); };
   const actor = localGame ? localActorId(localGame) : null;
+  const holdingBuild = Boolean(localGame && buildHandoff.transition?.gameId === localGame.id && buildHandoff.transition.sequence === localGame.sequence);
+  const viewActor = localGame ? buildHandoffViewer(localGame, buildHandoff.transition) : null;
   const readLocalActivity = (sequence: number) => {
-    if (!localGame || !actor) return;
-    const seen = { ...localSeen, [actor]: sequence };
+    if (!localGame || !viewActor) return;
+    const seen = { ...localSeen, [viewActor]: sequence };
     setLocalSeen(seen); store(LOCAL_KEY, JSON.stringify({ ...localGame, localSeen: seen }));
   };
   const isHost = Boolean(state && state.me.id === state.lobby.hostPlayerId);
   const inviteUrl = state && typeof window !== "undefined" ? `${window.location.origin}/catan?lobby=${state.lobby.id}&join=1` : "";
   const selectedLobby = mode === "join" ? nearby.find((item) => item.id === code) : undefined;
   const active = localGame || state?.game;
-  const needsHandoff = localGame && actor && unlocked !== actor && localGame.phase !== "finished";
+  const needsHandoff = localGame && actor && !holdingBuild && unlocked !== actor && localGame.phase !== "finished";
   const back = () => { setMode("home"); setNotice(""); window.history.replaceState({}, "", "/catan"); };
   // A running game owns the whole screen: the page header steps aside, and the way out moves into "Übersicht".
   const playing = Boolean(active) && !needsHandoff;
@@ -171,7 +206,7 @@ export default function CatanPage() {
       <LockKeyhole aria-hidden="true" /><span className="catan-kicker">Handkarten bleiben geheim</span><h1>Weitergeben an<br /><span style={{ color: PLAYER_COLORS[localGame.players.find((p) => p.id === actor)!.color] }}>{localGame.players.find((p) => p.id === actor)!.name}</span></h1>
       <p>{localGame.phase === "discard" ? "Du musst Rohstoffe abgeben." : localGame.trade ? "Für dich liegt ein Handelsangebot vor." : "Dein nächster Spielzug wartet."} Nur du schaust auf den Bildschirm.</p>
       <Button className="catan-primary" onClick={() => setUnlocked(actor)}>Ich bin {localGame.players.find((p) => p.id === actor)!.name}</Button>
-    </section> : active ? <CatanGameUI key={localGame ? `${localGame.id}-${actor}` : state!.game!.id} game={localGame ? catanView(localGame, actor!) : state!.game!} send={localGame ? sendLocal : (move) => post("move", { move })} busy={busy || Boolean(session && !connected)} local={Boolean(localGame)} offline={Boolean(session && !connected)} afterNotificationSequence={localGame ? localSeen[actor!] ?? localGame.sequence : undefined} onActivityRead={localGame ? readLocalActivity : undefined} onHide={() => setUnlocked(null)} onRematch={localGame ? () => { setNames([...localGame.players].sort((a, b) => a.color - b.color).map((p) => p.name)); setTarget(localGame.targetPoints); setLocalGame(null); setMode("local"); store(LOCAL_KEY, null); setLocalSaved(false); } : isHost ? () => void post("reset") : undefined} /> : state ? <>
+    </section> : active ? <CatanGameUI key={localGame ? `${localGame.id}-${viewActor}` : state!.game!.id} game={localGame ? catanView(localGame, viewActor!) : state!.game!} animationBaseline={animationBaseline} send={localGame ? sendLocal : (move) => post("move", { move })} busy={busy || Boolean(session && !connected)} local={Boolean(localGame)} offline={Boolean(session && !connected)} afterNotificationSequence={localGame ? localSeen[viewActor!] ?? localGame.sequence : undefined} onActivityRead={localGame ? readLocalActivity : undefined} onHide={() => { buildHandoff.finish(); setUnlocked(null); }} onRematch={localGame ? () => { buildHandoff.finish(); setNames([...localGame.players].sort((a, b) => a.color - b.color).map((p) => p.name)); setTarget(localGame.targetPoints); setLocalGame(null); setMode("local"); store(LOCAL_KEY, null); setLocalSaved(false); } : isHost ? () => void post("reset") : undefined} /> : state ? <>
       <section className="catan-lobby-heading"><span className="catan-kicker">Eure Catan-Lobby</span><h1>{state.lobby.name}</h1><p>Teilt den Code oder Einladungslink. Startet mit drei oder vier Personen.</p></section>
       <LobbyToolbar onInvite={() => setInviteOpen(true)} onSettings={isHost ? () => setSettingsOpen(true) : undefined} busy={busy} />
       <section className="catan-panel"><div className="catan-section-heading"><h2><Users />Mitspielende</h2><span>{state.members.length} / 4</span></div><ul className="catan-lobby-players">{state.members.map((p, i) => <li key={p.id}><span style={{ background: PLAYER_COLORS[i] }}>{p.name.slice(0, 1)}</span><div><strong>{p.name}{p.id === state.me.id ? " (du)" : ""}</strong>{p.id === state.lobby.hostPlayerId && <small>Spielleitung</small>}</div>{isHost && p.id !== state.me.id && <Button variant="ghost" size="icon" disabled={busy} onClick={() => void post("remove", { playerId: p.id })} aria-label={`${p.name} aus der Lobby entfernen`}><X /></Button>}</li>)}</ul>

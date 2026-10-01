@@ -1,6 +1,6 @@
 import { cameraMetrics, constrainCamera, fitCamera, type BoardBounds, type BoardCamera, type ViewportSize } from "./catan-camera";
 
-const SEA_PARALLAX = .12;
+const SEA_PARALLAX = .20;
 const positive = (value: number) => Number.isFinite(value) && value > 0 ? value : 1;
 
 /** A slower sea camera, with enough image coverage for every permitted island position. */

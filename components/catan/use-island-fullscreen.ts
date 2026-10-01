@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IslandFullscreenController } from "@/lib/catan-fullscreen";
 
-export function useIslandFullscreen(islandVisible: boolean, onCollapse: () => void) {
+export function useIslandFullscreen(onCollapse: () => void) {
   const [expanded, setExpanded] = useState(false);
   const controller = useRef<IslandFullscreenController | null>(null);
 
@@ -23,7 +23,5 @@ export function useIslandFullscreen(islandVisible: boolean, onCollapse: () => vo
     else current?.enter();
   }, []);
 
-  useEffect(() => { if (!islandVisible) close(); }, [islandVisible, close]);
-
-  return { expanded: expanded && islandVisible, toggle, close };
+  return { expanded, toggle, close };
 }

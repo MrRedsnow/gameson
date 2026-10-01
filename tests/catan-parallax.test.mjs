@@ -40,21 +40,21 @@ test("Reset bewahrt das zentrierte Cover-Bild in jedem Bildschirmformat", () => 
   }
 });
 
-test("Meerzoom wächst stetig und bleibt bei maximal zehn Prozent zusätzlicher Bildgröße", () => {
+test("Meerzoom wächst stetig und bleibt bei maximal einem Sechstel zusätzlicher Bildgröße", () => {
   let previous = size.width;
   for (const zoom of [1, 1.0001, 1.35, 2, 4, 6, 1000]) {
     const sea = seaParallax(bounds, size, { ...fitCamera(bounds), zoom });
     assert.ok(sea.size >= previous);
-    assert.ok(sea.size <= size.width * 1.1 + 1e-8);
+    assert.ok(sea.size <= size.width * (1 + 1 / 6) + 1e-8);
     near(sea.x, 0); near(sea.y, 0);
     coversViewport(sea, size);
     previous = sea.size;
   }
-  near(seaParallax(bounds, size, { x: 0, y: 0, zoom: 6 }).size, size.width * 1.1);
+  near(seaParallax(bounds, size, { x: 0, y: 0, zoom: 6 }).size, size.width * (1 + 1 / 6));
   assert.deepEqual(seaParallax(bounds, size, { x: 0, y: 0, zoom: 1000 }), seaParallax(bounds, size, { x: 0, y: 0, zoom: 6 }));
 });
 
-test("Verschieben bewegt das Meer in Fingerrichtung mit zwölf Prozent geteilt durch den Zoom", () => {
+test("Verschieben bewegt das Meer in Fingerrichtung mit zwanzig Prozent geteilt durch den Zoom", () => {
   const drag = { x: 24, y: -18 };
   for (const zoom of [1.35, 2, 4, 6]) {
     const camera = { ...fitCamera(bounds), zoom };
@@ -63,8 +63,8 @@ test("Verschieben bewegt das Meer in Fingerrichtung mit zwölf Prozent geteilt d
     const after = seaParallax(bounds, size, afterCamera);
     assert.ok(after.x > before.x, "Meer folgt dem Zug nach rechts.");
     assert.ok(after.y < before.y, "Meer folgt dem Zug nach oben.");
-    near(after.x - before.x, drag.x * 0.12 / zoom, "Langsame horizontale Bewegung");
-    near(after.y - before.y, drag.y * 0.12 / zoom, "Langsame vertikale Bewegung");
+    near(after.x - before.x, drag.x * 0.20 / zoom, "Langsame horizontale Bewegung");
+    near(after.y - before.y, drag.y * 0.20 / zoom, "Langsame vertikale Bewegung");
     near(after.size, before.size, "Pan ändert die Meergröße nicht");
     coversViewport(after, size);
   }
@@ -119,7 +119,7 @@ test("Alle Kameraecken und extremen Seitenverhältnisse behalten bedeckte Viewpo
       const context = JSON.stringify({ board, viewport, x, y, zoom });
       const sea = seaParallax(board, viewport, { x, y, zoom });
       coversViewport(sea, viewport, context);
-      assert.ok(sea.size <= Math.max(viewport.width, viewport.height) * 1.1 + 1e-8, `${context}: höchstens zehn Prozent Overscan`);
+      assert.ok(sea.size <= Math.max(viewport.width, viewport.height) * (1 + 1 / 6) + 1e-8, `${context}: höchstens ein Sechstel Overscan`);
       for (const [offset, axis] of [[sea.x, viewport.width], [sea.y, viewport.height]]) {
         assert.ok(Math.abs(offset) <= Math.max(0, (sea.size - axis) / 2 - 1) + 1e-8, `${context}: Reserve gegen Rundungsränder`);
       }

@@ -1,20 +1,15 @@
 import { ensureSchema, getD1 } from "../../../db";
-import { applyCatanAction, catanView, createCatanGame, DEFAULT_TARGET_POINTS, randomIndex, validateTargetPoints, type CatanAction, type CatanGame } from "../../../lib/catan";
+import { applyCatanAction, createCatanGame, DEFAULT_TARGET_POINTS, randomIndex, validateTargetPoints, type CatanAction } from "../../../lib/catan";
+import { authenticateCatanRequest as authenticate, catanLobbyGame as gameOf, catanLobbyMembers as members, catanLobbyView as view, catanTokenDigest as digest, readCatanLobby, type CatanLobby as Lobby, type CatanLobbyMember as Member } from "../../../lib/catan-lobby-server";
+import { publishCatanLobby } from "../../../lib/catan-live-server";
 
 export const runtime = "edge";
-type Member = { id: string; name: string; tokenHash: string };
-type Lobby = { id: string; name: string; normalized_name: string; host_player_id: string; target_points: number; members: string; game: string | null; discoverable: number; network_hash: string; revision: number; created_at: number; updated_at: number };
 const reply = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 const fail = (error: string, status = 400) => reply({ error }, status);
 const clean = (value: unknown, max: number) => typeof value === "string" ? value.normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, max) : "";
 const normalize = (value: string) => value.toLocaleLowerCase("de");
-async function digest(value: string) {
-  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+const readLobby = (id: string) => readCatanLobby(id, getD1());
 function token() { return Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join(""); }
-function members(lobby: Lobby): Member[] { return JSON.parse(lobby.members); }
-function gameOf(lobby: Lobby): CatanGame | null { return lobby.game ? JSON.parse(lobby.game) : null; }
 const DISCOVERY_WINDOW = 15 * 60 * 1000;
 function networkPrefix(request: Request) {
   const value = (request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "local-preview").trim();
@@ -24,18 +19,6 @@ function networkPrefix(request: Request) {
 async function networkHash(request: Request, offset = 0) {
   return digest(`catan-nearby-v1|${networkPrefix(request)}|${Math.floor(Date.now() / DISCOVERY_WINDOW) + offset}`);
 }
-async function authenticate(request: Request, lobby: Lobby): Promise<Member | undefined> {
-  const header = request.headers.get("authorization") ?? "";
-  if (!header.startsWith("Bearer ") || header.length > 200) return undefined;
-  const hash = await digest(header.slice(7));
-  return members(lobby).find((m) => m.tokenHash === hash);
-}
-function view(lobby: Lobby, me: Member) {
-  const game = gameOf(lobby);
-  return { lobby: { id: lobby.id, name: lobby.name, hostPlayerId: lobby.host_player_id, targetPoints: lobby.target_points, discoverable: Boolean(lobby.discoverable), revision: lobby.revision },
-    members: members(lobby).map(({ id, name }) => ({ id, name })), me: { id: me.id, name: me.name }, game: game ? catanView(game, me.id) : null };
-}
-async function readLobby(id: string) { return getD1().prepare("SELECT * FROM catan_lobbies WHERE id = ?").bind(id).first<Lobby>(); }
 async function save(lobby: Lobby, previousRevision: number) {
   const result = await getD1().prepare("UPDATE catan_lobbies SET host_player_id = ?, target_points = ?, members = ?, game = ?, discoverable = ?, revision = revision + 1, updated_at = ? WHERE id = ? AND revision = ?")
     .bind(lobby.host_player_id, lobby.target_points, lobby.members, lobby.game, lobby.discoverable, Date.now(), lobby.id, previousRevision).run();
@@ -107,7 +90,9 @@ export async function POST(request: Request) {
           if (String(e).includes("UNIQUE")) return fail("Dieser Gruppenname ist inzwischen vergeben. Bitte wähle einen anderen.", 409);
           throw e;
         }
-        return reply({ session: { lobbyId: id, token: secret }, state: view((await readLobby(id))!, member) });
+        const created = (await readLobby(id))!;
+        await publishCatanLobby(created);
+        return reply({ session: { lobbyId: id, token: secret }, state: view(created, member) });
       }
       const code = clean(body.code, 40);
       const lobby = await getD1().prepare("SELECT * FROM catan_lobbies WHERE id = ? OR normalized_name = ?").bind(code.toUpperCase(), normalize(code)).first<Lobby>();
@@ -119,6 +104,7 @@ export async function POST(request: Request) {
       lobby.members = JSON.stringify([...seats, member]);
       if (!await save(lobby, lobby.revision)) return fail("Die Lobby wurde gerade geändert. Bitte tritt erneut bei.", 409);
       lobby.revision++;
+      await publishCatanLobby(lobby);
       return reply({ session: { lobbyId: lobby.id, token: secret }, state: view(lobby, member) });
     }
     const lobby = await readLobby(clean(body.lobbyId, 40)); if (!lobby) return fail("Diese Lobby gibt es nicht mehr.", 404);
@@ -148,13 +134,16 @@ export async function POST(request: Request) {
       const seats = members(lobby).filter((p) => p.id !== id);
       if (!seats.length) {
         const deleted = await getD1().prepare("DELETE FROM catan_lobbies WHERE id = ? AND revision = ?").bind(lobby.id, lobby.revision).run();
-        return deleted.meta.changes === 1 ? reply({ left: true }) : fail("Die Lobby wurde inzwischen geändert.", 409);
+        if (deleted.meta.changes !== 1) return fail("Die Lobby wurde inzwischen geändert.", 409);
+        await publishCatanLobby(null, { id: lobby.id, revision: lobby.revision + 1 });
+        return reply({ left: true });
       }
       lobby.members = JSON.stringify(seats);
       if (!seats.some((p) => p.id === lobby.host_player_id)) lobby.host_player_id = seats[0].id;
     } else return fail("Unbekannte Aktion.");
     if (!await save(lobby, lobby.revision)) return fail("Ein anderer Zug war schneller. Der aktuelle Spielstand wird geladen.", 409);
     lobby.revision++;
+    await publishCatanLobby(lobby);
     return action === "leave" ? reply({ left: true }) : reply({ state: view(lobby, me) });
   } catch (error) { return errorResponse(error); }
 }

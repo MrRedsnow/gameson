@@ -45,8 +45,10 @@ export function BuildingPiece({ id, building, colorIndex, x, y }: { id: string; 
   const baseline = city ? .81 : .88;
   return <g className="catan-building-piece" data-building={building} transform={`translate(${x} ${y})`} aria-hidden="true">
     <ellipse cy="9" rx={city ? 24 : 16} ry="4" fill="#142725" opacity=".3" />
-    <svg x={-size / 2} y={11 - size * baseline} width={size} height={size} viewBox={`${colorIndex * 100} ${city ? 100 : 0} 100 100`} overflow="hidden">
-      <use href={`#${id}-buildings-atlas`} />
-    </svg>
+    <g transform="translate(0 11)"><g className="catan-building-structure">
+      <svg x={-size / 2} y={-size * baseline} width={size} height={size} viewBox={`${colorIndex * 100} ${city ? 100 : 0} 100 100`} overflow="hidden">
+        <use href={`#${id}-buildings-atlas`} />
+      </svg>
+    </g></g>
   </g>;
 }

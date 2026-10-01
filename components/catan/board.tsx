@@ -9,15 +9,17 @@ import { seaParallax } from "@/lib/catan-parallax";
 import { BuildingPiece, HarborIllustration, Landscape, LandscapeDefinitions } from "./landscape";
 import { ResourceIcon } from "./resource-icon";
 import { useBoardCamera } from "./use-board-camera";
+import { useConstructionPlayback } from "./use-construction-playback";
 
 export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
 
-export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, expanded = false }: {
+export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, expanded = false, islandVisible = true, animationBaseline = 0 }: {
   game: CatanView; mode: BoardMode; choices: number[]; selected: number | null;
-  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean;
+  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number;
 }) {
   const artId = `catan-${useId().replace(/:/g, "")}`;
+  const { svgRef, effectsRef } = useConstructionPlayback(game, islandVisible, animationBaseline);
   const [size, setSize] = useState({ width: 360, height: 300, measured: false });
   const [inspect, setInspect] = useState<number | null>(null);
   const index = selected === null ? -1 : choices.indexOf(selected);
@@ -78,7 +80,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   });
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
     <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" style={seaStyle} data-interacting={interactionActive} {...viewportProps}>
-      <svg className="catan-board" viewBox={viewBox} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom}>
+      <svg ref={svgRef} className="catan-board" viewBox={viewBox} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom}>
         <title>Catan – Spielbrett</title>
         <defs>
           <LandscapeDefinitions id={artId} />
@@ -124,12 +126,12 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
         })}
         {board.edges.filter((e) => e.owner).map((edge) => {
           const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
-          return <g key={edge.id}><title>{`${game.players.find((p) => p.id === edge.owner)!.name}: Straße ${edge.id + 1}`}</title>
+          return <g key={edge.id} data-catan-road={edge.id}><title>{`${game.players.find((p) => p.id === edge.owner)!.name}: Straße ${edge.id + 1}`}</title>
             <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#1d2926" strokeOpacity=".8" strokeWidth="6" strokeLinecap="round" />
             <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color(edge.owner!)} strokeWidth="4" strokeLinecap="round" />
           </g>;
         })}
-        {board.vertices.filter((v) => v.owner).map((v) => <g key={v.id}>
+        {board.vertices.filter((v) => v.owner).map((v) => <g key={v.id} data-catan-building={v.id}>
           <title>{`${game.players.find((p) => p.id === v.owner)!.name}: ${v.building === "city" ? "Stadt" : "Siedlung"} auf Kreuzung ${v.id + 1}`}</title>
           <BuildingPiece id={artId} building={v.building === "city" ? "city" : "settlement"} colorIndex={game.players.find((p) => p.id === v.owner)!.color} x={v.x} y={v.y} />
         </g>)}
@@ -151,6 +153,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
             {(camera.zoom >= 2 || selected === id) && <text x={v.x} y={v.y + 5} fontSize="18" textAnchor="middle" fill={selected === id ? "#162b34" : "#ffe7a1"}>{selected === id ? "✓" : "+"}</text>}
           </g>;
         })}
+        <g ref={effectsRef} className="catan-construction-effects" pointerEvents="none" aria-hidden="true" />
       </svg>
       {!mode && inspect !== null && <p className="catan-board-field-info" role="status">{board.hexes[inspect].resource === "desert" ? "Wüste" : RESOURCE_INFO[board.hexes[inspect].resource as Resource].terrain} · {board.hexes[inspect].number ? `Zahl ${board.hexes[inspect].number}` : "kein Ertrag"}{inspect === game.robberHex ? " · Räuber blockiert den Ertrag" : ""}</p>}
     </div>

@@ -160,7 +160,12 @@ export function playResourceGain(hand: HTMLElement, previous: CatanView, game: C
         step.from = canFly && step.hexId !== null ? fieldCenter(hand, game, step.hexId) : null;
         // A hidden field stays a header-only increment, even if the camera later reveals it.
         if (step.flightPlanned && step.from && iconCenter(cells[step.resource])) {
-          if (!overlay) { overlay = document.createElement("div"); overlay.className = "catan-resource-flights"; overlay.setAttribute("aria-hidden", "true"); document.body.append(overlay); }
+          if (!overlay) {
+            overlay = document.createElement("div"); overlay.className = "catan-resource-flights"; overlay.setAttribute("aria-hidden", "true");
+            // Expanded menu panels share this stacking context and stay above flights.
+            const play = hand.closest<HTMLElement>(".catan-play");
+            (play?.classList.contains("is-board-expanded") ? play : document.body).append(overlay);
+          }
           const node = document.createElement("span"); node.className = "catan-resource-flight";
           node.append(cells[step.resource].querySelector("svg")!.cloneNode(true));
           node.style.left = `${step.from.x - 17}px`; node.style.top = `${step.from.y - 17}px`;

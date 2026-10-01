@@ -28,15 +28,28 @@ globalThis.catanTestDB = {
     return prepared();
   },
 };
+const publications = [];
+const publicationRetries = [];
+let publicationFailures = 0;
+globalThis.catanTestLiveBinding = {
+  idFromName: (id) => id,
+  get: () => ({ async fetch(_url, options) {
+    if (publicationFailures > 0) { publicationFailures--; throw new Error("transport unavailable"); }
+    publications.push(JSON.parse(options.body));
+    return new Response(null, { status: 204 });
+  } }),
+};
+globalThis.catanTestWaitUntil = (promise) => publicationRetries.push(promise);
 await mkdir(resolve(root, ".wrangler/test-artifacts"), { recursive: true });
 await build({ entryPoints: [resolve(root, "app/api/catan/route.ts")], outfile: out, bundle: true, platform: "node", format: "cjs", logLevel: "silent",
   plugins: [{ name: "d1-test", setup(build) {
-    build.onResolve({ filter: /^\.\.\/\.\.\/\.\.\/db$/ }, () => ({ path: "db", namespace: "test" }));
-    build.onLoad({ filter: /.*/, namespace: "test" }, () => ({ contents: "export const getD1=()=>globalThis.catanTestDB; export const ensureSchema=async()=>{};", loader: "js" }));
+    build.onResolve({ filter: /^(?:\.\.\/)+db$/ }, () => ({ path: "db", namespace: "test" }));
+    build.onResolve({ filter: /^cloudflare:workers$/ }, () => ({ path: "cloudflare", namespace: "test" }));
+    build.onLoad({ filter: /.*/, namespace: "test" }, ({ path }) => ({ contents: path === "db" ? "export const getD1=()=>globalThis.catanTestDB; export const ensureSchema=async()=>{};" : "export const env={get CATAN_LIVE(){return globalThis.catanTestLiveBinding}}; export const waitUntil=(promise)=>globalThis.catanTestWaitUntil(promise);", loader: "js" }));
   } }],
 });
 const { GET, POST } = createRequire(import.meta.url)(out);
-after(async () => { db.close(); delete globalThis.catanTestDB; await rm(out, { force: true }); });
+after(async () => { await Promise.allSettled(publicationRetries); db.close(); delete globalThis.catanTestDB; delete globalThis.catanTestLiveBinding; delete globalThis.catanTestWaitUntil; await rm(out, { force: true }); });
 let requestId = 0;
 // Every request comes from its own address unless a test models one shared network.
 async function post(body, session, ip = `test-${++requestId}`) {
@@ -80,11 +93,15 @@ test("Catan-API hält Hände und Tokens geheim und verliert keine gleichzeitigen
   const position = legalSettlements(own.game, activeId, true)[0];
   assert.equal((await command(other.session, "move", { move: { type: "build", building: "settlement", position } })).status, 400);
   const move = { action: "move", lobbyId: current.session.lobbyId, revision: own.lobby.revision, move: { type: "build", building: "settlement", position } };
+  const publishedBefore = publications.length;
   const outcomes = await Promise.all([post(move, current.session), post(move, current.session)]);
   assert.deepEqual(outcomes.map((r) => r.status).sort(), [200, 409]);
   const after = (await get(current.session)).body;
   assert.equal(after.game.phase, "setup_road"); assert.equal(after.game.board.vertices.filter((v) => v.owner).length, 1);
   assert.equal(after.lobby.revision, own.lobby.revision + 1);
+  assert.equal(publications.length, publishedBefore + 1, "Only the committed CAS winner is published.");
+  assert.equal(publications.at(-1).revision, after.lobby.revision);
+  assert.equal(JSON.parse(publications.at(-1).lobby.game).board.vertices[position].owner, activeId);
   assert.equal((await get({ ...current.session, token: "wrong-token" })).status, 401);
   assert.equal((await get(other.session)).body.game.me.id, other.state.me.id);
   assert.equal((await command(current.session, "move", { move: { type: "build", building: "road", position: "0" } })).status, 400);
@@ -97,6 +114,21 @@ test("Lobby verlassen übergibt die Leitung und entfernte Tokens verlieren ihren
   assert.equal((await get(b.session)).body.lobby.hostPlayerId, b.state.me.id);
   assert.equal((await command(b.session, "leave")).status, 200);
   assert.equal((await get(b.session)).status, 404);
+  assert.equal(publications.at(-1).lobbyId, a.session.lobbyId);
+  assert.equal(publications.at(-1).lobby, null, "Deleting the last seat revokes every subscription.");
+});
+
+test("a live transport failure preserves a confirmed HTTP action and retries its revision", async () => {
+  const a = await create("Push-Ausfall", 12);
+  const before = (await get(a.session)).body;
+  publicationFailures = 1;
+  const result = await post({ action: "settings", lobbyId: a.session.lobbyId, revision: before.lobby.revision, targetPoints: 10 }, a.session);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.state.lobby.targetPoints, 10);
+  assert.equal((await get(a.session)).body.lobby.revision, before.lobby.revision + 1);
+  await publicationRetries.at(-1);
+  assert.equal(publications.at(-1).revision, result.body.state.lobby.revision);
+  assert.equal(publications.at(-1).lobby.target_points, 10);
 });
 
 test("API lehnt ungültige JSON-Anfragen, Zielwerte und nicht authentifizierte Änderungen ab", async () => {

@@ -56,7 +56,7 @@ class Node {
 }
 
 /** Small DOM boundary fake; the bundled production controller owns all scheduling. */
-function environment(t, { reducedMotion = false, clipped = false } = {}) {
+function environment(t, { reducedMotion = false, clipped = false, expanded = false } = {}) {
   let now = 0; let nextId = 0;
   const frames = new Map(); const timers = new Map();
   const motion = Object.assign(new Listeners(), { matches: reducedMotion });
@@ -83,6 +83,7 @@ function environment(t, { reducedMotion = false, clipped = false } = {}) {
   }
   hand.queries.set(".catan-hand-total", total); hand.queries.set("[data-catan-gain-announcement]", announcement);
   const play = new Node(); const board = new Node(); const viewport = new Node();
+  if (expanded) play.classList.add("is-board-expanded");
   viewport.rect = { left: 0, top: 80, width: 600, height: 500 };
   board.ancestors.set(".catan-board-viewport", viewport);
   board.getScreenCTM = () => ({ x: clipped ? -1000 : 300, y: 300 });
@@ -98,12 +99,13 @@ function environment(t, { reducedMotion = false, clipped = false } = {}) {
     now = time;
   }
   return {
-    hand, cells, total, announcement, document, motion, frames, timers,
+    hand, cells, total, announcement, document, motion, frames, timers, play,
     advanceTo,
     frameAt(time) { advanceTo(time); const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((callback) => callback(time)); },
     count(resource) { return Number((resource === "total" ? total : cells[resource]).querySelector("b").textContent); },
     gain(resource) { const badge = (resource === "total" ? total : cells[resource]).querySelector(".catan-hand-gain"); return badge.hidden ? null : badge.textContent; },
-    flights() { return document.body.children.flatMap((overlay) => overlay.children).map((node) => node.children[0].attributes.get("data-resource")); },
+    overlays() { return [...document.body.children, ...play.children].filter((node) => node.className === "catan-resource-flights"); },
+    flights() { return this.overlays().flatMap((overlay) => overlay.children).map((node) => node.children[0].attributes.get("data-resource")); },
   };
 }
 
@@ -178,6 +180,42 @@ test("flights use 700ms arrivals, 140ms spacing within a field and overlapping f
   env.frameAt(760); assert.equal(env.count("grain"), 6); assert.equal(env.gain("total"), "+2");
   env.frameAt(840); assert.equal(env.count("wood"), 7); assert.equal(env.gain("wood"), "+2");
   assert.equal(env.gain("total"), "+3"); assert.deepEqual(env.flights(), []);
+});
+
+test("normal board flights mount in the body and dispose removes that overlay", (t) => {
+  const env = environment(t); const { playback } = start(env, { gains: { wood: 1 }, origins: { wood: [0] }, island: true });
+  env.frameAt(0);
+  assert.equal(env.overlays().length, 1);
+  assert.equal(env.overlays()[0].parent, env.document.body);
+  assert.equal(env.play.children.length, 0);
+  playback.dispose();
+  assert.equal(env.document.body.children.length, 0);
+});
+
+test("expanded flights share the menu stacking context and finish while a fullscreen panel is open", (t) => {
+  const env = environment(t, { expanded: true });
+  start(env, { gains: { wood: 2 }, origins: { wood: [0, 0] }, island: true });
+  env.frameAt(0);
+  const [overlay] = env.overlays();
+  assert.equal(overlay.parent, env.play);
+  assert.equal(env.document.body.children.length, 0);
+  assert.equal(overlay.attributes.get("aria-hidden"), "true");
+
+  // Fullscreen navigation opens a sibling panel; the island and hand stay mounted.
+  const menu = new Node(); menu.className = "catan-tab-panel is-fullscreen-menu";
+  env.play.append(menu);
+  assert.equal(menu.parent, overlay.parent);
+  env.frameAt(140);
+  assert.deepEqual(env.flights(), ["wood", "wood"]);
+  env.frameAt(700);
+  assert.equal(env.count("wood"), 6); assert.equal(env.gain("wood"), "+1");
+  env.frameAt(840);
+  assert.equal(env.count("wood"), 7); assert.equal(env.count("total"), 27);
+  assert.equal(env.gain("wood"), "+2"); assert.equal(env.gain("total"), "+2");
+  assert.deepEqual(env.flights(), []); assert.deepEqual(env.play.children, [menu]);
+  env.advanceTo(5040);
+  assert.equal(env.gain("wood"), null); assert.equal(env.frames.size, 0);
+  assert.equal(env.document.size, 0); assert.equal(env.motion.size, 0);
 });
 
 test("hiding flights on a menu change removes every object while counters finish", (t) => {

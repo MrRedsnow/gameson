@@ -673,8 +673,8 @@ body:has(.catan-play.is-board-expanded) { overflow:hidden; }
 }
 .catan-play.is-board-expanded>.catan-status { flex:0 0 auto; flex-wrap:wrap; min-height:44px; padding:0 6px; }
 .catan-play.is-board-expanded .catan-status-main { flex:1 1 6rem; min-height:44px; }
-.catan-status-actions { display:flex; flex:0 0 auto; gap:4px; }
-.catan-theme .catan-status-actions [data-slot=button] { min-height:40px; padding:5px 10px; font-size:.8125rem; }
+.catan-status-actions { display:flex; flex:0 0 auto; align-items:center; justify-content:center; gap:4px; }
+.catan-theme .catan-status-actions [data-slot=button] { width:auto; min-height:44px; margin:0; padding:5px 10px; font-size:.8125rem; line-height:1.3; text-align:center; }
 .catan-play.is-board-expanded>.catan-hand-bar { flex:0 0 auto; margin:0; }
 .catan-play.is-board-expanded .catan-hand-strip { grid-template-columns:auto repeat(5,minmax(0,1fr)); }
 .catan-play.is-board-expanded>.catan-tab-insel { position:relative; flex:1 1 0; min-height:0; overflow:hidden; }
@@ -683,7 +683,7 @@ body:has(.catan-play.is-board-expanded) { overflow:hidden; }
 .catan-play.is-board-expanded .catan-island-screen .catan-board-panel { flex:1 1 0; height:100%; min-height:0; border:0; border-radius:10px; }
 .catan-play.is-board-expanded .catan-board-map { flex:1 1 0; min-height:0; }
 .catan-play.is-board-expanded .catan-island-screen>.catan-screen-heading { position:absolute; top:8px; right:8px; z-index:3; min-height:0; padding:0; }
-.catan-play.is-board-expanded .catan-screen-heading>div:not(.catan-island-tools) { display:none; }
+.catan-play.is-board-expanded .catan-island-screen>.catan-screen-heading>div:not(.catan-island-tools) { display:none; }
 .catan-play.is-board-expanded .catan-island-tools { padding:3px; border:1px solid #456272; border-radius:12px; background:#132a34ed; }
 .catan-play.is-board-expanded .catan-island-tools [data-slot=button] { width:44px; height:44px; min-height:44px; }
 .catan-play.is-board-expanded .catan-island-context { position:absolute; top:8px; left:8px; z-index:2; width:max-content; max-width:min(420px,calc(100% - 160px)); max-height:calc(100% - 80px); overflow:auto; pointer-events:none; }
@@ -695,22 +695,43 @@ body:has(.catan-play.is-board-expanded) { overflow:hidden; }
 .catan-placement-detail>summary>svg { width:16px; height:16px; flex-shrink:0; }
 .catan-placement-detail[open]>summary { margin-bottom:8px; }
 .catan-placement-detail[open]>summary>svg { transform:rotate(180deg); }
-.catan-play.is-board-expanded .catan-island-screen>.catan-screen-actions { position:absolute; bottom:12px; left:50%; z-index:3; transform:translateX(-50%); width:min(360px,calc(100% - 128px)); flex-wrap:nowrap; gap:6px; padding:6px; border:1px solid #456272; border-radius:14px; background:#132a34ed; box-shadow:0 4px 18px #0005; }
-.catan-theme .catan-floating-build { position:absolute; right:8px; bottom:8px; z-index:3; width:48px; height:48px; border-color:#d6b777; background:#efd18a; color:#1c2b31; box-shadow:0 4px 18px #0005; }
-.catan-floating-build>svg { width:23px; height:23px; }
+.catan-play.is-board-expanded .catan-island-screen>.catan-screen-actions { position:absolute; bottom:12px; left:56px; right:88px; z-index:3; width:min(360px,calc(100% - 144px)); margin-inline:auto; flex-wrap:nowrap; gap:6px; padding:6px; border:1px solid #456272; border-radius:14px; background:#132a34ed; box-shadow:0 4px 18px #0005; }
+.catan-fullscreen-nav { position:absolute; right:8px; bottom:8px; z-index:5; display:flex; flex-direction:column; gap:4px; width:72px; max-height:calc(100% - 72px); overflow-y:auto; overscroll-behavior:contain; padding:4px; border:1px solid #456272; border-radius:12px; background:#132a34ed; box-shadow:0 4px 18px #0005; }
+.catan-theme .catan-fullscreen-trigger { position:relative; display:flex; flex:0 0 auto; flex-direction:column; align-items:center; justify-content:center; gap:3px; width:100%; min-width:0; min-height:48px; margin:0; padding:5px 1px; border:1px solid transparent; border-radius:8px; color:#dce6e6; background:transparent; font-size:.6875rem; line-height:1.2; }
+.catan-fullscreen-trigger>svg { width:20px; height:20px; flex-shrink:0; }
+.catan-fullscreen-trigger>.catan-nav-label { max-width:100%; text-align:center; }
+.catan-fullscreen-trigger>.catan-nav-badge { top:0; right:0; }
+.catan-theme .catan-fullscreen-trigger[aria-expanded=true] { border-color:#d6b777; background:#efd18a; color:#1c2b31; }
+.catan-theme .catan-fullscreen-trigger:focus-visible { outline-offset:-3px; }
+@media(hover:hover) { .catan-theme .catan-fullscreen-trigger:hover { border-color:#d6b777; background:#efd18a26; color:#ffe2a1; } }
+.catan-play.is-board-expanded>.catan-tab-panel.is-fullscreen-menu { position:absolute; top:var(--catan-fullscreen-menu-top,112px); right:84px; left:auto; z-index:110; width:min(420px,calc(100% - 98px)); height:var(--catan-fullscreen-menu-height,calc(100% - 124px)); max-height:calc(100% - var(--catan-fullscreen-menu-top,112px) - max(8px,env(safe-area-inset-bottom))); min-height:0; overflow:hidden; border:1px solid #c1a167; border-radius:14px; background:#203b49; box-shadow:0 12px 40px #0008; }
+.catan-play.is-board-expanded>.catan-tab-panel.is-fullscreen-menu[data-state=active] { display:block; }
+.catan-play.is-board-expanded>.catan-tab-panel.is-fullscreen-menu[data-state=inactive] { display:none; }
+.is-fullscreen-menu>.catan-screen { height:100%; min-height:0; grid-template-rows:auto minmax(0,1fr) auto; gap:8px; padding:10px; background:#203b49; }
+.is-fullscreen-menu>.catan-screen>.catan-screen-heading { min-height:44px; padding-right:44px; }
+.is-fullscreen-menu>.catan-screen>.catan-screen-body { min-height:0; overflow:auto; overscroll-behavior:contain; }
+.is-fullscreen-menu>.catan-screen>.catan-screen-actions { background:#203b49; }
+.catan-theme .catan-fullscreen-close { position:absolute; top:8px; right:8px; z-index:1; width:44px; height:44px; min-height:44px; margin:0; padding:10px; }
+.is-fullscreen-menu .catan-build-choice:last-child { border-bottom:0; }
+.is-fullscreen-menu .catan-build-choice>span { grid-template-columns:minmax(0,1fr); }
+.is-fullscreen-menu .catan-build-choice .catan-cost { justify-content:flex-start; max-width:none; }
 .catan-play.is-board-expanded>.catan-nav { display:none; }
 .catan-play.is-board-expanded>.catan-activity-bar { position:absolute; bottom:76px; left:50%; z-index:4; transform:translateX(-50%); width:min(580px,calc(100% - 128px)); max-height:35dvh; overflow:auto; }
-.catan-build-popover { z-index:110; width:min(360px,calc(100vw - 24px)); min-height:0; max-height:min(70dvh,var(--radix-popover-content-available-height,70dvh)); padding:12px; border:1px solid #c1a167; border-radius:16px; background:#203b49; box-shadow:0 12px 40px #0008; overflow:auto; overscroll-behavior:contain; }
-.catan-build-popover>header { position:sticky; top:-12px; z-index:1; display:flex; align-items:center; gap:8px; margin:-12px -12px 6px; padding:8px 12px; background:#203b49; }
-.catan-build-popover>header h2 { flex:1; font-size:1rem; }
-.catan-build-popover .catan-build-choice:last-child { border-bottom:0; }
-.catan-build-popover .catan-build-choice:hover { background:#ffffff08; }
-.catan-build-popover .catan-build-choice>span { grid-template-columns:minmax(0,1fr); }
-.catan-build-popover .catan-build-choice .catan-cost { justify-content:flex-start; max-width:none; }
 .catan-play.is-board-expanded .catan-board-field-info { top:8px; max-width:calc(100% - 120px); }
+@media(max-width:600px) and (orientation:portrait) {
+  .catan-play.is-board-expanded>.catan-status { column-gap:6px; row-gap:0; }
+  .catan-play.is-board-expanded .catan-status-actions { order:1; flex-basis:100%; padding-block:2px 6px; }
+}
 @media(max-height:520px) {
   .catan-play.is-board-expanded .catan-hand-strip>.catan-hand-resource,
   .catan-play.is-board-expanded .catan-hand-strip>.catan-hand-total { min-height:44px; padding-top:calc(.875rem + 3px); }
   .catan-play.is-board-expanded .catan-hand-strip>.catan-hand-resource { grid-template-rows:minmax(20px,auto); }
   .catan-play.is-board-expanded .catan-hand-strip small { display:none; }
 }
+
+/* SVG construction feedback follows the map camera and never captures input. */
+.catan-construction-effects,
+.catan-construction-effect,
+.catan-building-structure { pointer-events:none; }
+.catan-construction-foundation { fill:#d8bd83; stroke:#f7dfb2; stroke-width:.75; }
+.catan-construction-dust { fill:#dfcc9d; }
