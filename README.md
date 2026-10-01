@@ -1,243 +1,275 @@
 # Gameson
 
-Mobile German games for multiple phones or one shared device. The app
-currently includes HIVE, Imposter, Werwolf, Die Siedler von Catan and Stadt Land Fluss, with persistent lobby state in a local
-Cloudflare D1-compatible SQLite store.
+**Spieleabend. Sofort.** Five German games for your next games night, played on
+separate phones or one shared device. No accounts are required. Gameson is an
+installable web app with online lobbies, private player views and local play.
 
-## Prerequisites
+[Games](#games) · [Run locally](#run-locally) · [Development](#development) · [Hosting](#ubuntu-hosting-with-https) · [Artwork](assets/catan/README.md)
 
-- Node.js `>=22.13.0`
+![Gameson game library with HIVE, Imposter, Werwolf, Catan and Stadt Land Fluss](docs/images/gameson-home.jpg)
 
-## Local development
+## Games
 
-```bash
-npm install
-npm run dev
-npm run build
-npm test
-```
+| Game | Players | Modes | Route |
+| --- | --- | --- | --- |
+| **HIVE** | 2 | Online or one shared device | `/hive` |
+| **Imposter** | 3–22 | Online or one shared device | `/imposter` |
+| **Werwolf** | 3–22 | Online or one shared device | `/werwolf` |
+| **Die Siedler von Catan** | 3–4 | Online or one shared device | `/catan` |
+| **Stadt Land Fluss** | 2–22 | One device per player, online | `/stadt-land-fluss` |
+
+Online players join through invitation links, QR codes, lobby codes or group
+names. Discoverable waiting lobbies appear to other devices on the same network;
+hosts can turn discovery off. The home screen offers installation as a PWA.
+Local games work offline after their pages and assets have been loaded online;
+Catan and HIVE also save local progress after every move. Keep local Imposter
+and Werwolf games open: reloading resets the current match. Online games require
+a connection to the server.
+
+### Catan in play
+
+![Catan island with painted terrain, harbors, buildings and the resource hand](docs/images/catan-board.jpg)
+
+The island uses hand-painted terrain and building atlases. One sharp sea image
+is continuously distorted on the GPU, with camera parallax while panning and
+zooming. Reduced motion keeps a still background. The screenshot shows a sample
+position using the real game components; the artwork and original generation
+prompts are documented in [Catan artwork](assets/catan/README.md).
 
 ### HIVE
 
-Open `/hive` or choose HIVE in Gameson. Exactly two people play online on their
-own devices or locally on one shared device. Online invitations support links,
-QR codes, lobby codes, group names and nearby waiting lobbies. Each move is
-validated on the server and saved with an atomic revision check. Reloading
-restores the session; local games save after every move and work offline after
-the page has been loaded online.
+The 22-piece base game includes queens, beetles, grasshoppers, spiders and ants.
+The rules engine enforces the fourth-turn queen deadline, one connected hive,
+sliding gates, stack control, exact spider paths and straight grasshopper jumps.
+Legal targets and a move preview appear before confirmation. Tapping a beetle
+stack reveals its layers; selecting a blocked piece explains the relevant rule.
 
-The base game has 22 pieces: queen, beetles, grasshoppers, spiders and ants.
-Rules enforce the fourth-turn queen deadline, placement colors (including
-beetle-controlled stacks), one connected hive, sliding gates at the piece's
-height, exact spider paths and straight grasshopper jumps. Legal destinations
-are highlighted; players confirm before a move is applied. The board supports
-panning, zoom and fitting the whole hive. Both queens' surrounding sides are
-shown. Surrounding both queens at once is a draw; passing requires no legal
-move. Players can resign or agree a draw. Rematches swap colors.
+Pan, zoom or fit the board; resign, offer a draw or start a rematch with swapped
+colors. Local players can undo a turn by mutual agreement. The six-exercise
+[tutorial](app/hive/page.tsx) at `/hive?tutorial=1` uses separate practice
+positions and preserves the saved game. Rules reference: [Gen42 HIVE](https://www.gen42.com/product/hive/).
 
-The mobile move dock keeps the reserve and confirmation together below the
-board. A transparent piece and a legal path preview the move; confirmed moves
-animate unless reduced motion is enabled. Selecting blocked pieces explains
-the specific rule, highlights closed gates or numbers the disconnected groups.
-Tapping a beetle stack opens every layer, including covered queens.
+### Imposter
 
-Local players can undo the last turn by mutual agreement; the restored state
-is saved as usual. The interactive tutorial at `/hive?tutorial=1` teaches six
-short exercises, from placing the queen to surrounding the opponent. It uses
-separate practice positions and preserves the saved local or online game.
+Players receive related but different secret words, give clues and vote for the
+suspected imposters. Choose a themed word pool, family or adult content, or add
+custom word pairs. The number of imposters is configurable. On a shared device,
+private cards stay hidden between players; online, each person receives their
+own assignment.
 
-`drizzle/0010_hive.sql` and the runtime schema bootstrap create the table
-idempotently. Existing installations need no manual migration.
-Rules reference: https://www.gen42.com/product/hive/
+### Werwolf
+
+The app guides the group through private role reveals, night actions,
+discussion, mayor elections and village votes. Wolf counts and additional roles
+are configurable. Available roles include the seer, witch, hunter, cupid, thief,
+healer, piper, wild child, elder, scapegoat and white werewolf.
+
+Recorded announcements accompany the phases, with configurable audio modes and
+pauses between announcements. Active recordings live in
+[public/audio/werwolf](public/audio/werwolf/); unused source recordings are
+explained in the [audio archive](assets/audio/werwolf-unused/README.md).
+
+### Die Siedler von Catan
+
+The base game includes randomized terrain with nonadjacent red numbers,
+snake-order setup, resource production, limited bank and pieces, player and
+harbor trading, the robber, discards, stealing, all 25 development cards and
+both special awards. The victory target is selectable from 8 to 15, default 12;
+choose 10 for the original target.
+
+Online hands and deck order stay on the server. Atomic revisions validate
+updates; authenticated WebSockets deliver confirmed moves to connected players.
+The client reconciles every minute and falls back to 2.5-second HTTP polling
+while reconnecting. Repeated revisions do not replay construction effects.
+Local games hide private hands when passing the device.
+
+The five areas—Island, Cards, Build, Trade and Overview—keep the current action
+and resource hand available. The map supports drag, pinch zoom, centering and
+fullscreen. Placement previews explain resources, probabilities, robber blocks
+and ports. Construction and trades require explicit confirmation. Normal phase
+changes preserve the chosen area and unfinished inputs; new required tasks or
+incoming offers open the relevant area.
+
+<details>
+<summary>More Catan interface details</summary>
+
+- Fullscreen keeps status and resources above the map and provides Cards, Build,
+  Trade and Overview in a right-hand menu, with hover previews and pinned menus.
+- A three-step setup guide explains placement and production probabilities. It
+  can be skipped or reopened during setup.
+- Development cards are grouped by type and availability; an older playable
+  copy is preferred. Required discards replace the card list with quantity rows.
+- Bank trades preview both resources, the harbor rate and affected stocks.
+  Player offers use four steps; incoming offers expose accept, decline and
+  counteroffer actions.
+- Resource gains and payments appear in a private activity history. Trade
+  changes are grouped, and unread receipts remain available on the next visit.
+- Confirmed roads unroll over 700 ms; settlements and city upgrades rise over
+  750 ms. Hidden views, restored games and reduced motion show finished pieces.
+  Local setup roads allow an 800 ms transition before the next handoff.
+- The sea pauses when the island or document is hidden. Its wave cycle lasts
+  4.5 seconds; movement strength and camera parallax are separate settings.
+- Optional synthesized sheep and wood-chopping sounds play for resource gains
+  or field inspection. They start disabled and work offline.
+
+</details>
 
 ### Stadt Land Fluss
 
-Open `/stadt-land-fluss` or choose it in Gameson. 2–22 people play simultaneously
-on their own devices, joining by invitation link, code, group name or nearby lobby.
-The host defines 2–12 custom columns, 1–20 rounds and a 15–1800 second timer
-(default: Stadt, Land, Fluss, Tier, Beruf; 5 rounds; 120 seconds).
-Columns can be changed in the lobby and between rounds. The host can change or
-disable the timer during a round; a new duration starts when saved and also becomes
-the next round's duration. With no timer, everyone submitting or the host stopping
-the writing phase starts review.
+Players write simultaneously in 2–12 custom columns, across 1–20 rounds with
+an optional 15–1800 second timer. Defaults are Stadt, Land, Fluss, Tier and Beruf,
+five rounds and 120 seconds. The host can change columns between rounds and
+change or disable the timer during a round.
 
-The fixed header shows the current letter and remaining time, including while
-scrolling or using a mobile keyboard. Clients estimate server time from request
-round trips and advance it with a monotonic clock. The server enforces the deadline
-on every read and write. Inputs autosave with per-player sequences; atomic retries
-merge simultaneous edits and votes. Only the player's own answers leave the server
-during writing. A browser reload restores the session and any newer local draft.
-An internet connection is required; only answers saved before the server deadline
-count, and the UI shows when a save is outstanding.
+Answers autosave with per-player sequences; only the player's own answers are
+returned during writing. The server enforces deadlines, and reloading restores
+saved answers plus newer local drafts. Answers must reach the server before the
+deadline; outstanding saves are shown in the UI.
 
-During review, tap **Anzweifeln**, then **Gilt** or **Gilt nicht**. Everyone has one
-changeable vote per disputed answer, including its author. The majority of cast
-votes decides; ties accept the answer. Players confirm the review; the host then
-scores it, or explicitly closes it early using the existing votes. Empty answers
-and wrong initials score 0; accepted duplicates score 5, unique answers 10, and
-the only accepted answer in a column 20. Umlauts/case are normalized. Each round
-uses a fresh letter and the scoreboard records all rounds.
+During review, players can dispute answers and change their votes. A majority
+of cast votes decides; ties accept an answer. Empty or wrong-initial answers
+score 0, accepted duplicates 5, unique answers 10, and the only accepted answer
+in a column 20. Each round uses a fresh letter, and the scoreboard retains all
+rounds.
 
-`drizzle/0009_stadt_land_fluss.sql` and the runtime schema bootstrap both create
-the table idempotently, so existing installations need no manual migration.
+## Run locally
 
-### Catan
+Requirements: **Node.js ≥22.13.0**, npm and Git. The app uses React, TypeScript
+and vinext/Vite with a Cloudflare Worker runtime and the `DB` D1 binding. Local
+Worker data is stored under `.wrangler/state/`, which is ignored by Git.
 
-Open `/catan` or choose Catan in Gameson. Supports 3–4 people, an online
-lobby (code, name or invitation link) and pass-and-play on one device. The victory
-target is selectable from 8 to 15, default 12; choose 10 for the original target.
-The base game includes randomized terrain with nonadjacent red number tokens,
-snake-order setup, resource production, limited bank/pieces, domestic and harbor
-trade, robber/discard/steal, all 25 development cards and both special awards.
-Online hands and deck order stay server-side; turn updates use atomic revisions.
-Confirmed updates reach every connected player through authenticated WebSockets.
-The client reconciles every minute and falls back to 2.5-second HTTP polling while
-reconnecting; repeated revisions cannot replay construction effects.
-Waiting online lobbies are listed under „Lobby beitreten“ for devices on the same
-network, like in Imposter and Werwolf; the host can hide a lobby with „Lobby in
-der Nähe anzeigen“.
-Local games are saved on the device and hide hands when passing it around.
-A running game uses five menus with scrollable content when needed.
-The active player, dice, own score and resource counts stay visible; the menu and
-the current action stay pinned. In landscape, status and navigation move beside
-the game. Build choices and compact player scores can be compared in one list;
-player details expand on demand. Overview opens the player scores directly, with
-list links to history, private receipts and rules. Cards opens development cards
-grouped by type, showing their count and availability, and prefers an older
-playable copy; resources appear only in the global strip. Required discards
-temporarily replace the card list with five resource quantity rows. Large text
-can scroll the entire screen so headings and actions remain reachable. Rules
-use topic accordions with shared build costs; private receipts are expandable
-entries ordered newest first and retain their unread markers.
-
-The island fits its available space and supports panning, pinch zoom and reset.
-Fullscreen keeps status and resources above the map, with Cards, Build, Trade and
-Overview in a vertical right-hand menu. Hover previews and pinned click/touch
-menus reuse the existing forms; the bottom navigation is hidden. A separate confirmation prevents
-accidental construction. Placement previews explain adjacent resources, number
-probabilities, robber blocks and ports. The build menu explains missing resources,
-pieces and legal positions. Tabs are the single entrypoints for building and
-trading; ordinary phase changes preserve the selected view and unfinished
-inputs. New required tasks and incoming trades open their relevant view. A
-three-step setup guide explains placement, resources
-and number probabilities; it can be skipped and reopened during setup.
-
-Hand-painted terrain textures show forests, sheep pastures, wheat fields, clay hills,
-mountains and desert dunes. Small numbers sit directly on each landscape without
-discs or probability dots; production probabilities remain in placement previews.
-Slender roads connect painted cottages and cities with a taller central building;
-roof colors identify their owners. Painted timber piers and rowing boats mark the harbors, and a painted
-ocean texture fills the whole map area. Material-colored resource pictograms are
-shared by the inventory, card overview, trade, costs and harbor badges.
-The ocean uses its original 1254 × 1254 image, gently distorted on the GPU at the
-display's animation cadence. It follows the camera with a slower, stronger
-parallax movement. Animation pauses when the island or page is hidden; reduced
-motion and browsers without WebGL retain the still sea texture.
-Confirmed roads unroll over 700 ms; settlements and city upgrades rise from their foundation
-with a short dust pulse over 750 ms. Every player's visible island animates these
-confirmed board changes. Camera and fullscreen-menu changes preserve the effects;
-reduced motion, hidden views and restored games show finished pieces immediately.
-Local setup roads keep the outgoing player's private view for 800 ms before the
-ordinary handoff screen; hiding the hand ends that transition immediately.
-Artwork and generation prompts are documented in `assets/catan/README.md`.
-The island's speaker button optionally enables synthesized
-sheep and wood-chopping effects when receiving those resources or inspecting a
-matching field. Sound starts off and works offline.
-
-Bank trades show both resources, the harbor rate and only affected stock changes,
-with one explicit confirmation; the selection stays available for repeat trades.
-Player offers use four steps, ending with the exchange and resulting stock.
-Incoming offers pin accept, decline and counteroffer actions.
-Resource changes update the hand immediately and appear in a private, nonblocking
-activity history. A compact notice shows signed gains and losses even on small
-screens. Gains and payments from one trade are grouped together. Shared
-devices are passed only for a real turn, discard or trade decision; unread receipts
-wait for that person's next visit. Older saved local games retain unread markers.
-
-For interactive UI checks, build once and run `node tests/catan-ux-preview.mjs`.
-The local-only preview on port 3002 renders the real components with prepared
-states for setup, trading, discarding, card play, long histories and game over.
-It is not an application route and is not included in the deployed UI.
-For deterministic own and remote construction checks, use
-`CATAN_QA_FIXTURE=catan-construction.tsx node tests/catan-ux-preview.mjs`.
-
-The Worker exports `CatanLobbyLive`; the generated Worker configuration includes
-the `CATAN_LIVE` Durable Object binding and `catan-live-v1` SQLite namespace
-migration. Deployment must retain this configuration for push updates. No new
-D1 migration is required for realtime delivery; the existing Ubuntu proxy already
-supports WebSocket upgrades.
-
-The table is defined by `drizzle/0007_catan.sql`; `drizzle/0008_catan_nearby.sql`
-adds the discovery columns, which the app also adds at runtime when they are
-missing. Sites applies the migrations during deployment; the Ubuntu updater
-applies the table migration automatically.
-For an existing local preview, apply it once before creating a Catan lobby:
+From a checkout, install dependencies, build the Worker configuration and
+initialize Catan's table once before starting development:
 
 ```bash
+npm ci
+npm run build
 npx wrangler d1 execute DB --local --persist-to .wrangler/state --config dist/server/wrangler.json --file drizzle/0007_catan.sql
+npm run dev
 ```
 
-The offline game works after the Catan page has been loaded once online.
+Open [localhost:3000](http://localhost:3000). For a different development port:
 
-## Ubuntu 24/7 hosting with HTTPS
+```bash
+npm run dev -- -p 3001
+```
 
-The included setup supports Ubuntu 22.04 and 24.04. It installs Node.js 22,
-Nginx, systemd, Certbot, and a persistent local Worker/D1 runtime. Before
-starting, point the domain's `A`/`AAAA` records to the server and allow inbound
-TCP ports 80 and 443. The application runtime listens only on
-`127.0.0.1:3000`; Nginx is the public endpoint and serves HTTPS on port 443.
+The Catan table migration is safe to repeat. Other game tables and supported
+additive columns are created by the [runtime schema bootstrap](db/index.ts).
+Catan's discovery columns are also added there; do not replay its later
+`ALTER TABLE` migration after those columns already exist.
+
+To preview the built Worker locally, stop the development server and run:
+
+```bash
+npx wrangler dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --port 3000
+```
+
+## Development
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Development server with the local Worker/D1 runtime |
+| `npm run build` | Production client and Worker build in `dist/` |
+| `npm test` | Production build followed by automated tests |
+| `npm run lint` | Source checks |
+| `npm run db:generate` | Generate Drizzle migration SQL; does not apply it |
+
+The tests cover game rules, APIs, sessions, UI rendering, map controls, realtime
+updates and Ubuntu setup behavior.
+
+### Catan UI preview
+
+Build once, then start the local component preview:
+
+```bash
+npm run build
+node tests/catan-ux-preview.mjs
+```
+
+Open [localhost:3002](http://localhost:3002). Prepared states cover setup,
+trading, discards, card play, long histories and game over. For confirmed own
+and remote construction animations, use:
+
+```bash
+CATAN_QA_FIXTURE=catan-construction.tsx node tests/catan-ux-preview.mjs
+```
+
+`CATAN_QA_PORT` overrides the preview port. Run one component preview at a time
+and reload after component changes. The preview is a development tool and is
+not an application route or part of the deployed UI.
+
+### Repository map
+
+| Path | Contents |
+| --- | --- |
+| [app/](app/) | Game pages, layouts, styles and API routes |
+| [components/](components/) | Shared UI and game boards |
+| [lib/](lib/) | Rules engines, sessions, audio and realtime helpers |
+| [db/](db/) and [drizzle/](drizzle/) | D1 schema, runtime bootstrap and migrations |
+| [worker/](worker/) | Worker entry point and Catan live Durable Object |
+| [public/](public/) | PWA assets, active artwork and audio |
+| [assets/](assets/) | Asset documentation and archived source material |
+| [tests/](tests/) | Automated tests and browser preview fixtures |
+| [scripts/setup-ubuntu.sh](scripts/setup-ubuntu.sh) | Ubuntu installer and updater |
+
+The [Vite configuration](vite.config.ts) defines the local Worker bindings.
+Catan push updates require the `CATAN_LIVE` Durable Object binding, exported
+`CatanLobbyLive` class and `catan-live-v1` SQLite namespace migration. Keep those
+entries in the generated Worker configuration. The Sites build also includes
+hosting metadata and Drizzle migrations in `dist/.openai/`.
+
+## Ubuntu hosting with HTTPS
+
+The included setup supports Ubuntu 22.04 and 24.04. Install Git first, point the
+domain's `A`/`AAAA` records to the server and allow inbound TCP ports 80 and 443.
+The repository path must not contain spaces. The script installs the required
+Node.js runtime, Nginx, systemd and Certbot; the persistent local Worker/D1
+runtime listens on `127.0.0.1:3000` behind Nginx.
 
 ```bash
 sudo install -d -o "$USER" -g "$(id -gn)" /opt/gameson
-git clone git@github.com:MrRedsnow/gameson.git /opt/gameson
+git clone https://github.com/MrRedsnow/gameson.git /opt/gameson
 cd /opt/gameson
 sudo ./scripts/setup-ubuntu.sh games.example.com admin@example.com
 ```
 
-The setup script is an idempotent installer and updater. On every later run it
-fetches the current branch from `origin`, accepts only a clean fast-forward
-update, installs changed dependencies, rebuilds when required, and restarts the
-service. Lobby data is stored outside the repository in `/var/lib/gameson`, so
-deployments and rebuilds do not erase active games. Existing Let's Encrypt
-certificates are reused and only renewed when they enter the renewal window.
+Rerun the same command to update. The installer fetches the current branch from
+`origin`, allows only fast-forward updates and refuses changes to tracked files.
+It installs dependencies and rebuilds when required. The service restarts when
+the build or service configuration changes; a required build briefly stops the
+running service. Valid Let's Encrypt certificates are reused and renewed within
+the configured renewal window.
 
-Useful operations:
+Data is kept outside the checkout in `/var/lib/gameson`, including D1 and
+Durable Object state. Rebuilds preserve that directory.
 
 ```bash
 systemctl status gameson
 journalctl -u gameson -f
-systemctl restart gameson
-certbot renew --dry-run
+sudo systemctl restart gameson
+sudo certbot renew --dry-run
 ```
 
-To update the installation:
+When updating an installation with an older setup script, run
+`git pull --ff-only` once before invoking it. Subsequent runs update the checkout
+themselves. To deploy the current checkout without fetching, or force a rebuild:
 
 ```bash
-cd /opt/gameson
-sudo ./scripts/setup-ubuntu.sh games.example.com admin@example.com
+sudo env GAMESON_UPDATE_REPO=0 ./scripts/setup-ubuntu.sh games.example.com admin@example.com
+sudo env GAMESON_FORCE_REBUILD=1 ./scripts/setup-ubuntu.sh games.example.com admin@example.com
 ```
 
-When upgrading a server that still has an older version of the setup script,
-run `git pull --ff-only` once before the command above. From then on the script
-updates its repository by itself. Set `GAMESON_UPDATE_REPO=0` only when you
-intentionally want to deploy the currently checked-out revision without
-contacting the remote repository.
+See the script's `--help` output for port, data-directory, branch and certificate
+renewal options.
 
 ### Database backup
 
-Stop the service briefly before copying `/var/lib/gameson` so the SQLite/WAL
-files form a consistent snapshot:
+Stop the service before copying the entire data directory so SQLite/WAL files
+and Durable Object state form a consistent backup:
 
 ```bash
 sudo systemctl stop gameson
 sudo tar -C /var/lib -czf "/root/gameson-backup-$(date +%F).tar.gz" gameson
 sudo systemctl start gameson
 ```
-
-## Project commands
-
-- `npm run dev`: local Worker/D1 development server
-- `npm run build`: production build
-- `npm test`: build plus automated tests
-- `npm run lint`: source checks
-- `npm run db:generate`: generate Drizzle migrations after schema changes

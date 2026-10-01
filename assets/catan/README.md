@@ -1,14 +1,29 @@
 # Catan artwork
 
-Generated with the built-in ImageGen tool on 2026-10-01. The current v3 artwork uses gouache illustration with natural proportions and visible brushwork, between flat vector art and photorealism. Terrain and sea were encoded as JPEG at quality 85; the building atlas keeps its original PNG alpha. Image content and dimensions are unchanged. No external stock assets are used.
+The current v3 artwork was generated with the built-in ImageGen tool on 2026-10-01. It uses gouache illustration with natural proportions and visible brushwork, between flat vector art and photorealism. No external stock assets are used. The original generation prompts below document the requested designs; the table lists the actual files and dimensions.
 
-- Terrain atlas: [public/catan/terrain-atlas-v3.jpg](../../public/catan/terrain-atlas-v3.jpg). Six equal cells in a 3 × 2 grid, ordered wood, wool, grain / brick, ore, desert. Each SVG landscape clips the matching atlas cell; the file is downloaded once. ImageGen repainted the v2 terrain atlas as a style edit.
-- Sea background: [public/catan/sea-v3.jpg](../../public/catan/sea-v3.jpg). A painterly edit of the v2 sea, used across the entire map viewport.
-- Sea movement: [components/catan/sea-background.tsx](../../components/catan/sea-background.tsx) continuously warps the original sea image on the GPU while retaining camera parallax. The same JPEG is precached for offline play and provides the static fallback.
-- Buildings: [public/catan/buildings-v3.png](../../public/catan/buildings-v3.png). A transparent 4 × 2 atlas, generated using the v3 terrain as a style reference. The top row contains settlements, the bottom row cities. Columns follow player colors: coral, blue, ivory, purple. Crop selection, scale and placement remain native SVG; the generated roof colors identify ownership.
-- Harbors: [public/catan/harbor-atlas-v3.png](../../public/catan/harbor-atlas-v3.png). Two transparent square cells contain a weathered wooden T-shaped pier and a rowing boat. Generated with the building atlas as a style reference, using the built-in ImageGen tool. Native SVG crops and rotates each harbor to follow the coastline; the boat sits beside the pier with a mooring line.
-- Resource pictograms are original filled SVG in [components/catan/resource-icon.tsx](../../components/catan/resource-icon.tsx), shared by inventory, cards, costs, trading, placement previews and harbor badges. Wood is stacked logs, clay terracotta bricks, wool a sheep, grain wheat ears, and ore mineral rocks.
-- Earlier v2 files are retained as source references and are no longer loaded by the board or precached.
+## Current assets
+
+| Asset | File | Dimensions | Layout and use |
+| --- | --- | --- | --- |
+| Terrain | [terrain-atlas-v3.jpg](../../public/catan/terrain-atlas-v3.jpg) | 1536 × 1024 | Six square cells in a 3 × 2 grid: wood, wool, grain / brick, ore, desert. |
+| Sea | [sea-v3.jpg](../../public/catan/sea-v3.jpg) | 1254 × 1254 | One square texture covering the map viewport, shared by the animated sea and static fallback. |
+| Buildings | [buildings-v3.png](../../public/catan/buildings-v3.png) | 1774 × 887 | Transparent 4 × 2 atlas: settlements above cities; columns are coral, blue, ivory and purple. |
+| Harbors | [harbor-atlas-v3.png](../../public/catan/harbor-atlas-v3.png) | 1774 × 887 | Two transparent square cells: a weathered wooden T-shaped pier and a rowing boat. |
+
+Terrain and sea were encoded as JPEG at quality 85, retaining their source dimensions. Buildings and harbors retain PNG alpha for compositing over the board. The terrain and sea are painterly edits of the v2 images; buildings used the v3 terrain as a style reference, and harbors used the building atlas.
+
+[landscape.tsx](../../components/catan/landscape.tsx) selects atlas cells with native SVG view boxes. [board.tsx](../../components/catan/board.tsx) clips terrain to hexagons, places buildings and aligns harbors with the coastline. Roof colors identify ownership; a native SVG mooring line joins each boat to its pier. Resource pictograms are original filled SVG in [resource-icon.tsx](../../components/catan/resource-icon.tsx), shared by inventory, cards, costs, trading, placement previews and harbor badges: stacked logs, terracotta bricks, a sheep, wheat ears and mineral rocks.
+
+All four v3 files are precached by the [service worker](../../public/sw.js) for offline play after the app has been loaded online. Earlier [terrain-atlas-v2.jpg](../../public/catan/terrain-atlas-v2.jpg) and [sea-v2.jpg](../../public/catan/sea-v2.jpg) remain as source references in `public/catan/`; the board no longer loads them and the service worker does not precache them.
+
+## Continuous sea movement
+
+[sea-background.tsx](../../components/catan/sea-background.tsx) uploads the original sea image as one WebGL texture. A fragment shader applies smooth periodic offsets with a strength factor of **1.5**, bounded by **4.5 native pixels horizontally** and **3 vertically**. The wave phase repeats every **4.5 seconds**; `requestAnimationFrame` draws the intermediate movement at the display's animation cadence, preserving the painted details.
+
+The shader shares its size and camera offsets with the CSS background. [catan-parallax.ts](../../lib/catan-parallax.ts) uses a 0.20 parallax factor based on the fitted board scale, constrains the offset to keep the viewport covered and expands image coverage during zoom. The drawing buffer accounts for device pixel density up to 2× and targets a 1.5-million-pixel budget, without dropping below the viewport's CSS resolution.
+
+The animation pauses when the island or document is hidden. The JPEG remains visible while the WebGL texture loads or if WebGL is unavailable; context restoration reinitializes the animation. With reduced motion enabled, [catan.css](../../app/catan/catan.css) hides the canvas and centers a static sea background, disabling both wave movement and camera parallax.
 
 ## Terrain atlas v3 prompt
 
@@ -21,12 +36,6 @@ Each cell is an independent environment filling its entire square. No sky, horiz
 
 Use case: hand-painted board-game background, asset edit.
 Repaint this water-only image as an artist's GOUACHE sea surface to match a warm, restrained hand-painted terrain board game. Square composition, overhead view, seawater fills every part of the frame. Keep deep muted blue-green and slate-blue water, broad calm currents and gentle short wavelets. Visibly simplify the photographic ripples into layered soft brush marks and subtle matte pigment texture. Midway between a flat cartoon and realism: believable water and soft volume, visibly painted, not a photo or photorealistic render. Restrained highlights, no large bright area. Small soft blue-gray horizontal and diagonal strokes, calm enough behind tiny harbor labels. No black outlines, repeating graphic wave symbols, foam bands, glowing cyan, sky, horizon, shore, land, boats, letters, text, frames or other objects. Output only the painted seawater background.
-
-## Continuous sea movement
-
-The original 1254 × 1254 `public/catan/sea-v3.jpg` is uploaded once as a WebGL texture. A fragment shader applies smooth periodic offsets of at most 5.25 native pixels horizontally and 3.5 vertically, preserving the painted details. Its wave phase repeats every 4.5 seconds; `requestAnimationFrame` computes each intermediate view at the display's animation cadence.
-
-The shader uses the same size and camera offsets as the CSS sea background, so zoom and drag retain their parallax. Its drawing buffer accounts for device pixel density, with a pixel budget to limit GPU work. The animation pauses when the island or document is hidden. Reduced motion, image loading and unavailable WebGL use the original JPEG background; context restoration resumes the animation.
 
 ## Building atlas v3 prompt
 
