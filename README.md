@@ -77,6 +77,15 @@ harbor trading, the robber, discards, stealing, all 25 development cards and
 both special awards. The victory target is selectable from 8 to 15, default 12;
 choose 10 for the original target.
 
+Every new online or local match starts with a map vote. Each player accepts or
+rejects the terrain, numbers and harbors; the result is evaluated after everyone
+has voted. A majority accepts the map, while rejection immediately generates a
+new map and clears the ballots. On a 2–2 tie the lobby host explicitly chooses
+whether to accept or generate another map. On a shared device, players vote in
+name-entry order and the first entered player decides ties. Votes are visible,
+final and saved across reloads; there is no timeout or reroll limit. Setup starts
+only once the map is accepted. Existing saved matches continue where they were.
+
 Online hands and deck order stay on the server. Atomic revisions validate
 updates; authenticated WebSockets deliver confirmed moves to connected players.
 The client reconciles every minute and falls back to 2.5-second HTTP polling

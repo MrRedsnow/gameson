@@ -1,3 +1,4 @@
+import { acceptMap } from "../catan-helpers.mjs";
 // Local, deterministic browser QA only; not an application route.
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -46,7 +47,7 @@ function fund(game: CatanGame, playerId: string, resources: Resources) {
 }
 
 export function resourceGainFixture(scenario: Scenario): Fixture {
-  let game = createCatanGame(seats, 12, () => 0);
+  let game = acceptMap(createCatanGame(seats, 12, () => 0), applyCatanAction);
   const viewer = game.players[0].id;
   const reserved = new Set([CITY_VERTEX, SECOND_VERTEX]);
   for (const id of [...reserved]) for (const edgeId of game.board.vertices[id].edges) {

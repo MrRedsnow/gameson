@@ -1,3 +1,4 @@
+import { acceptMap } from "./catan-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -23,8 +24,29 @@ const send = async () => true;
 const seats = [{ id: "a", name: "Robin" }, { id: "b", name: "Mara" }, { id: "c", name: "Lea" }];
 const sequence = (values) => { let i = 0; return (length) => values[i++ % values.length] % length; };
 
+test("map voting shows the island, progress, immutable own vote and host-only tie actions", () => {
+  let game = createCatanGame([...seats, { id: "d", name: "Dana" }], 12, sequence([0]));
+  let html = ui(game, "b");
+  assert.match(html, /Kartenabstimmung/); assert.match(html, /Karte akzeptieren/); assert.match(html, /Karte ablehnen/);
+  assert.match(html, /0 Ja · 0 Nein · 4 offen/); assert.match(html, /Feld ansehen:/);
+  assert.doesNotMatch(html, /Siedlung auf Kreuzung|Starthilfe zur Gründung|catan-hand-bar/);
+  assert.equal((html.match(/role="tab"[^>]*disabled=""/g) ?? []).length, 3);
+  const mapId = game.mapVote.id;
+  game = applyCatanAction(game, "b", { type: "map_vote", mapId, accept: false });
+  html = ui(game, "b");
+  assert.match(html, /Du hast die Karte abgelehnt/); assert.match(html, /0 Ja · 1 Nein · 3 offen/);
+  assert.doesNotMatch(html, /Karte akzeptieren|Karte ablehnen/);
+  for (const [id, accept] of [["a", true], ["c", true], ["d", false]]) game = applyCatanAction(game, id, { type: "map_vote", mapId, accept });
+  const host = ui(game, "a"); const guest = ui(game, "b");
+  assert.match(host, /2 Ja · 2 Nein · 0 offen/); assert.match(host, /Karte annehmen/); assert.match(host, /Neue Karte/);
+  assert.match(guest, /Gleichstand: Robin entscheidet/); assert.doesNotMatch(guest, /Karte annehmen|Neue Karte/);
+  assert.match(ui(game, "a", { busy: true }), /<button[^>]*disabled=""[^>]*>Karte annehmen/);
+  game = applyCatanAction(game, "a", { type: "resolve_map_tie", mapId, accept: true });
+  assert.match(ui(game, "a"), /Erste Siedlung setzen|mit der Gründung dran/); assert.doesNotMatch(ui(game, "a"), /catan-map-vote/);
+});
+
 function foundedGame() {
-  let game = createCatanGame(seats, 10, sequence([0]));
+  let game = acceptedCatanGame(seats, 10, sequence([0]));
   for (let step = 0; step < 6; step++) {
     const actor = game.players[game.currentPlayer].id;
     game = applyCatanAction(game, actor, { type: "build", building: "settlement", position: legalSettlements(game, actor, true)[0] }, sequence([0]));
@@ -43,7 +65,7 @@ function isDisabled(html, label) { return /\bdisabled=""/.test(labelledButton(ht
 
 test("zeigt fünf angeheftete Menübereiche mit sprechenden Gruppen", () => {
   assert.deepEqual(CATAN_TABS.map((tab) => tab.label), ["Insel", "Karten", "Bauen", "Handel", "Übersicht"]);
-  const game = createCatanGame(seats, 12, sequence([0]));
+  const game = acceptedCatanGame(seats, 12, sequence([0]));
   const html = ui(game, game.players[0].id);
   assert.match(html, /<nav class="catan-nav" aria-label="Spielmenü">/);
   assert.equal((html.match(/class="catan-nav-tab"/g) ?? []).length, 5);
@@ -69,14 +91,14 @@ test("hält Zugstatus, Würfelwurf und nächsten Schritt dauerhaft im Bild", () 
   assert.match(status, /Punktestand öffnen: Du hast 2 von 10 Siegpunkten/);
   assert.match(status, /Zug erklären/);
   assert.match(status, /aria-expanded="false"/);
-  assert.match(ui(createCatanGame(seats, 12, sequence([0])), seats[0].id), /Erste Siedlung setzen/);
+  assert.match(ui(acceptedCatanGame(seats, 12, sequence([0])), seats[0].id), /Erste Siedlung setzen/);
   game = applyCatanAction(game, active, { type: "roll" }, sequence([1, 3]));
   // Nach dem Wurf steht das Ergebnis in derselben Zeile – auch für alle, die nicht am Zug sind.
   assert.match(ui(game, other), /class="catan-status[^"]*"[\s\S]*?class="catan-dice"[^>]*aria-label="Würfel: 2 und 4, Summe 6"/);
 });
 
 test("Ganze Insel bleibt als Reset auch beim Erkunden und während einer Spielaktion erreichbar", () => {
-  const game = createCatanGame(seats, 12, sequence([0]));
+  const game = acceptedCatanGame(seats, 12, sequence([0]));
   const view = catanView(game, game.players[0].id);
   for (const disabled of [false, true]) {
     const html = render(CatanBoard, { game: view, mode: null, choices: [], selected: null, onSelect() {}, disabled });
@@ -91,7 +113,7 @@ test("Ganze Insel bleibt als Reset auch beim Erkunden und während einer Spielak
 });
 
 test("Bauplätze bleiben konkrete Tastaturziele und eine Auswahl verändert den Kartenausschnitt nicht", () => {
-  const game = createCatanGame(seats, 12, sequence([0]));
+  const game = acceptedCatanGame(seats, 12, sequence([0]));
   const view = catanView(game, game.players[0].id);
   const choices = legalSettlements(game, game.players[0].id, true);
   const props = { game: view, mode: "settlement", choices, selected: null, onSelect() {}, disabled: false };
@@ -108,7 +130,7 @@ test("Bauplätze bleiben konkrete Tastaturziele und eine Auswahl verändert den 
 });
 
 test("die maximierte Karte behält Bauziele und Kamerasteuerung ohne die zusätzliche Platzliste", () => {
-  const game = createCatanGame(seats, 12, sequence([0])); const viewer = game.players[0].id;
+  const game = acceptedCatanGame(seats, 12, sequence([0])); const viewer = game.players[0].id;
   const choices = legalSettlements(game, viewer, true);
   const props = { game: catanView(game, viewer), mode: "settlement", choices, selected: choices[0], onSelect() {}, disabled: false };
   const normal = render(CatanBoard, props); const expanded = render(CatanBoard, { ...props, expanded: true });
@@ -120,7 +142,7 @@ test("die maximierte Karte behält Bauziele und Kamerasteuerung ohne die zusätz
 });
 
 test("öffnet den Bereich, dessen Aufgabe gerade ansteht", () => {
-  const setup = createCatanGame(seats, 12, sequence([0]));
+  const setup = acceptedCatanGame(seats, 12, sequence([0]));
   assert.equal(suggestedTab(catanView(setup, setup.players[0].id)), "insel");
   assert.equal(suggestedTab(catanView(setup, setup.players[1].id)), "insel");
   let game = foundedGame();
@@ -192,7 +214,7 @@ test("stellt Holz als Holzstapel statt als Baum dar", () => {
   assert.match(wood, /data-resource="wood"/);
   assert.match(render(ResourceIcon, { resource: "wood" }), /catan-wood-icon/);
   assert.doesNotMatch(render(ResourceIcon, { resource: "wood" }), /lucide-trees|lucide-tree/);
-  const game = createCatanGame(seats, 12, sequence([0]));
+  const game = acceptedCatanGame(seats, 12, sequence([0]));
   assert.doesNotMatch(ui(game, game.players[0].id), /lucide-trees/);
 });
 
@@ -232,7 +254,7 @@ test("das Baumenü erklärt allgemeine Einschränkungen einmal und behält jede 
 });
 
 test("Bauplatzvorschau erklärt angrenzende Zahlen, Häfen und Startrohstoffe", () => {
-  const g = createCatanGame(seats, 12, sequence([0])); const view = catanView(g, g.players[0].id);
+  const g = acceptedCatanGame(seats, 12, sequence([0])); const view = catanView(g, g.players[0].id);
   const harbor = g.board.harbors.find((h) => h.resource !== "any");
   const vertex = g.board.edges[harbor.edge].a;
   const preview = buildingPreview(view, "settlement", vertex);
@@ -451,7 +473,7 @@ test("Regeln öffnen alle Themen als Akkordeon mit aktuellen Baukosten am Anfang
   const game = foundedGame(); const me = game.players[0].id;
   const html = overview(game, me, { page: "rules" });
   assert.match(html, /<details class="catan-rule-section" open=""><summary>Baukosten<\/summary>/);
-  assert.equal((html.match(/class="catan-rule-section"/g) ?? []).length, 10);
+  assert.equal((html.match(/class="catan-rule-section"/g) ?? []).length, 11);
   assert.doesNotMatch(html, /catan-pager|Seite wechseln/);
   const costs = html.slice(html.indexOf('class="catan-rule-costs"'), html.indexOf('</details>'));
   for (const label of ["Straße", "Siedlung", "Stadt", "Entwicklungskarte"]) assert.match(costs, new RegExp(`<strong>${label}<\\/strong>`));
@@ -480,3 +502,5 @@ test("Meldungen sind neueste zuerst aufklappbar und markieren tatsächlich ungel
   assert.match(html, /Alle Meldungen als gelesen markieren/);
   assert.doesNotMatch(html, /catan-pager|Meldung wechseln/);
 });
+
+function acceptedCatanGame(...args) { return acceptMap(createCatanGame(...args), applyCatanAction); }

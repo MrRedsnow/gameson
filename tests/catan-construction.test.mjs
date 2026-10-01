@@ -1,3 +1,4 @@
+import { acceptMap } from "./catan-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -16,7 +17,7 @@ await build({
 after(() => rm(output, { force: true }));
 const { createCatanGame, applyCatanAction, catanView, legalRoads, legalSettlements, RESOURCES, constructionBatch, ConstructionPlayback, CONSTRUCTION_ROAD_MS, CONSTRUCTION_BUILDING_MS, CONSTRUCTION_HANDOFF_MS } = createRequire(import.meta.url)(output);
 const seats = [{ id: "a", name: "Anna" }, { id: "b", name: "Ben" }, { id: "c", name: "Clara" }];
-const initial = () => createCatanGame(seats, 12, () => 0);
+const initial = () => acceptedCatanGame(seats, 12, () => 0);
 const view = (game, viewer = "a") => catanView(game, viewer);
 const actor = (game) => game.players[game.currentPlayer].id;
 function settlement(game) { return applyCatanAction(game, actor(game), { type: "build", building: "settlement", position: legalSettlements(game, actor(game), true)[0] }); }
@@ -222,3 +223,5 @@ test("initial reduced motion displays final pieces without scheduling constructi
   const env = environment(t, next, { reducedMotion: true }); const playback = env.playback(before); playback.update(next);
   assert.equal(env.buildings.get(next.setupVertex).getAttribute("transform"), null); assert.equal(env.layer.children.length, 0); assert.equal(env.frames.size, 0);
 });
+
+function acceptedCatanGame(...args) { return acceptMap(createCatanGame(...args), applyCatanAction); }

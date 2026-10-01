@@ -15,6 +15,7 @@ import { restoreLocalSeen } from "@/lib/catan-notifications";
 import { describeLobby, resolveOnlineGameStartup, type GameSession } from "@/lib/game-session";
 import { startCatanLive, type CatanLiveConnection } from "@/lib/catan-live-client";
 import type { CatanLobbyState } from "@/lib/catan-live";
+import { CatanMapVoteError, submitCatanMapVote } from "@/lib/catan-map-vote-client";
 
 const SESSION_KEY = "gameson-catan-session-v1";
 const LOCAL_KEY = "gameson-catan-local-v1";
@@ -126,7 +127,7 @@ export default function CatanPage() {
     if (!storedSession) return;
     let active = true;
     request<LobbyState>(`/api/catan?lobby=${encodeURIComponent(storedSession.lobbyId)}`, { headers: { Authorization: `Bearer ${storedSession.token}` } })
-      .then((next) => { if (active) setStoredLobby({ name: next.lobby.name, detail: describeLobby(next.members.length, next.game ? next.game.phase === "finished" ? "Partie beendet" : "Partie läuft" : "Lobby wartet auf den Start") }); })
+      .then((next) => { if (active) setStoredLobby({ name: next.lobby.name, detail: describeLobby(next.members.length, next.game ? next.game.phase === "finished" ? "Partie beendet" : next.game.phase === "map_vote" ? "Kartenabstimmung läuft" : "Partie läuft" : "Lobby wartet auf den Start") }); })
       .catch((error: unknown) => { if (active) setStoredLobby(error instanceof ApiError && [401, 404].includes(error.status) ? null : { detail: "Gerade keine Verbindung. Du kannst trotzdem entscheiden." }); });
     return () => { active = false; };
   }, [storedSession]);
@@ -144,14 +145,19 @@ export default function CatanPage() {
     const leaving = action === "leave" ? { session, completed: false } : null;
     if (leaving) pendingLeave.current = leaving;
     try {
-      const data = await request<ResponseData>("/api/catan", { method: "POST", headers: { Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ action, lobbyId: session.lobbyId, revision: stateRef.current.lobby.revision, ...extra }) });
+      const submit = (revision: number) => request<ResponseData>("/api/catan", { method: "POST", headers: { Authorization: `Bearer ${session.token}` }, body: JSON.stringify({ action, lobbyId: session.lobbyId, revision, ...extra }) });
+      const move = extra.move as CatanAction | undefined;
+      const data = action === "move" && move?.type === "map_vote"
+        ? await submitCatanMapVote(move, stateRef.current.game!.id, { readState: () => stateRef.current, submit, refresh: () => refresh(session), isConflict: (error) => error instanceof ApiError && error.status === 409 })
+        : await submit(stateRef.current.lobby.revision);
       if (leaving?.completed) return true;
+      if (!data) return true;
       if (data.state) acceptState(data.state);
       if (data.left) { if (leaving) leaving.completed = true; completeOnlineLeave(); }
       return true;
     } catch (error) {
       if (leaving?.completed) return true;
-      setNotice(error instanceof ApiError ? error.message : "Die Bestätigung fehlt. Der Spielstand wird neu geladen; prüfe deinen Zug, bevor du ihn erneut sendest.");
+      setNotice(error instanceof ApiError || error instanceof CatanMapVoteError ? error.message : "Die Bestätigung fehlt. Der Spielstand wird neu geladen; prüfe deinen Zug, bevor du ihn erneut sendest.");
       try { await refresh(session); } catch { if (!leaving?.completed) setConnected(false); }
       return leaving?.completed ?? false;
     } finally { if (pendingLeave.current === leaving && !leaving?.completed) pendingLeave.current = null; locked.current = false; setBusy(false); }
@@ -203,8 +209,8 @@ export default function CatanPage() {
     {!playing && <header className="catan-header"><GameBackLink /><div className="catan-brand"><Flag aria-hidden="true" /><span>CATAN <small>by Gameson</small></span></div><span className={`catan-connection ${!connected && session ? "is-offline" : ""}`}>{localGame || mode === "local" ? "Ein Gerät · lokal" : session ? connected ? "Verbunden" : "Verbindung unterbrochen" : "3–4 Personen"}</span></header>}
     {notice && <div className="catan-notice" role="alert"><p>{notice}</p><Button variant="ghost" size="icon" aria-label="Hinweis schließen" onClick={() => setNotice("")}><X /></Button></div>}
     {!ready ? <p role="status">Spiel wird geladen …</p> : session && !state ? <section className="catan-panel"><h1>Lobby wird geladen …</h1><p role="status">{connected ? "Deine letzte Partie wird fortgesetzt." : "Die Verbindung fehlt. Wir versuchen es erneut."}</p><Button variant="outline" onClick={() => { setSession(null); back(); }}>Zur Spielauswahl von Catan</Button></section> : needsHandoff ? <section className="catan-handoff">
-      <LockKeyhole aria-hidden="true" /><span className="catan-kicker">Handkarten bleiben geheim</span><h1>Weitergeben an<br /><span style={{ color: PLAYER_COLORS[localGame.players.find((p) => p.id === actor)!.color] }}>{localGame.players.find((p) => p.id === actor)!.name}</span></h1>
-      <p>{localGame.phase === "discard" ? "Du musst Rohstoffe abgeben." : localGame.trade ? "Für dich liegt ein Handelsangebot vor." : "Dein nächster Spielzug wartet."} Nur du schaust auf den Bildschirm.</p>
+      <LockKeyhole aria-hidden="true" /><span className="catan-kicker">{localGame.phase === "map_vote" ? "Eure Kartenabstimmung" : "Handkarten bleiben geheim"}</span><h1>Weitergeben an<br /><span style={{ color: PLAYER_COLORS[localGame.players.find((p) => p.id === actor)!.color] }}>{localGame.players.find((p) => p.id === actor)!.name}</span></h1>
+      <p>{localGame.phase === "map_vote" ? Object.keys(localGame.mapVote!.votes).length === localGame.players.length ? "Gleichstand: Du entscheidest als Spielleitung, ob ihr die Karte annehmt oder eine neue erzeugt." : "Schau dir die Karte an und stimme ab. Alle dürfen die Karte gemeinsam ansehen." : <>{localGame.phase === "discard" ? "Du musst Rohstoffe abgeben." : localGame.trade ? "Für dich liegt ein Handelsangebot vor." : "Dein nächster Spielzug wartet."} Nur du schaust auf den Bildschirm.</>}</p>
       <Button className="catan-primary" onClick={() => setUnlocked(actor)}>Ich bin {localGame.players.find((p) => p.id === actor)!.name}</Button>
     </section> : active ? <CatanGameUI key={localGame ? `${localGame.id}-${viewActor}` : state!.game!.id} game={localGame ? catanView(localGame, viewActor!) : state!.game!} animationBaseline={animationBaseline} send={localGame ? sendLocal : (move) => post("move", { move })} busy={busy || Boolean(session && !connected)} local={Boolean(localGame)} offline={Boolean(session && !connected)} afterNotificationSequence={localGame ? localSeen[viewActor!] ?? localGame.sequence : undefined} onActivityRead={localGame ? readLocalActivity : undefined} onHide={() => { buildHandoff.finish(); setUnlocked(null); }} onRematch={localGame ? () => { buildHandoff.finish(); setNames([...localGame.players].sort((a, b) => a.color - b.color).map((p) => p.name)); setTarget(localGame.targetPoints); setLocalGame(null); setMode("local"); store(LOCAL_KEY, null); setLocalSaved(false); } : isHost ? () => void post("reset") : undefined} /> : state ? <>
       <section className="catan-lobby-heading"><span className="catan-kicker">Eure Catan-Lobby</span><h1>{state.lobby.name}</h1><p>Teilt den Code oder Einladungslink. Startet mit drei oder vier Personen.</p></section>

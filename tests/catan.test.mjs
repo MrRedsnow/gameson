@@ -1,10 +1,11 @@
+import { acceptMap } from "./catan-helpers.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { RESOURCES, COSTS, DEFAULT_TARGET_POINTS, createBoard, createCatanGame, applyCatanAction, legalSettlements, legalRoads, legalCities, pieceCounts, longestRoadLength, victoryPoints, tradeRatio, resourceCount, emptyResources, canAfford, catanView, localActorId } from "../lib/catan.ts";
 
 const seats = ["Anna", "Ben", "Clara", "David"].map((name, i) => ({ id: `p${i}`, name }));
 function rng(seed = 19) { return (n) => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return Math.floor(seed / 4294967296 * n); }; }
-function fresh(count = 4, points = 12) { return createCatanGame(seats.slice(0, count), points, rng()); }
+function fresh(count = 4, points = 12) { return acceptedCatanGame(seats.slice(0, count), points, rng()); }
 function active(g) { return g.players[g.currentPlayer]; }
 function act(g, action, random = rng()) { return applyCatanAction(g, active(g).id, action, random); }
 function started(count = 4, points = 12) {
@@ -42,12 +43,12 @@ test("Catan hat exakt die Basisspiel-Geometrie, Vorräte und nicht benachbarte r
 
 test("nur 3–4 Personen, eindeutige Namen und ein gültiges wählbares Punktziel", () => {
   assert.equal(DEFAULT_TARGET_POINTS, 12);
-  assert.equal(createCatanGame(seats).targetPoints, 12);
+  assert.equal(acceptedCatanGame(seats).targetPoints, 12);
   for (const n of [8, 10, 12, 15]) assert.equal(fresh(3, n).targetPoints, n);
   for (const n of [0, 7, 16, 10.5, "12", null, NaN]) assert.throws(() => fresh(4, n), /Siegpunkte/);
-  assert.throws(() => createCatanGame(seats.slice(0, 2)), /3 bis 4/);
-  assert.throws(() => createCatanGame([...seats, { id: "p4", name: "Eva" }]), /3 bis 4/);
-  assert.throws(() => createCatanGame([{ id: "a", name: "Anna" }, { id: "b", name: " anna " }, { id: "c", name: "Ben" }]), /unterschiedliche/);
+  assert.throws(() => acceptedCatanGame(seats.slice(0, 2)), /3 bis 4/);
+  assert.throws(() => acceptedCatanGame([...seats, { id: "p4", name: "Eva" }]), /3 bis 4/);
+  assert.throws(() => acceptedCatanGame([{ id: "a", name: "Anna" }, { id: "b", name: " anna " }, { id: "c", name: "Ben" }]), /unterschiedliche/);
 });
 
 test("Gründung läuft vorwärts/rückwärts und nur die zweite Siedlung erhält Ressourcen", () => {
@@ -209,13 +210,13 @@ test("untrusted actions cannot create resources or reveal seat credentials", () 
   }
   assert.throws(() => act(g, { type: "offer_trade", toId: g.players[1].id, give: { gold: 1 }, receive: { ore: 1 } }));
   assert.throws(() => act(g, { type: "roll", dice: [6, 6] }), /bereits/);
-  const game = createCatanGame(seats.map((p) => ({ ...p, tokenHash: "never-copy" })));
+  const game = acceptedCatanGame(seats.map((p) => ({ ...p, tokenHash: "never-copy" })));
   assert.ok(!JSON.stringify(game).includes("never-copy"));
 });
 
 test("vollständige Partien zu dritt und zu viert erreichen 12 Punkte ohne Sackgasse oder verlorene Rohstoffe", () => {
   for (const count of [3, 4]) {
-    const random = rng(71 + count); let g = createCatanGame(seats.slice(0, count), 12, random); let moves = 0;
+    const random = rng(71 + count); let g = acceptedCatanGame(seats.slice(0, count), 12, random); let moves = 0;
     const score = (v) => g.board.vertices[v].hexes.reduce((n, h) => n + (g.board.hexes[h].number ? 6 - Math.abs(7 - g.board.hexes[h].number) : 0), 0);
     const chooseSettlement = (list) => [...list].sort((a, b) => score(b) - score(a))[0];
     const chooseRoad = (list) => {
@@ -267,3 +268,5 @@ test("vollständige Partien zu dritt und zu viert erreichen 12 Punkte ohne Sackg
     assert.equal(g.phase, "finished"); assert.ok(victoryPoints(g, active(g)) >= 12);
   }
 });
+
+function acceptedCatanGame(...args) { return acceptMap(createCatanGame(...args), applyCatanAction); }

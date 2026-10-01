@@ -36,7 +36,8 @@ export type Harbor = { edge: number; resource: Resource | "any" };
 export type Board = { hexes: Hex[]; vertices: Vertex[]; edges: Edge[]; harbors: Harbor[] };
 export type DevCard = { id: string; type: Development; boughtOnTurn: number };
 export type CatanPlayer = { id: string; name: string; color: number; resources: Resources; development: DevCard[]; knights: number };
-export type CatanPhase = "setup_settlement" | "setup_road" | "roll" | "main" | "discard" | "robber" | "steal" | "free_roads" | "finished";
+export type CatanPhase = "map_vote" | "setup_settlement" | "setup_road" | "roll" | "main" | "discard" | "robber" | "steal" | "free_roads" | "finished";
+export type CatanMapVote = { id: string; hostPlayerId: string; votes: Record<string, boolean> };
 export type TradeOffer = { id: number; fromId: string; toId: string; give: Resources; receive: Resources };
 export type CatanResourceOrigin = { hexId: number; resource: Resource; amount: number };
 export type CatanNotification = {
@@ -53,8 +54,12 @@ export type CatanGame = {
   trade: TradeOffer | null; winner: string | null; log: { id: number; text: string }[]; sequence: number;
   // Optional for saved games created before notifications were introduced.
   notifications?: CatanNotification[];
+  // Absent in older saved games and after a map has been accepted.
+  mapVote?: CatanMapVote;
 };
 export type CatanAction =
+  | { type: "map_vote"; mapId: string; accept: boolean }
+  | { type: "resolve_map_tie"; mapId: string; accept: boolean }
   | { type: "build"; building: "road" | "settlement" | "city"; position: number }
   | { type: "roll" } | { type: "end_turn" } | { type: "buy_development" }
   | { type: "discard"; resources: Partial<Resources> }
@@ -157,9 +162,10 @@ export function createBoard(random: Random = randomIndex): Board {
   return board;
 }
 
-export function createCatanGame(seats: { id: string; name: string }[], targetPoints = DEFAULT_TARGET_POINTS, random: Random = randomIndex): CatanGame {
+export function createCatanGame(seats: { id: string; name: string }[], targetPoints = DEFAULT_TARGET_POINTS, random: Random = randomIndex, hostPlayerId = seats[0]?.id): CatanGame {
   assert(seats.length >= 3 && seats.length <= 4, "Catan wird mit 3 bis 4 Personen gespielt.");
   assert(new Set(seats.map((p) => p.id)).size === seats.length, "Jede Person braucht einen eigenen Platz.");
+  assert(seats.some((p) => p.id === hostPlayerId), "Die Spielleitung muss Teil der Partie sein.");
   const names = seats.map((p) => p.name.trim().normalize("NFKC").toLocaleLowerCase("de"));
   assert(names.every((name) => name.length >= 1 && name.length <= 24) && new Set(names).size === names.length, "Bitte gebt unterschiedliche Namen mit 1 bis 24 Zeichen ein.");
   const board = createBoard(random); const start = random(seats.length);
@@ -167,11 +173,30 @@ export function createCatanGame(seats: { id: string; name: string }[], targetPoi
   const game: CatanGame = {
     version: 1, id: crypto.randomUUID(), board, players: [...players.slice(start), ...players.slice(0, start)], targetPoints: validateTargetPoints(targetPoints), bank: emptyResources(19),
     deck: shuffled<Development>([...Array<Development>(14).fill("knight"), ...Array<Development>(5).fill("victory"), "road_building", "road_building", "plenty", "plenty", "monopoly", "monopoly"], random),
-    currentPlayer: 0, phase: "setup_settlement", turn: 0, setupIndex: 0, setupVertex: null, robberHex: board.hexes.find((h) => h.resource === "desert")!.id,
+    currentPlayer: 0, phase: "map_vote", mapVote: { id: crypto.randomUUID(), hostPlayerId, votes: {} }, turn: 0, setupIndex: 0, setupVertex: null, robberHex: board.hexes.find((h) => h.resource === "desert")!.id,
     dice: null, playedDevelopment: false, freeRoads: 0, returnPhase: "main", discards: {}, victims: [], longestRoad: null, largestArmy: null, trade: null, winner: null, log: [], sequence: 0, notifications: [],
   };
-  addLog(game, `${game.players[0].name} beginnt. Gründet zuerst reihum, dann in umgekehrter Reihenfolge.`);
+  addLog(game, "Stimmt zuerst über die Karte ab. Bei Gleichstand entscheidet die Spielleitung.");
   return game;
+}
+
+export function mapVoteProgress<P extends { id: string }>(game: { players: P[]; mapVote?: CatanMapVote }) {
+  const pending = game.players.filter((p) => !Object.hasOwn(game.mapVote?.votes ?? {}, p.id));
+  const accepted = game.players.filter((p) => game.mapVote?.votes[p.id] === true).length;
+  const rejected = game.players.length - pending.length - accepted;
+  return { pending, accepted, rejected, tied: pending.length === 0 && accepted === rejected };
+}
+
+function resolveMap(game: CatanGame, accept: boolean, random: Random) {
+  if (accept) {
+    delete game.mapVote; game.phase = "setup_settlement";
+    addLog(game, `Die Karte ist angenommen. ${game.players[0].name} beginnt. Gründet zuerst reihum, dann in umgekehrter Reihenfolge.`);
+  } else {
+    game.board = createBoard(random);
+    game.robberHex = game.board.hexes.find((h) => h.resource === "desert")!.id;
+    game.mapVote = { id: crypto.randomUUID(), hostPlayerId: game.mapVote!.hostPlayerId, votes: {} };
+    addLog(game, "Die Karte wurde abgelehnt. Eine neue Karte steht zur Abstimmung bereit.");
+  }
 }
 
 export function pieceCounts(game: Pick<CatanGame, "board">, playerId: string) {
@@ -368,6 +393,31 @@ export function applyCatanAction(original: CatanGame, actorId: string, action: C
   assert(original.phase !== "finished", "Diese Partie ist bereits beendet.");
   const game = structuredClone(original); const player = game.players.find((p) => p.id === actorId);
   assert(player, "Du bist nicht Teil dieser Partie.");
+  if (action.type === "map_vote" || action.type === "resolve_map_tie") {
+    assert(game.phase === "map_vote" && game.mapVote, "Über die Karte wird gerade nicht abgestimmt.");
+    assert(action.mapId === game.mapVote.id, "Diese Karte ist nicht mehr aktuell. Bitte prüfe die neue Karte.");
+    assert(typeof action.accept === "boolean", "Wähle, ob du die Karte akzeptierst oder ablehnst.");
+    if (action.type === "map_vote") {
+      if (Object.hasOwn(game.mapVote.votes, actorId)) {
+        assert(game.mapVote.votes[actorId] === action.accept, "Deine abgegebene Stimme bleibt verbindlich.");
+        return game;
+      }
+      game.mapVote.votes = { ...game.mapVote.votes, [actorId]: action.accept };
+      addLog(game, `${player.name} ${action.accept ? "akzeptiert" : "lehnt"} die Karte${action.accept ? "." : " ab."}`);
+      const progress = mapVoteProgress(game);
+      if (!progress.pending.length) {
+        if (progress.tied) addLog(game, "Gleichstand: Die Spielleitung entscheidet über die Karte.");
+        else resolveMap(game, progress.accepted > progress.rejected, random);
+      }
+    } else {
+      assert(actorId === game.mapVote.hostPlayerId, "Bei Gleichstand entscheidet nur die Spielleitung.");
+      assert(mapVoteProgress(game).tied, "Die Spielleitung entscheidet nur bei einem vollständigen Gleichstand.");
+      addLog(game, `${player.name} entscheidet: ${action.accept ? "Karte annehmen" : "Neue Karte"}.`);
+      resolveMap(game, action.accept, random);
+    }
+    return game;
+  }
+  assert(game.phase !== "map_vote", "Stimmt zuerst gemeinsam über die Karte ab.");
   const active = game.players[game.currentPlayer];
   const outOfTurn = ["discard", "offer_trade", "accept_trade", "cancel_trade"].includes(action.type);
   assert(outOfTurn || active.id === actorId, "Du bist noch nicht am Zug.");
@@ -530,7 +580,10 @@ export function catanView(game: CatanGame, viewerId: string): CatanView {
     me: structuredClone(players.find((p) => p.id === viewerId) ?? null),
   };
 }
-export function localActorId(game: Pick<CatanGame, "phase" | "players" | "discards" | "trade" | "currentPlayer">): string {
+export function localActorId(game: Pick<CatanGame, "phase" | "players" | "discards" | "trade" | "currentPlayer" | "mapVote">): string {
+  if (game.phase === "map_vote" && game.mapVote) {
+    return [...mapVoteProgress(game).pending].sort((a, b) => a.color - b.color)[0]?.id ?? game.mapVote.hostPlayerId;
+  }
   if (game.phase === "discard") return game.players.find((p) => game.discards[p.id] > 0)!.id;
   if (game.trade) return game.trade.toId;
   return game.players[game.currentPlayer].id;

@@ -10,6 +10,7 @@ import { ResourceIcon } from "./board";
 import { BagText, Screen } from "./play-primitives";
 
 const RULES = [
+  { title: "Karte gemeinsam auswählen", text: "Vor jeder neuen Partie akzeptiert oder lehnt jede Person die Karte ab. Erst nach allen Stimmen gilt die Mehrheit. Bei 2:2 entscheidet die Spielleitung ausdrücklich. Bei Ablehnung wird eine neue Karte erzeugt und erneut abgestimmt. Lokal übernimmt die zuerst eingetragene Person die Spielleitung. Abgegebene Stimmen sind verbindlich." },
   { title: "Ziel des Spiels", text: "Erreiche das gewählte Siegpunktziel im eigenen Zug. Eine Siedlung zählt 1, eine Stadt 2 Punkte. Verdeckte Siegpunktkarten zählen mit. Die längste Handelsstraße und die größte Rittermacht bringen jeweils 2 Sonderpunkte." },
   { title: "Die ersten Siedlungen", text: "Alle setzen zuerst eine Siedlung und eine angrenzende Straße. Danach geht es in umgekehrter Reihenfolge zurück. Zwischen zwei Siedlungen bleibt immer eine Kreuzung frei. Nur deine zweite Siedlung bringt sofort einen Rohstoff aus jedem angrenzenden Rohstofffeld." },
   { title: "Würfeln und Ernten", text: "Die Summe der beiden Würfel bestimmt die Felder, die Ertrag liefern. Eine angrenzende Siedlung erhält 1, eine Stadt 2 Rohstoffe. Auch außerhalb deines Zuges bekommst du Ertrag. Das Räuberfeld liefert nichts. Ist die Bank knapp, kann Ertrag ausfallen." },
@@ -31,7 +32,7 @@ export function OverviewPanel({ game, page, setPage, activity, unreadActivity, u
   if (page === "rules") return <Screen title="Spielregeln & Baukosten" back={back} actions={turnActions}>
     <div className="catan-rule-list">
       <details className="catan-rule-section" open><summary>Baukosten</summary><div className="catan-rule-costs">{(Object.keys(COSTS) as (keyof typeof COSTS)[]).map((kind) => <div key={kind}><strong>{BUILDING_NAMES[kind]}</strong><span className="catan-cost">{RESOURCES.filter((resource) => COSTS[kind][resource]).map((resource) => <span key={resource} title={RESOURCE_INFO[resource].label}><ResourceIcon resource={resource} />{COSTS[kind][resource]}<span className="sr-only"> {RESOURCE_INFO[resource].label}</span></span>)}</span></div>)}</div></details>
-      {RULES.map((rule, index) => <details className="catan-rule-section" key={rule.title}><summary>{rule.title}</summary><div><p>{rule.text}</p>{index === 0 && <p>Euer Ziel: {game.targetPoints} Punkte.</p>}</div></details>)}
+      {RULES.map((rule) => <details className="catan-rule-section" key={rule.title}><summary>{rule.title}</summary><div><p>{rule.text}</p>{rule.title === "Ziel des Spiels" && <p>Euer Ziel: {game.targetPoints} Punkte.</p>}</div></details>)}
     </div>
   </Screen>;
   if (page === "log") return <Screen title="Spielverlauf" back={back} actions={turnActions}>{[...game.log].reverse().map((entry) => <p className="catan-log-entry" key={entry.id}>{entry.text}</p>)}</Screen>;

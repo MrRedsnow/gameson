@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import test, { after } from "node:test";
 import { build } from "esbuild";
 import { legalSettlements } from "../lib/catan.ts";
+import { submitCatanMapVote } from "../lib/catan-map-vote-client.ts";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const out = resolve(root, `.wrangler/test-artifacts/catan-api-${process.pid}.cjs`);
@@ -75,14 +76,76 @@ test("Catan-Lobby: Standard 12, einstellbar, Beitritt per Name/Code, maximal vie
   assert.deepEqual(last.map((r) => r.status).sort(), [200, 409]);
   assert.equal((await get(a.session)).body.members.length, 4);
   const start = await command(a.session, "start"); assert.equal(start.status, 200); assert.equal(start.body.state.game.targetPoints, 10);
+  assert.equal(start.body.state.game.phase, "map_vote"); assert.equal(start.body.state.game.mapVote.hostPlayerId, a.state.me.id);
   assert.equal((await command(a.session, "settings", { targetPoints: 12 })).status, 400);
   assert.equal((await join(a.session.lobbyId, "Fred")).status, 409);
   assert.equal((await command(a.session, "reset")).status, 400);
 });
 
+test("simultaneous online votes retry CAS conflicts without lost votes and publish the accepted map", async () => {
+  const a = await create("Kartenwahl"); const b = (await join(a.session.lobbyId, "Ben")).body;
+  const c = (await join(a.session.lobbyId, "Clara")).body; const d = (await join(a.session.lobbyId, "David")).body;
+  await command(a.session, "start"); const players = [a, b, c, d];
+  const initial = (await get(a.session)).body; const mapId = initial.game.mapVote.id;
+  assert.equal((await command(a.session, "move", { move: { type: "roll" } })).status, 400);
+  const publishedBefore = publications.length; const attempts = [];
+  const outcomes = await Promise.all(players.map(async (person, index) => {
+    let current = (await get(person.session)).body;
+    const move = { type: "map_vote", mapId, accept: index !== 3 }; let count = 0;
+    const result = await submitCatanMapVote(move, initial.game.id, {
+      readState: () => current,
+      async submit(revision) {
+        count++;
+        const response = await post({ action: "move", lobbyId: person.session.lobbyId, revision, move }, person.session);
+        if (response.status !== 200) throw Object.assign(new Error(response.body.error), { status: response.status });
+        current = response.body.state; return current;
+      },
+      async refresh() { current = (await get(person.session)).body; },
+      isConflict: (error) => error.status === 409,
+    });
+    attempts.push(count); return result;
+  }));
+  assert.ok(outcomes.every(Boolean)); assert.ok(attempts.some((n) => n > 1)); assert.ok(attempts.every((n) => n <= 4));
+  const after = (await get(a.session)).body;
+  assert.equal(after.game.phase, "setup_settlement"); assert.equal(after.game.mapVote, undefined);
+  assert.deepEqual(after.game.board, initial.game.board); assert.equal(after.lobby.revision, initial.lobby.revision + 4);
+  assert.equal(publications.length, publishedBefore + 4); assert.equal(JSON.parse(publications.at(-1).lobby.game).phase, "setup_settlement");
+  const stale = await command(a.session, "move", { move: { type: "map_vote", mapId, accept: true } });
+  assert.equal(stale.status, 400); assert.equal((await get(a.session)).body.lobby.revision, after.lobby.revision);
+});
+
+test("online ties require the actual host; rerolls clear votes and duplicate ballots are read-only", async () => {
+  const a = await create("Kartengleichstand"); const players = [a];
+  for (const name of ["Ben", "Clara", "David"]) players.push((await join(a.session.lobbyId, name)).body);
+  await command(a.session, "start"); const initial = (await get(a.session)).body; const mapId = initial.game.mapVote.id;
+  for (let i = 0; i < players.length; i++) {
+    const result = await command(players[i].session, "move", { move: { type: "map_vote", mapId, accept: i >= 2 } }); assert.equal(result.status, 200);
+    if (i === 0) {
+      const published = publications.length; const revision = result.body.state.lobby.revision;
+      const duplicate = await command(a.session, "move", { move: { type: "map_vote", mapId, accept: false } });
+      assert.equal(duplicate.status, 200); assert.equal(duplicate.body.state.lobby.revision, revision); assert.equal(publications.length, published);
+      assert.equal((await command(a.session, "move", { move: { type: "map_vote", mapId, accept: true } })).status, 400);
+      assert.equal((await command(a.session, "move", { move: { type: "resolve_map_tie", mapId, accept: true } })).status, 400);
+    }
+  }
+  const tied = (await get(a.session)).body; assert.equal(tied.game.phase, "map_vote"); assert.equal(Object.keys(tied.game.mapVote.votes).length, 4);
+  assert.equal((await command(players[1].session, "move", { move: { type: "resolve_map_tie", mapId, accept: true } })).status, 400);
+  const reroll = (await command(a.session, "move", { move: { type: "resolve_map_tie", mapId, accept: false } })).body.state;
+  assert.notEqual(reroll.game.mapVote.id, mapId); assert.deepEqual(reroll.game.mapVote.votes, {});
+  assert.equal(reroll.game.mapVote.hostPlayerId, a.state.me.id);
+  assert.equal((await command(players[2].session, "move", { move: { type: "map_vote", mapId, accept: true } })).status, 400);
+  assert.equal((await get(a.session)).body.lobby.revision, reroll.lobby.revision);
+  assert.equal((await post({ action: "move", lobbyId: a.session.lobbyId, revision: reroll.lobby.revision, move: { type: "map_vote", mapId: reroll.game.mapVote.id, accept: true } })).status, 401);
+});
+
 test("Catan-API hält Hände und Tokens geheim und verliert keine gleichzeitigen Züge", async () => {
   const a = await create("Synchronspiel", 12); const b = (await join(a.session.lobbyId, "Ben")).body; const c = (await join(a.session.lobbyId, "Clara")).body;
-  const s = (await command(a.session, "start")).body.state;
+  await command(a.session, "start");
+  for (const person of [a, b, c]) {
+    const { body } = await get(person.session);
+    assert.equal((await command(person.session, "move", { move: { type: "map_vote", mapId: body.game.mapVote.id, accept: true } })).status, 200);
+  }
+  const s = (await get(a.session)).body;
   const activeId = s.game.players[s.game.currentPlayer].id;
   const current = [a, b, c].find((p) => p.state.me.id === activeId);
   const other = [a, b, c].find((p) => p.state.me.id !== activeId);

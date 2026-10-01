@@ -1,3 +1,4 @@
+import { acceptMap } from "../catan-helpers.mjs";
 // Local browser QA only. This file is not an application route or part of a deployment.
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -7,6 +8,13 @@ import { RESOURCES, applyCatanAction, catanView, createCatanGame, legalRoads, le
 const seats = ["Anna", "Benjamin Alexander", "Clara", "Dominik Maximilian"].map((name, i) => ({ id: `qa-${i}`, name }));
 function fixture(name: string) {
   let game = createCatanGame(seats, 12, () => 0);
+  if (name.startsWith("map-")) {
+    const mapId = game.mapVote!.id;
+    if (name === "map-waiting") game = applyCatanAction(game, seats[0].id, { type: "map_vote", mapId, accept: true });
+    if (name.startsWith("map-tie")) for (let i = 0; i < seats.length; i++) game = applyCatanAction(game, seats[i].id, { type: "map_vote", mapId, accept: i < 2 });
+    return { game, viewer: name === "map-tie-guest" ? seats[1].id : seats[0].id };
+  }
+  game = acceptMap(game, applyCatanAction);
   if (name === "setup") return { game, viewer: game.players[0].id };
   while (game.phase.startsWith("setup")) {
     const id = game.players[game.currentPlayer].id; const road = game.phase === "setup_road";
@@ -53,7 +61,7 @@ function Preview() {
     catch (e) { setError((e as Error).message); return false; }
   }
   return <><style>{`html { font-size:${largeText ? 32 : 16}px; }`}</style><details className="qa-controls"><summary>QA</summary>
-    <label>Prüfsituation<select value={scenario} onChange={(e) => { setScenario(e.target.value); setState(fixture(e.target.value)); setError(""); }}>{["rich", "poor", "setup", "roll", "discard", "robber", "steal", "free-roads", "cards", "empty-bank", "incoming", "outgoing", "waiting", "finished", "history"].map((name) => <option key={name}>{name}</option>)}</select></label>
+    <label>Prüfsituation<select value={scenario} onChange={(e) => { setScenario(e.target.value); setState(fixture(e.target.value)); setError(""); }}>{["map-vote", "map-waiting", "map-tie", "map-tie-guest", "rich", "poor", "setup", "roll", "discard", "robber", "steal", "free-roads", "cards", "empty-bank", "incoming", "outgoing", "waiting", "finished", "history"].map((name) => <option key={name}>{name}</option>)}</select></label>
     <label><input type="checkbox" checked={largeText} onChange={(e) => setLargeText(e.target.checked)} />Text 200%</label>
     <label><input type="checkbox" checked={rejectAction} onChange={(e) => setRejectAction(e.target.checked)} />Aktion ablehnen</label>
     <label><input type="checkbox" checked={busy} onChange={(e) => setBusy(e.target.checked)} />Aktion blockieren</label>

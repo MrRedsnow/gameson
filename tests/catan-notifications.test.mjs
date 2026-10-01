@@ -1,3 +1,4 @@
+import { acceptMap } from "./catan-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -17,7 +18,7 @@ after(() => rm(output, { force: true }));
 const { RESOURCES, COSTS, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads,
   groupedActivity, activitySummary, restoreLocalSeen, localActorId } = createRequire(import.meta.url)(output);
 const seats = [{ id: "a", name: "Anna" }, { id: "b", name: "Ben" }, { id: "c", name: "Clara" }];
-function game() { const g = createCatanGame(seats, 12, () => 0); g.phase = "main"; g.turn = 2; return g; }
+function game() { const g = acceptedCatanGame(seats, 12, () => 0); g.phase = "main"; g.turn = 2; return g; }
 function fund(g, id, values) {
   const player = g.players.find((p) => p.id === id);
   for (const r of RESOURCES) { g.bank[r] += player.resources[r]; player.resources[r] = values[r] ?? 0; g.bank[r] -= player.resources[r]; }
@@ -99,7 +100,7 @@ test("Bankhandel und Spielerhandel zeigen Minus und Plus getrennt auf beiden Sei
 });
 
 test("Gründung, Würfelertrag, Baukosten und Abgabe werden vollständig erfasst", () => {
-  let g = createCatanGame(seats, 12, () => 0);
+  let g = acceptedCatanGame(seats, 12, () => 0);
   while (g.phase.startsWith("setup")) {
     const actor = g.players[g.currentPlayer].id;
     const road = g.phase === "setup_road";
@@ -200,3 +201,5 @@ test("Kurzmeldungen zeigen Gewinn und Zahlung mit Vorzeichen, ohne fremde Hände
   const payment = groupedActivity(catanView(purchase, "a")).find((entry) => entry.losses.ore);
   assert.equal(activitySummary(payment), "−1 Wolle · −1 Getreide · −1 Erz");
 });
+
+function acceptedCatanGame(...args) { return acceptMap(createCatanGame(...args), applyCatanAction); }

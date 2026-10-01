@@ -1,3 +1,4 @@
+import { acceptMap } from "./catan-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -19,7 +20,7 @@ const seats = [{ id: "a", name: "Anna" }, { id: "b", name: "Ben" }, { id: "c", n
 const act = (game, action, actor = "a", random = () => 2) => applyCatanAction(game, actor, action, random);
 const view = (game, actor = "a") => catanView(game, actor);
 const gainNotice = (game, actor = "a") => game.notifications.findLast((notice) => notice.playerId === actor && notice.kind === "resources" && notice.tone === "gain");
-function game() { const result = createCatanGame(seats, 12, () => 0); result.phase = "main"; result.turn = 2; return result; }
+function game() { const result = acceptedCatanGame(seats, 12, () => 0); result.phase = "main"; result.turn = 2; return result; }
 function fund(game, actor, resources) {
   const player = game.players.find((player) => player.id === actor);
   for (const resource of RESOURCES) {
@@ -96,7 +97,7 @@ test("Bankmangel für mehrere Empfänger erzeugt keine scheinbaren Erträge", ()
 
 test("nur die zweite Startsiedlung liefert Karten aus ihren angrenzenden Feldern", () => {
   for (const secondSettlement of [false, true]) {
-    const before = createCatanGame(seats, 12, () => 0);
+    const before = acceptedCatanGame(seats, 12, () => 0);
     before.setupIndex = secondSettlement ? before.players.length : 0;
     const vertex = before.board.vertices.find((vertex) => vertex.hexes.length === 3 && vertex.hexes.every((id) => before.board.hexes[id].resource !== "desert"));
     const next = act(before, { type: "build", building: "settlement", position: vertex.id });
@@ -195,3 +196,5 @@ test("unvollständige oder überzählige Ursprünge verändern die bestätigte K
   batch = resourceGainBatch(view(before), current);
   assert.deepEqual(batch.steps.map((step) => step.hexId), [first.id, null, null]);
 });
+
+function acceptedCatanGame(...args) { return acceptMap(createCatanGame(...args), applyCatanAction); }

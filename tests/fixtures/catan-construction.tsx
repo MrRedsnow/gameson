@@ -1,3 +1,4 @@
+import { acceptMap } from "../catan-helpers.mjs";
 // Deterministic browser QA only; not an application route.
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -15,7 +16,7 @@ function setupAction(game: CatanGame): CatanAction {
     : { type: "build", building: "settlement", position: legalSettlements(game, actor, true)[0] };
 }
 function fixture(scenario: Scenario): Fixture {
-  let game = createCatanGame(seats, 12, () => 0);
+  let game = acceptMap(createCatanGame(seats, 12, () => 0), applyCatanAction);
   if (scenario === "road" || scenario === "remote") game = applyCatanAction(game, viewer, setupAction(game));
   if (scenario === "remote") game = applyCatanAction(game, viewer, setupAction(game));
   if (scenario === "city") {

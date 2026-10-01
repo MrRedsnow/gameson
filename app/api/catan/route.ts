@@ -120,10 +120,14 @@ export async function POST(request: Request) {
       } else if (typeof body.discoverable !== "boolean") return fail("Keine Einstellung übergeben.");
     } else if (action === "start") {
       if (game) return fail("Diese Partie wurde schon gestartet.");
-      try { lobby.game = JSON.stringify(createCatanGame(members(lobby), lobby.target_points)); } catch (e) { return fail((e as Error).message); }
+      try { lobby.game = JSON.stringify(createCatanGame(members(lobby), lobby.target_points, randomIndex, lobby.host_player_id)); } catch (e) { return fail((e as Error).message); }
     } else if (action === "move") {
       if (!game) return fail("Startet zuerst eine Partie.");
-      try { lobby.game = JSON.stringify(applyCatanAction(game, me.id, body.move as CatanAction)); } catch (e) { return fail(e instanceof Error ? e.message : "Ungültiger Spielzug."); }
+      try {
+        const next = applyCatanAction(game, me.id, body.move as CatanAction);
+        if (next.sequence === game.sequence) return reply({ state: view(lobby, me) });
+        lobby.game = JSON.stringify(next);
+      } catch (e) { return fail(e instanceof Error ? e.message : "Ungültiger Spielzug."); }
     } else if (action === "reset") {
       if (!game || game.phase !== "finished") return fail("Die laufende Partie muss zuerst beendet werden.");
       lobby.game = null;

@@ -1,3 +1,4 @@
+import { acceptMap } from "./catan-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -31,8 +32,22 @@ const { CatanGameUI, createCatanGame, applyCatanAction, catanView, legalSettleme
 const seats = [{ id: "a", name: "Robin" }, { id: "b", name: "Mara" }, { id: "c", name: "Lea" }];
 const sequence = (values) => { let index = 0; return (length) => values[index++ % values.length] % length; };
 
+test("fullscreen map voting keeps ballots reachable above the map and blocks game menus", () => {
+  const game = createCatanGame(seats, 12, sequence([0]));
+  const html = ui(game, "a");
+  assert.match(html, /is-map-vote is-board-expanded/);
+  assert.equal((html.match(/class="catan-board-panel"/g) ?? []).length, 1);
+  const status = html.slice(html.indexOf('class="catan-status '), html.indexOf('class="catan-tab-panel'));
+  assert.match(status, /Karte akzeptieren/); assert.match(status, /Karte ablehnen/);
+  assert.match(html, /class="catan-map-vote"/); assert.doesNotMatch(html, /Starthilfe zur Gründung|Siedlung auf Kreuzung/);
+  for (const name of ["karten", "bauen", "handel"]) {
+    const trigger = (html.match(/<button\b[^>]*>/g) ?? []).find((tag) => attribute(tag, "data-catan-fullscreen-trigger") === name);
+    assert.match(trigger, /disabled=""/);
+  }
+});
+
 function foundedGame() {
-  let game = createCatanGame(seats, 10, sequence([0]));
+  let game = acceptedCatanGame(seats, 10, sequence([0]));
   for (let step = 0; step < 6; step++) {
     const actor = game.players[game.currentPlayer].id;
     game = applyCatanAction(game, actor, { type: "build", building: "settlement", position: legalSettlements(game, actor, true)[0] }, sequence([0]));
@@ -146,3 +161,5 @@ test("nach der eigenen Abgabe bleibt die Räuberaufgabe auf der aktiven Insel oh
   assert.match(html, /aria-label="Räuber auf Feld \d+[^>]*role="button"|role="button"[^>]*aria-label="Räuber auf Feld \d+/);
   assert.match(html, />Räuber versetzen<\/button>/);
 });
+
+function acceptedCatanGame(...args) { return acceptMap(createCatanGame(...args), applyCatanAction); }

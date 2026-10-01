@@ -82,11 +82,22 @@ test("four authenticated clients receive confirmed builds immediately with priva
   hello.forEach((message, i) => { assert.equal(message.state.me.id, seats[i].state.me.id); assert.equal(message.state.members.length, 4); });
   const started = await command(a.session, "start"); assert.equal(started.status, 200);
   const initial = await Promise.all(live.map((client) => client.next((message) => message.type === "state" && message.state.lobby.revision === started.body.state.lobby.revision)));
+  assert.equal(initial[0].state.game.phase, "map_vote");
+  let ready = started.body.state;
+  for (let i = 0; i < seats.length; i++) {
+    const voted = await command(seats[i].session, "move", { move: { type: "map_vote", mapId: ready.game.mapVote.id, accept: true } });
+    assert.equal(voted.status, 200); ready = voted.body.state;
+    const ballots = await Promise.all(live.map((client) => client.next((message) => message.type === "state" && message.state.lobby.revision === ready.lobby.revision)));
+    for (const { state } of ballots) {
+      assert.equal(state.game.phase, i === seats.length - 1 ? "setup_settlement" : "map_vote");
+      if (state.game.mapVote) assert.equal(Object.keys(state.game.mapVote.votes).length, i + 1);
+    }
+  }
   const actorId = started.body.state.game.players[started.body.state.game.currentPlayer].id;
   const actor = seats.find((seat) => seat.state.me.id === actorId);
   const position = legalSettlements(started.body.state.game, actorId, true)[0];
   const begin = performance.now();
-  const built = await post({ action: "move", lobbyId: a.session.lobbyId, revision: started.body.state.lobby.revision, move: { type: "build", building: "settlement", position } }, actor.session);
+  const built = await post({ action: "move", lobbyId: a.session.lobbyId, revision: ready.lobby.revision, move: { type: "build", building: "settlement", position } }, actor.session);
   assert.equal(built.status, 200);
   const updates = await Promise.all(live.map((client) => client.next((message) => message.type === "state" && message.state.lobby.revision === built.body.state.lobby.revision)));
   assert.ok(performance.now() - begin < 2000, "The push arrives before the old 2.5-second polling interval.");

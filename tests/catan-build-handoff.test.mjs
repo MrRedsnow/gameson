@@ -1,3 +1,4 @@
+import { acceptMap } from "./catan-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -83,7 +84,7 @@ test("Verspätete Callback-Aufrufe verändern keinen neuen Übergang", () => {
 });
 
 test("Bestätigte Aufbaustraße bleibt im bisherigen privaten Blick, bis weitergegeben wird", () => {
-  let game = createCatanGame(["Anna", "Ben", "Clara"].map((name, i) => ({ id: `p${i}`, name })), 12, () => 0);
+  let game = acceptedCatanGame(["Anna", "Ben", "Clara"].map((name, i) => ({ id: `p${i}`, name })), 12, () => 0);
   const outgoing = localActorId(game);
   game = applyCatanAction(game, outgoing, { type: "build", building: "settlement", position: legalSettlements(game, outgoing, true)[0] }, () => 0);
   const position = legalRoads(game, outgoing, game.setupVertex)[0];
@@ -104,3 +105,5 @@ test("Bestätigte Aufbaustraße bleibt im bisherigen privaten Blick, bis weiterg
   assert.equal(buildHandoffViewer(next, { ...hold, gameId: "different" }), incoming);
   assert.equal(buildHandoffViewer(next, { ...hold, sequence: hold.sequence - 1 }), incoming);
 });
+
+function acceptedCatanGame(...args) { return acceptMap(createCatanGame(...args), applyCatanAction); }
