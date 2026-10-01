@@ -133,9 +133,17 @@
 .catan-player-bonuses .catan-award { color:#f4d390; }
 .catan-board-panel { position:relative; flex:1; min-height:0; display:flex; border:1px solid #3e5964; border-radius:16px; background:#132a34; overflow:hidden; }
 .catan-board { display:block; user-select:none; }
-.catan-map-target { cursor:pointer; }
-@media(hover:hover) { .catan-map-target:hover { filter:brightness(1.12); } }
-.catan-map-target:focus-visible { outline:none !important; filter:drop-shadow(0 0 5px white); }
+.catan-map-target { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+/* SVG groups include the unclipped atlas bounds. Focus belongs to the actual game shape. */
+.catan-theme .catan-map-target:focus, .catan-map-target:focus-visible { outline:none !important; filter:none; }
+.catan-target-focus { opacity:0; }
+@media(hover:hover) {
+  .catan-map-target:hover>.catan-hex-border { stroke:#ffe7a180; }
+  .catan-map-target:hover>.catan-road-target { stroke:#ffe7a1; }
+  .catan-map-target:hover>.catan-vertex-target { stroke:#fff5c3; }
+}
+.catan-map-target:focus-visible>.catan-hex-border { stroke:#fff5c3; stroke-dasharray:5 4; }
+.catan-map-target:focus-visible>.catan-target-focus { opacity:1; stroke-dasharray:5 4; }
 .catan-rule-legend { display:flex; flex-wrap:wrap; gap:10px 14px; margin:16px 0; }
 .catan-rule-legend span { display:flex; align-items:center; gap:5px; font-size:.8125rem; color:#c2d0d3; }
 .catan-rule-legend svg { width:16px; height:16px; }
@@ -397,7 +405,11 @@
 .catan-phase-help p { margin:0; }
 .catan-phase-help button { position:absolute; right:2px; top:2px; width:36px; height:40px; display:grid; place-items:center; background:transparent; border:0; color:inherit; cursor:pointer; }
 .catan-phase-help button svg { width:18px; }
-.catan-activity-bar { display:flex; flex:0 0 auto; align-items:center; gap:4px; border:1px solid #546147; border-radius:9px; background:#263d35; }
+.catan-activity-bar { position:relative; display:flex; flex:0 0 auto; align-items:center; gap:4px; border:1px solid #546147; border-radius:9px; background:#263d35; }
+/* Clip only the countdown, so the notice keeps its focus rings and landscape scrolling. */
+.catan-activity-progress { position:absolute; left:0; bottom:0; width:100%; height:3px; background:#a0e9b6; pointer-events:none; transform:scaleX(1); transform-origin:left center; clip-path:inset(0 2px 0 round 0 0 6px 6px / 0 0 3px 3px); animation:catan-activity-countdown 4s linear both; }
+@keyframes catan-activity-countdown { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+@media(prefers-reduced-motion:reduce) { .catan-activity-progress { animation:none; transform:scaleX(1); } }
 .catan-activity-bar>button:first-child { display:flex; align-items:center; gap:7px; flex:1; min-width:0; min-height:40px; padding:4px 10px; border:0; background:none; color:#e4ebd9; text-align:left; font-size:.875rem; }
 .catan-activity-bar .catan-activity-copy { display:grid; gap:2px; min-width:0; overflow-wrap:anywhere; line-height:1.3; }
 .catan-activity-copy strong { font-size:.75rem; color:#eed59b; }
@@ -423,15 +435,16 @@
 .catan-number-label.on-grain { fill:#302c24; stroke:#d9c28d; }
 .catan-number-label.on-grain.is-frequent { fill:#823c2b; }
 .catan-theme .catan-map-instruction { font-size:.875rem; line-height:1.3; color:#d5e1e2; }
-.catan-board-panel { flex:1 0 12rem; min-height:12rem; flex-direction:column; border-radius:10px; }
+.catan-board-panel { flex:1 0 auto; min-height:12rem; flex-direction:column; border-radius:10px; }
+.catan-board-map { position:relative; display:flex; flex-direction:column; flex:1 0 156px; min-width:0; min-height:156px; }
 .catan-board-viewport { position:relative; flex:1 1 0; min-height:0; overflow:hidden; touch-action:none; overscroll-behavior:contain; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:grab; background:#254650 url("/catan/sea-v3.jpg") center / cover; }
 .catan-board-viewport[data-interacting=true], .catan-board-viewport[data-interacting=true] .catan-map-target { cursor:grabbing; }
 .catan-board { width:100%; height:100%; overflow:hidden; background:transparent; }
-.catan-board-controls { flex:0 0 auto; display:flex; align-items:stretch; justify-content:center; gap:5px; padding:4px; border-top:1px solid #456272; background:#132a34; }
-.catan-theme .catan-board-controls [data-slot=button] { min-height:44px; padding:5px; border-radius:8px; }
+.catan-board-controls { position:absolute; bottom:8px; left:8px; z-index:3; display:flex; flex-direction:column; gap:4px; padding:0; border:0; border-radius:10px; background:transparent; }
+.catan-theme .catan-board-controls [data-slot=button] { width:44px; height:44px; min-height:44px; padding:5px; border-radius:8px; background:#132a34f2; box-shadow:0 3px 12px #0004; }
 .catan-theme .catan-board-controls [data-slot=button][data-size=icon] { min-width:44px; }
 .catan-theme .catan-map-overview { display:flex; flex:0 0 44px; min-width:44px; }
-.catan-map-overview>svg { width:17px; flex-shrink:0; }
+.catan-theme .catan-board-controls [data-slot=button]>svg { width:14px; height:14px; flex-shrink:0; }
 .catan-map-overview>span { min-width:0; font-size:.875rem; display:grid; line-height:1.2; gap:3px; }
 .catan-map-overview small { font-size:.6875rem; font-weight:400; color:#b7cad1; white-space:normal; }
 .catan-board-selection { display:flex; align-items:center; justify-content:space-between; flex:0 0 auto; border-top:1px solid #3e5964; background:#132a34; padding:0 4px; }
@@ -610,17 +623,18 @@
   .catan-development-card { padding:10px; gap:6px; }
   .catan-development-card>svg { display:none; }
   .catan-screen-body>.catan-rule-page { line-height:1.4; }
-  .catan-island-screen .catan-board-panel { min-height:8rem; flex-basis:8rem; }
   .catan-island-tools [data-slot=button] { min-height:36px; height:36px; width:36px; padding:6px; }
   .catan-island-screen .catan-screen-heading { min-height:36px; }
   .catan-island-screen .catan-screen-body { min-height:0; }
   .catan-island-context { flex:0 0 auto; }
   .catan-activity-bar { overflow:auto; max-height:100%; }
+  /* Transient notices must stay above a hand enlarged by zoom or larger text. */
+  .catan-play:has(>.catan-activity-bar) { grid-template-rows:auto auto auto minmax(0,1fr); }
+  .catan-play>.catan-activity-bar { grid-column:1/3; grid-row:1; max-height:none; overflow:visible; }
+  .catan-play:has(>.catan-activity-bar)>.catan-status { grid-row:2; }
+  .catan-play:has(>.catan-activity-bar)>.catan-hand-bar { grid-row:3; }
+  .catan-play:has(>.catan-activity-bar)>.catan-tab-panel { grid-row:2/-1; }
 }
-.catan-play.is-board-expanded .catan-island-screen { padding:0; background:transparent; }
-.catan-play.is-board-expanded .catan-board-panel { border:0; border-radius:0; }
-.catan-play.is-board-expanded .catan-screen-heading { padding-inline:4px; }
-
 /* Resource receipts keep a reserved badge row, so feedback never moves the hand. */
 .catan-theme .catan-hand-strip { grid-template-columns:repeat(auto-fit,minmax(min(100%,2.65rem),1fr)); }
 .catan-hand-strip>.catan-hand-resource,
@@ -647,4 +661,55 @@
   .catan-hand-strip .catan-hand-gain,
   .catan-hand-strip>.catan-hand-resource,
   .catan-hand-strip>.catan-hand-total { transition:none; }
+}
+
+/* The same mounted board fills the viewport, including browsers without native fullscreen. */
+body:has(.catan-play.is-board-expanded) { overflow:hidden; }
+.catan-play.is-board-expanded {
+  position:fixed; inset:0; z-index:40; display:flex; flex-direction:column;
+  width:100%; height:100dvh; min-height:0; gap:4px; overflow:hidden; background:#13232b;
+  padding:max(6px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
+}
+.catan-play.is-board-expanded>.catan-status { flex:0 0 auto; flex-wrap:wrap; min-height:44px; padding:0 6px; }
+.catan-play.is-board-expanded .catan-status-main { flex:1 1 6rem; min-height:44px; }
+.catan-status-actions { display:flex; flex:0 0 auto; gap:4px; }
+.catan-theme .catan-status-actions [data-slot=button] { min-height:40px; padding:5px 10px; font-size:.8125rem; }
+.catan-play.is-board-expanded>.catan-hand-bar { flex:0 0 auto; margin:0; }
+.catan-play.is-board-expanded .catan-hand-strip { grid-template-columns:auto repeat(5,minmax(0,1fr)); }
+.catan-play.is-board-expanded>.catan-tab-insel { position:relative; flex:1 1 0; min-height:0; overflow:hidden; }
+.catan-play.is-board-expanded .catan-island-screen { position:relative; display:block; height:100%; min-height:0; padding:0; background:transparent; }
+.catan-play.is-board-expanded .catan-island-screen>.catan-screen-body { height:100%; min-height:0; gap:0; overflow:hidden; }
+.catan-play.is-board-expanded .catan-island-screen .catan-board-panel { flex:1 1 0; height:100%; min-height:0; border:0; border-radius:10px; }
+.catan-play.is-board-expanded .catan-board-map { flex:1 1 0; min-height:0; }
+.catan-play.is-board-expanded .catan-island-screen>.catan-screen-heading { position:absolute; top:8px; right:8px; z-index:3; min-height:0; padding:0; }
+.catan-play.is-board-expanded .catan-screen-heading>div:not(.catan-island-tools) { display:none; }
+.catan-play.is-board-expanded .catan-island-tools { padding:3px; border:1px solid #456272; border-radius:12px; background:#132a34ed; }
+.catan-play.is-board-expanded .catan-island-tools [data-slot=button] { width:44px; height:44px; min-height:44px; }
+.catan-play.is-board-expanded .catan-island-context { position:absolute; top:8px; left:8px; z-index:2; width:max-content; max-width:min(420px,calc(100% - 160px)); max-height:calc(100% - 80px); overflow:auto; pointer-events:none; }
+.catan-play.is-board-expanded .catan-island-context>* { pointer-events:auto; }
+.catan-play.is-board-expanded .catan-island-context>p, .catan-play.is-board-expanded .catan-victim-choices { padding:8px 10px; border:1px solid #456272; border-radius:10px; background:#132a34ed; font-size:.8125rem; line-height:1.35; }
+.catan-placement-detail>summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:32px; padding:0; cursor:pointer; font-size:.8125rem; font-weight:650; list-style:none; }
+.catan-placement-detail>summary::after { content:none; display:none; }
+.catan-placement-detail>summary::-webkit-details-marker { display:none; }
+.catan-placement-detail>summary>svg { width:16px; height:16px; flex-shrink:0; }
+.catan-placement-detail[open]>summary { margin-bottom:8px; }
+.catan-placement-detail[open]>summary>svg { transform:rotate(180deg); }
+.catan-play.is-board-expanded .catan-island-screen>.catan-screen-actions { position:absolute; bottom:12px; left:50%; z-index:3; transform:translateX(-50%); width:min(360px,calc(100% - 128px)); flex-wrap:nowrap; gap:6px; padding:6px; border:1px solid #456272; border-radius:14px; background:#132a34ed; box-shadow:0 4px 18px #0005; }
+.catan-theme .catan-floating-build { position:absolute; right:8px; bottom:8px; z-index:3; width:48px; height:48px; border-color:#d6b777; background:#efd18a; color:#1c2b31; box-shadow:0 4px 18px #0005; }
+.catan-floating-build>svg { width:23px; height:23px; }
+.catan-play.is-board-expanded>.catan-nav { display:none; }
+.catan-play.is-board-expanded>.catan-activity-bar { position:absolute; bottom:76px; left:50%; z-index:4; transform:translateX(-50%); width:min(580px,calc(100% - 128px)); max-height:35dvh; overflow:auto; }
+.catan-build-popover { z-index:110; width:min(360px,calc(100vw - 24px)); min-height:0; max-height:min(70dvh,var(--radix-popover-content-available-height,70dvh)); padding:12px; border:1px solid #c1a167; border-radius:16px; background:#203b49; box-shadow:0 12px 40px #0008; overflow:auto; overscroll-behavior:contain; }
+.catan-build-popover>header { position:sticky; top:-12px; z-index:1; display:flex; align-items:center; gap:8px; margin:-12px -12px 6px; padding:8px 12px; background:#203b49; }
+.catan-build-popover>header h2 { flex:1; font-size:1rem; }
+.catan-build-popover .catan-build-choice:last-child { border-bottom:0; }
+.catan-build-popover .catan-build-choice:hover { background:#ffffff08; }
+.catan-build-popover .catan-build-choice>span { grid-template-columns:minmax(0,1fr); }
+.catan-build-popover .catan-build-choice .catan-cost { justify-content:flex-start; max-width:none; }
+.catan-play.is-board-expanded .catan-board-field-info { top:8px; max-width:calc(100% - 120px); }
+@media(max-height:520px) {
+  .catan-play.is-board-expanded .catan-hand-strip>.catan-hand-resource,
+  .catan-play.is-board-expanded .catan-hand-strip>.catan-hand-total { min-height:44px; padding-top:calc(.875rem + 3px); }
+  .catan-play.is-board-expanded .catan-hand-strip>.catan-hand-resource { grid-template-rows:minmax(20px,auto); }
+  .catan-play.is-board-expanded .catan-hand-strip small { display:none; }
 }

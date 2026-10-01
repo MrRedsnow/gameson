@@ -107,6 +107,18 @@ test("Bauplätze bleiben konkrete Tastaturziele und eine Auswahl verändert den 
   assert.match(busy, /role="button"[^>]*tabindex="-1"[^>]*aria-label="Siedlung auf Kreuzung \d+ bauen"[^>]*aria-disabled="true"/);
 });
 
+test("die maximierte Karte behält Bauziele und Kamerasteuerung ohne die zusätzliche Platzliste", () => {
+  const game = createCatanGame(seats, 12, sequence([0])); const viewer = game.players[0].id;
+  const choices = legalSettlements(game, viewer, true);
+  const props = { game: catanView(game, viewer), mode: "settlement", choices, selected: choices[0], onSelect() {}, disabled: false };
+  const normal = render(CatanBoard, props); const expanded = render(CatanBoard, { ...props, expanded: true });
+  assert.match(normal, /Nächster Bauplatz oder Räuberplatz/);
+  assert.doesNotMatch(expanded, /Nächster Bauplatz oder Räuberplatz|catan-board-selection/);
+  for (const label of ["Insel verkleinern", "Ganze Insel anzeigen und zentrieren", "Insel vergrößern"]) labelledButton(expanded, label);
+  assert.match(expanded, new RegExp(`aria-label="Siedlung auf Kreuzung ${choices[0] + 1} bauen"[^>]*aria-pressed="true"`));
+  assert.equal((expanded.match(/aria-label="Siedlung auf Kreuzung/g) ?? []).length, choices.length);
+});
+
 test("öffnet den Bereich, dessen Aufgabe gerade ansteht", () => {
   const setup = createCatanGame(seats, 12, sequence([0]));
   assert.equal(suggestedTab(catanView(setup, setup.players[0].id)), "insel");

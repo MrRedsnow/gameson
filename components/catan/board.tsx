@@ -12,9 +12,9 @@ import { useBoardCamera } from "./use-board-camera";
 export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
 
-export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect }: {
+export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, expanded = false }: {
   game: CatanView; mode: BoardMode; choices: number[]; selected: number | null;
-  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void;
+  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean;
 }) {
   const artId = `catan-${useId().replace(/:/g, "")}`;
   const [size, setSize] = useState({ width: 360, height: 300 });
@@ -26,7 +26,8 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
     return `M${a.x},${a.y}L${b.x},${b.y}`;
   }).join(" ");
-  const selectedHex = mode === "robber" && selected !== null && choices.includes(selected) ? board.hexes[selected] : null;
+  const selectedHex = mode === "robber" && selected !== null && choices.includes(selected) ? board.hexes[selected]
+    : !mode && inspect !== null ? board.hexes[inspect] : null;
   const bounds = [...board.vertices.map((v) => ({ x: v.x, y: v.y })), ...board.harbors.flatMap((h) => {
     const edge = board.edges[h.edge]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
     const x = (a.x + b.x) / 2 * 1.29; const y = (a.y + b.y) / 2 * 1.29;
@@ -69,7 +70,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!disabled) { if (run) run(); else activate(id); } } },
   });
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
-    <div ref={viewportRef} className="catan-board-viewport" data-interacting={interactionActive} {...viewportProps}>
+    <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" data-interacting={interactionActive} {...viewportProps}>
       <svg className="catan-board" viewBox={viewBox} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom}>
         <title>Catan – Spielbrett</title>
         <defs>
@@ -88,7 +89,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           return <g key={hex.id} className={enabled || inspectable ? "catan-map-target" : undefined} {...(enabled ? interactive(hex.id, `Räuber auf Feld ${hex.id + 1}: ${name}${hex.number ? `, Zahl ${hex.number}` : ""}`) : inspectable ? interactive(hex.id, `Feld ansehen: ${name}, ${hex.number ?? "Wüste"}, Feld ${hex.id + 1}`, regionAction) : {})}>
             <title>{`Feld ${hex.id + 1}: ${name}${hex.number ? ` (${hex.number})` : ""}${hex.id === game.robberHex ? " – Räuber blockiert den Ertrag" : ""}`}</title>
             <g clipPath={`url(#${artId}-hex-${hex.id})`}><Landscape id={artId} resource={hex.resource} x={hex.x} y={hex.y} mirrored={hex.id % 2 === 1} /></g>
-            <polygon className="catan-hex-border" points={hex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} fill="transparent" stroke="none" />
+            <polygon className="catan-hex-border" points={hex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} fill="transparent" stroke="none" strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             {hex.number && <text className={`catan-number-label${[6, 8].includes(hex.number) ? " is-frequent" : ""}${hex.resource === "grain" ? " on-grain" : ""}`} x={hex.x} y={hex.y + 7} textAnchor="middle" aria-hidden="true">{hex.number}</text>}
             {hex.id === game.robberHex && <g aria-label="Räuber"><circle cx={hex.x + 30} cy={hex.y - 27} r="13" fill="#172129" stroke="#fff2d7" strokeWidth="2" /><text x={hex.x + 30} y={hex.y - 21} textAnchor="middle" fill="#fff2d7" fontSize="17" fontWeight="800">R</text></g>}
             {enabled && !picked && <circle cx={hex.x} cy={hex.y} r="46" fill="none" stroke="#fff5c3" strokeDasharray="4 6" strokeWidth="2" />}
@@ -129,13 +130,17 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           const edge = board.edges[id]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
           return <g key={id} className="catan-map-target" {...interactive(id, `Straße auf Weg ${id + 1} bauen`)}>
             <circle cx={(a.x + b.x) / 2} cy={(a.y + b.y) / 2} r={Math.max(22, hitRadius)} fill="transparent" />
-            <line x1={a.x * .8 + b.x * .2} y1={a.y * .8 + b.y * .2} x2={b.x * .8 + a.x * .2} y2={b.y * .8 + a.y * .2} stroke={selected === id ? "#fff5c3" : "#ffe3a4a0"} strokeWidth="6" strokeLinecap="round" />
+            <line className="catan-target-focus" x1={a.x * .8 + b.x * .2} y1={a.y * .8 + b.y * .2} x2={b.x * .8 + a.x * .2} y2={b.y * .8 + a.y * .2} fill="none" stroke="#fff5c3" strokeWidth={(selected === id ? 9 : 6) * scale + 6} strokeLinecap="round" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+            <line className="catan-road-target" x1={a.x * .8 + b.x * .2} y1={a.y * .8 + b.y * .2} x2={b.x * .8 + a.x * .2} y2={b.y * .8 + a.y * .2} stroke={selected === id ? "#ffe7a1" : "#ffe3a4a0"} strokeWidth={selected === id ? 9 : 6} strokeLinecap="round" />
           </g>;
         })}
         {(mode === "settlement" || mode === "city") && choices.map((id) => {
           const v = board.vertices[id];
+          const radius = camera.zoom >= 2 || selected === id ? 18 : 7;
           return <g key={id} className="catan-map-target" {...interactive(id, `${mode === "city" ? "Stadt" : "Siedlung"} auf Kreuzung ${id + 1} bauen`)}>
-            <circle cx={v.x} cy={v.y} r={Math.max(22, hitRadius)} fill="transparent" /><circle cx={v.x} cy={v.y} r={camera.zoom >= 2 || selected === id ? 18 : 7} fill={selected === id ? "#ffe7a1" : "#162b34"} stroke="#ffe7a1" strokeWidth="3" />
+            <circle cx={v.x} cy={v.y} r={Math.max(22, hitRadius)} fill="transparent" />
+            <circle className="catan-target-focus" cx={v.x} cy={v.y} r={radius + 5} fill="none" stroke="#fff5c3" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+            <circle className="catan-vertex-target" cx={v.x} cy={v.y} r={radius} fill={selected === id ? "#ffe7a1" : "#162b34"} stroke="#ffe7a1" strokeWidth="3" />
             {(camera.zoom >= 2 || selected === id) && <text x={v.x} y={v.y + 5} fontSize="18" textAnchor="middle" fill={selected === id ? "#162b34" : "#ffe7a1"}>{selected === id ? "✓" : "+"}</text>}
           </g>;
         })}
@@ -147,8 +152,8 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
       <Button type="button" variant="outline" size="icon" className="catan-map-overview" aria-label="Ganze Insel anzeigen und zentrieren" title="Ganze Insel zentrieren" onClick={() => { reset(); setInspect(null); }}><LocateFixed /></Button>
       <Button type="button" variant="outline" size="icon" aria-label="Insel vergrößern" title="Vergrößern" disabled={camera.zoom >= MAX_BOARD_ZOOM} onClick={() => zoomBy(1.35)}><Plus /></Button>
       <span className="sr-only" id={`${artId}-navigation-hint`}>Insel verschieben und mit zwei Fingern zoomen.</span>
-    </div>
-    {mode && <div className="catan-board-selection">
+    </div></div>
+    {mode && !expanded && <div className="catan-board-selection">
       <Button type="button" variant="ghost" size="icon" aria-label="Vorheriger Bauplatz oder Räuberplatz" disabled={disabled || index <= 0} onClick={() => activate(choices[index - 1])}><ChevronLeft /></Button>
       <span>{index >= 0 ? `Platz ${index + 1} / ${choices.length}` : `${choices.length} mögliche Plätze`}</span>
       <Button type="button" variant="ghost" size="icon" aria-label="Nächster Bauplatz oder Räuberplatz" disabled={disabled || !choices.length || index >= choices.length - 1} onClick={() => activate(choices[index + 1])}><ChevronRight /></Button>
