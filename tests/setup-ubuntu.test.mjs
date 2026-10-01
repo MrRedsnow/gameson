@@ -49,7 +49,8 @@ test("migriert aus einem gesperrten Arbeitsverzeichnis und erhält vorhandene Lo
   for (const path of [join(app, "dist/server"), join(app, "node_modules/.bin"), join(app, "drizzle"), join(data, "tmp")]) {
     await mkdir(path, { recursive: true });
   }
-  await symlink(fileURLToPath(new URL("../node_modules/.bin/wrangler", import.meta.url)), join(app, "node_modules/.bin/wrangler"));
+  // Use the actual CLI: pnpm's .bin wrapper resolves packages relative to $0.
+  await symlink(await realpath(fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url))), join(app, "node_modules/.bin/wrangler"));
   await copyFile(new URL("../drizzle/0007_catan.sql", import.meta.url), join(app, "drizzle/0007_catan.sql"));
   await writeFile(join(app, "dist/server/wrangler.json"), JSON.stringify({
     name: "gameson-migration-test",

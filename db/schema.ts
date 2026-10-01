@@ -44,6 +44,13 @@ export const slfLobbies = sqliteTable("slf_lobbies", {
   revision: integer("revision").notNull().default(1), createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
 }, (t) => [uniqueIndex("idx_slf_lobbies_name").on(t.normalizedName), index("idx_slf_lobbies_nearby").on(t.networkHash, t.updatedAt)]);
 
+export const hiveLobbies = sqliteTable("hive_lobbies", {
+  id: text("id").primaryKey(), name: text("name").notNull(), normalizedName: text("normalized_name").notNull(),
+  hostPlayerId: text("host_player_id").notNull(), members: text("members").notNull().default("[]"), game: text("game"),
+  discoverable: integer("discoverable", { mode: "boolean" }).notNull().default(true), networkHash: text("network_hash").notNull(),
+  revision: integer("revision").notNull().default(1), createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+}, (t) => [uniqueIndex("idx_hive_lobbies_name").on(t.normalizedName), index("idx_hive_lobbies_nearby").on(t.networkHash, t.updatedAt)]);
+
 // A whole Catan turn is saved with a revision compare-and-swap. Keeping seats
 // and game in the same row also makes concurrent joins obey the four-seat cap.
 export const catanLobbies = sqliteTable("catan_lobbies", {

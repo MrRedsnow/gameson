@@ -12,7 +12,11 @@ const cssDir = resolve(root, "dist/client/_next/static/css");
 const server = createServer(async (req, res) => {
   try {
     const path = new URL(req.url, "http://127.0.0.1").pathname;
-    if (path === "/app.js" || path === "/catan.css" || path === "/base.css") {
+    if (["/catan/terrain-atlas-v3.jpg", "/catan/sea-v3.jpg", "/catan/buildings-v3.png", "/catan/harbor-atlas-v3.png"].includes(path)) {
+      res.setHeader("content-type", path.endsWith(".png") ? "image/png" : "image/jpeg");
+      res.setHeader("cache-control", "no-store");
+      res.end(await readFile(resolve(root, "public", path.slice(1))));
+    } else if (path === "/app.js" || path === "/catan.css" || path === "/base.css") {
       res.setHeader("content-type", path.endsWith(".js") ? "text/javascript" : "text/css");
       res.setHeader("cache-control", "no-store");
       const globalCss = path === "/base.css" ? (await readdir(cssDir)).find((f) => f.startsWith("index.")) : undefined;

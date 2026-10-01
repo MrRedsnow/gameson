@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ArrowRightLeft, Bell, BookOpen, Castle, ChevronDown, CircleHelp, Dices, Flag, Hammer, Hand, LockKeyhole, Map as MapIcon, Maximize2, Minimize2, Shield, Users, WalletCards, WifiOff, X, type LucideIcon } from "lucide-react";
+import { ArrowRightLeft, Bell, BookOpen, Castle, ChevronDown, CircleHelp, Dices, Flag, Hammer, Hand, LockKeyhole, Map as MapIcon, Maximize2, Minimize2, Shield, Users, Volume2, VolumeX, WalletCards, WifiOff, X, type LucideIcon } from "lucide-react";
 import { Popover, Tabs as TabsPrimitive } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { CatanBoard, ResourceIcon, boardAction, type BoardMode } from "./board";
 import { CatanDice } from "./dice";
 import { useCatanActivity } from "./activity";
+import { useCatanSounds } from "./sound";
 import { CardsPanel } from "./cards-panel";
 import { OverviewPanel, type OverviewPage } from "./overview-panel";
 import { Screen, type Send } from "./play-primitives";
@@ -107,6 +108,7 @@ export function CatanGameUI({ game, send, busy, local, offline = false, onHide, 
   const selectTab = (next: CatanTab) => { if (next !== "insel") setLargeIsland(false); setChoice({ key, tab: next }); };
   const showOverview = (page: OverviewPage) => { setOverviewPage(page); selectTab("uebersicht"); };
   const activity = useCatanActivity(game, afterNotificationSequence, onActivityRead);
+  const sounds = useCatanSounds(game);
   const guidance = turnGuidance(game); const count = resourceCount(me.resources);
   const finished = game.phase === "finished"; const needsDiscard = game.phase === "discard" && game.discards[me.id] > 0;
   const expanded = largeIsland && tab === "insel";
@@ -159,13 +161,13 @@ export function CatanGameUI({ game, send, busy, local, offline = false, onHide, 
     {!expanded && notice}
 
     <TabsPrimitive.Content value="insel" forceMount className="catan-tab-panel catan-tab-insel">
-      <Screen title={islandTitle} className="catan-island-screen" actions={islandActions} headingAction={<div className="catan-island-tools">{setup && <Button variant="ghost" size="icon" aria-label="Starthilfe zur Gründung" aria-expanded={guideOpen} onClick={() => guideOpen ? closeGuide() : setGuideRequested(true)}><CircleHelp /></Button>}<Button variant="outline" size="icon" aria-label={expanded ? "Große Insel schließen" : "Große Insel öffnen"} aria-pressed={expanded} title={expanded ? "Zurück zur Spielansicht (Esc)" : "Insel vergrößern"} onClick={() => setLargeIsland(!expanded)}>{expanded ? <Minimize2 /> : <Maximize2 />}</Button></div>}>
-        <CatanBoard game={game} mode={mode} choices={choices} selected={selected} onSelect={(id) => { closeGuide(); setSelection({ mode, id, phase: game.phase, turn: game.turn }); }} disabled={busy} expanded={expanded} />
+      <Screen title={islandTitle} className="catan-island-screen" actions={islandActions} headingAction={<div className="catan-island-tools">{setup && <Button variant="ghost" size="icon" aria-label="Starthilfe zur Gründung" aria-expanded={guideOpen} onClick={() => guideOpen ? closeGuide() : setGuideRequested(true)}><CircleHelp /></Button>}<Button variant="ghost" size="icon" className="catan-sound-toggle" aria-label={sounds.enabled ? "Soundeffekte ausschalten" : "Soundeffekte einschalten"} aria-pressed={sounds.enabled} title="Schaf-Mäh und Holzhacken bei Rohstofferträgen und beim Ansehen eines Feldes" onClick={() => void sounds.toggle()}>{sounds.enabled ? <Volume2 /> : <VolumeX />}</Button><Button variant="outline" size="icon" aria-label={expanded ? "Große Insel schließen" : "Große Insel öffnen"} aria-pressed={expanded} title={expanded ? "Zurück zur Spielansicht (Esc)" : "Insel vergrößern"} onClick={() => setLargeIsland(!expanded)}>{expanded ? <Minimize2 /> : <Maximize2 />}</Button></div>}>
+        <CatanBoard game={game} mode={mode} choices={choices} selected={selected} onSelect={(id) => { closeGuide(); setSelection({ mode, id, phase: game.phase, turn: game.turn }); }} disabled={busy} onInspect={sounds.preview} />
         <div className="catan-island-context">
           {expanded && notice}
           {own && game.phase === "steal" && <div className="catan-victim-choices">{game.victims.map((id) => <Button variant="outline" key={id} disabled={busy} onClick={() => void send({ type: "steal", victimId: id })}>{game.players.find((p) => p.id === id)!.name} bestehlen</Button>)}</div>}
           {game.phase === "discard" && !needsDiscard && <p className="catan-inline-hint">Andere geben Rohstoffe ab. Danach geht es weiter.</p>}
-          {guideOpen ? <SetupGuide onClose={closeGuide} /> : mode && selected === null && <p className="catan-map-instruction">Feld antippen zum Vergrößern oder mit den Pfeilen einen Platz wählen.</p>}
+          {guideOpen ? <SetupGuide onClose={closeGuide} /> : mode && selected === null && <p className="catan-map-instruction">Mit zwei Fingern zoomen und einen markierten Platz antippen. Die Pfeile wählen ebenfalls einen Platz.</p>}
           {mode && selected !== null && <PlacementPreview game={game} mode={mode} selected={selected} />}
           {!canBuild && mode && mode !== "robber" && <p className="catan-inline-hint" role="status">{buildUnavailable(game, mode)}</p>}
         </div>

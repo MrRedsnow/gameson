@@ -18,6 +18,8 @@ test("rendert die Gameson-Spielauswahl", async () => {
   assert.match(html, /IMPOSTER/);
   assert.match(html, /WERWOLF/);
   assert.match(html, /CATAN/);
+  assert.match(html, /HIVE/);
+  assert.match(html, /href="\/hive"/);
   assert.match(html, /href="\/catan"/);
   assert.match(html, /App installieren/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|SkeletonPreview/);
@@ -35,6 +37,11 @@ test("rendert Imposter und Werwolf als eigene Spiele", async () => {
   assert.match(html, /Ein Gerät/);
 });
 
+test("rendert HIVE mit eigener Route und den vorhandenen Spielmodi", async () => {
+  const response = await render("/hive"); assert.equal(response.status, 200);
+  const html = await response.text(); assert.match(html, /HIVE/); assert.match(html, /HIVE wird geladen/);
+});
+
 test("liefert ein installierbares deutsches PWA-Manifest", async () => {
   const manifest = JSON.parse(await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"));
   assert.equal(manifest.name, "Gameson – Spieleabend. Sofort.");
@@ -43,7 +50,7 @@ test("liefert ein installierbares deutsches PWA-Manifest", async () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "/");
   assert.deepEqual(manifest.icons.map((icon) => icon.sizes), ["192x192", "512x512"]);
-  assert.deepEqual(manifest.shortcuts.map((shortcut) => shortcut.url), ["/imposter", "/werwolf", "/catan", "/stadt-land-fluss"]);
+  assert.deepEqual(manifest.shortcuts.map((shortcut) => shortcut.url), ["/imposter", "/werwolf", "/catan", "/stadt-land-fluss", "/hive"]);
 });
 
 test("nutzt robuste Spielnavigation und getrennte Offline-Seiten", async () => {

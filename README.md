@@ -1,7 +1,7 @@
 # Gameson
 
-Mobile German party games for multiple phones or one shared device. The app
-currently includes Imposter, Werwolf, Die Siedler von Catan and Stadt Land Fluss, with persistent lobby state in a local
+Mobile German games for multiple phones or one shared device. The app
+currently includes HIVE, Imposter, Werwolf, Die Siedler von Catan and Stadt Land Fluss, with persistent lobby state in a local
 Cloudflare D1-compatible SQLite store.
 
 ## Prerequisites
@@ -16,6 +16,39 @@ npm run dev
 npm run build
 npm test
 ```
+
+### HIVE
+
+Open `/hive` or choose HIVE in Gameson. Exactly two people play online on their
+own devices or locally on one shared device. Online invitations support links,
+QR codes, lobby codes, group names and nearby waiting lobbies. Each move is
+validated on the server and saved with an atomic revision check. Reloading
+restores the session; local games save after every move and work offline after
+the page has been loaded online.
+
+The base game has 22 pieces: queen, beetles, grasshoppers, spiders and ants.
+Rules enforce the fourth-turn queen deadline, placement colors (including
+beetle-controlled stacks), one connected hive, sliding gates at the piece's
+height, exact spider paths and straight grasshopper jumps. Legal destinations
+are highlighted; players confirm before a move is applied. The board supports
+panning, zoom and fitting the whole hive. Both queens' surrounding sides are
+shown. Surrounding both queens at once is a draw; passing requires no legal
+move. Players can resign or agree a draw. Rematches swap colors.
+
+The mobile move dock keeps the reserve and confirmation together below the
+board. A transparent piece and a legal path preview the move; confirmed moves
+animate unless reduced motion is enabled. Selecting blocked pieces explains
+the specific rule, highlights closed gates or numbers the disconnected groups.
+Tapping a beetle stack opens every layer, including covered queens.
+
+Local players can undo the last turn by mutual agreement; the restored state
+is saved as usual. The interactive tutorial at `/hive?tutorial=1` teaches six
+short exercises, from placing the queen to surrounding the opponent. It uses
+separate practice positions and preserves the saved local or online game.
+
+`drizzle/0010_hive.sql` and the runtime schema bootstrap create the table
+idempotently. Existing installations need no manual migration.
+Rules reference: https://www.gen42.com/product/hive/
 
 ### Stadt Land Fluss
 
@@ -50,7 +83,7 @@ the table idempotently, so existing installations need no manual migration.
 
 ### Catan
 
-Open `/catan` or select the third game in Gameson. Supports 3–4 people, an online
+Open `/catan` or choose Catan in Gameson. Supports 3–4 people, an online
 lobby (code, name or invitation link) and pass-and-play on one device. The victory
 target is selectable from 8 to 15, default 12; choose 10 for the original target.
 The base game includes randomized terrain with nonadjacent red number tokens,
@@ -78,6 +111,18 @@ probabilities, robber blocks and ports. The build menu explains missing resource
 pieces and legal positions. Rolling keeps the island visible, with trade offered
 when nothing can be built. A three-step setup guide explains placement, resources
 and number probabilities; it can be skipped and reopened during setup.
+
+Hand-painted terrain textures show forests, sheep pastures, wheat fields, clay hills,
+mountains and desert dunes. Small numbers sit directly on each landscape without
+discs or probability dots; production probabilities remain in placement previews.
+Slender roads connect painted cottages and cities with a taller central building;
+roof colors identify their owners. Painted timber piers and rowing boats mark the harbors, and a painted
+ocean texture fills the whole map area. Material-colored resource pictograms are
+shared by the inventory, card overview, trade, costs and harbor badges.
+Artwork and generation prompts are documented in `assets/catan/README.md`.
+The island's speaker button optionally enables synthesized
+sheep and wood-chopping effects when receiving those resources or inspecting a
+matching field. Sound starts off and works offline.
 
 Bank trades show both resources, the harbor rate and resulting stock together,
 with one explicit confirmation; the selection stays available for repeat trades.

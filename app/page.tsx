@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Hexagon, PencilLine } from "lucide-react";
+import { Bug, Hexagon, PencilLine } from "lucide-react";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -93,6 +93,16 @@ export default function GamesonHome() {
       </section>
 
       <section className="game-library" aria-label="Spiel auswählen">
+        <a className="library-card hive-library-card" href="/hive">
+          <div className="library-card-art hive-library-art" aria-hidden="true"><Hexagon /><Bug /></div>
+          <div className="library-card-copy">
+            <span className="library-eyebrow">Duell &amp; Strategie</span>
+            <h2>HIVE</h2>
+            <p>Baue den Schwarm und umzingele die gegnerische Königin.</p>
+            <div><span>2 Personen</span><span>Online &amp; 1 Gerät</span></div>
+          </div>
+          <strong>Spielen <span>→</span></strong>
+        </a>
         <a className="library-card imposter-library-card" href="/imposter">
           <div className="library-card-art" aria-hidden="true"><i /><i /><b>?</b></div>
           <div className="library-card-copy">

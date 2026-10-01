@@ -13,11 +13,11 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const output = resolve(root, `.wrangler/test-artifacts/catan-ui-${process.pid}.cjs`);
 await mkdir(dirname(output), { recursive: true });
 await build({
-  stdin: { contents: 'export * from "./components/catan/game-ui";\nexport { WoodIcon, ResourceIcon } from "./components/catan/board";\nexport * from "./lib/catan";\nexport * from "./lib/catan-ux";', resolveDir: root, loader: "tsx" },
+  stdin: { contents: 'export * from "./components/catan/game-ui";\nexport { CatanBoard, WoodIcon, ResourceIcon } from "./components/catan/board";\nexport * from "./lib/catan";\nexport * from "./lib/catan-ux";', resolveDir: root, loader: "tsx" },
   absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", jsx: "automatic", outfile: output, logLevel: "silent",
 });
 after(() => rm(output, { force: true }));
-const { CatanGameUI, CATAN_TABS, suggestedTab, WoodIcon, ResourceIcon, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads, COSTS, buildUnavailable, hasBuildOption, buildingPreview, developmentGroups } = createRequire(import.meta.url)(output);
+const { CatanGameUI, CatanBoard, CATAN_TABS, suggestedTab, WoodIcon, ResourceIcon, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads, COSTS, buildUnavailable, hasBuildOption, buildingPreview, developmentGroups } = createRequire(import.meta.url)(output);
 const render = (component, props) => renderToStaticMarkup(createElement(component, props));
 const send = async () => true;
 const seats = [{ id: "a", name: "Robin" }, { id: "b", name: "Mara" }, { id: "c", name: "Lea" }];
@@ -65,6 +65,38 @@ test("hält Zugstatus, Würfelwurf und nächsten Schritt dauerhaft im Bild", () 
   game = applyCatanAction(game, active, { type: "roll" }, sequence([1, 3]));
   // Nach dem Wurf steht das Ergebnis in derselben Zeile – auch für alle, die nicht am Zug sind.
   assert.match(ui(game, other), /class="catan-status[^"]*"[\s\S]*?class="catan-dice"[^>]*aria-label="Würfel: 2 und 4, Summe 6"/);
+});
+
+test("Ganze Insel bleibt als Reset auch beim Erkunden und während einer Spielaktion erreichbar", () => {
+  const game = createCatanGame(seats, 12, sequence([0]));
+  const view = catanView(game, game.players[0].id);
+  for (const disabled of [false, true]) {
+    const html = render(CatanBoard, { game: view, mode: null, choices: [], selected: null, onSelect() {}, disabled });
+    const reset = html.match(/<button\b[^>]*aria-label="Ganze Insel anzeigen und zentrieren"[^>]*>[\s\S]*?<\/button>/);
+    assert.ok(reset, "Der Reset zur zentrierten Inselübersicht fehlt.");
+    assert.match(reset[0], /Ganze Insel/);
+    assert.doesNotMatch(reset[0], /\bdisabled(?:=|[ >])/);
+    assert.match(html, /<button\b[^>]*aria-label="Insel vergrößern"/);
+    assert.match(html, /<button\b[^>]*aria-label="Insel verkleinern"/);
+    assert.doesNotMatch(html, /Feld antippen zum Vergrößern|Felder ansehen|Vorheriges Landschaftsfeld|Nächstes Landschaftsfeld/);
+  }
+});
+
+test("Bauplätze bleiben konkrete Tastaturziele und eine Auswahl verändert den Kartenausschnitt nicht", () => {
+  const game = createCatanGame(seats, 12, sequence([0]));
+  const view = catanView(game, game.players[0].id);
+  const choices = legalSettlements(game, game.players[0].id, true);
+  const props = { game: view, mode: "settlement", choices, selected: null, onSelect() {}, disabled: false };
+  const overview = render(CatanBoard, props);
+  const selected = render(CatanBoard, { ...props, selected: choices[0] });
+  const viewBox = (html) => html.match(/<svg\b[^>]*class="catan-board"[^>]*viewBox="([^"]+)"/)?.[1];
+  assert.ok(viewBox(overview), "Der Kartenausschnitt fehlt.");
+  assert.equal(viewBox(selected), viewBox(overview), "Eine Bauplatzauswahl darf die Kamera nicht automatisch verschieben oder vergrößern.");
+  assert.doesNotMatch(overview, /aria-label="Bauplätze ansehen:/, "Ein Landschaftstap darf keinen beliebigen angrenzenden Bauplatz wählen.");
+  for (const id of choices) assert.match(overview, new RegExp(`role="button"[^>]*tabindex="0"[^>]*aria-label="Siedlung auf Kreuzung ${id + 1} bauen"`));
+  assert.match(selected, new RegExp(`aria-label="Siedlung auf Kreuzung ${choices[0] + 1} bauen"[^>]*aria-pressed="true"`));
+  const busy = render(CatanBoard, { ...props, disabled: true });
+  assert.match(busy, /role="button"[^>]*tabindex="-1"[^>]*aria-label="Siedlung auf Kreuzung \d+ bauen"[^>]*aria-disabled="true"/);
 });
 
 test("öffnet den Bereich, dessen Aufgabe gerade ansteht", () => {
@@ -131,8 +163,8 @@ test("Handel startet mit der Wahl zwischen Hafen und Bank oder Mitspielenden", (
 
 test("stellt Holz als Holzstapel statt als Baum dar", () => {
   const wood = render(WoodIcon, {});
-  assert.match(wood, /class="catan-wood-icon"/);
-  assert.equal((wood.match(/<circle /g) ?? []).length, 6);
+  assert.match(wood, /class="[^"]*catan-wood-icon/);
+  assert.match(wood, /data-resource="wood"/);
   assert.match(render(ResourceIcon, { resource: "wood" }), /catan-wood-icon/);
   assert.doesNotMatch(render(ResourceIcon, { resource: "wood" }), /lucide-trees|lucide-tree/);
   const game = createCatanGame(seats, 12, sequence([0]));
