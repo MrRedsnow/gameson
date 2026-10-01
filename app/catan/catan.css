@@ -437,8 +437,9 @@
 .catan-theme .catan-map-instruction { font-size:.875rem; line-height:1.3; color:#d5e1e2; }
 .catan-board-panel { flex:1 0 auto; min-height:12rem; flex-direction:column; border-radius:10px; }
 .catan-board-map { position:relative; display:flex; flex-direction:column; flex:1 0 156px; min-width:0; min-height:156px; }
-.catan-board-viewport { position:relative; flex:1 1 0; min-height:0; overflow:hidden; touch-action:none; overscroll-behavior:contain; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:grab; background:#254650 url("/catan/sea-v3.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); }
-@media(prefers-reduced-motion:reduce) { .catan-board-viewport { background-size:cover; background-position:center; } }
+.catan-board-viewport { position:relative; isolation:isolate; flex:1 1 0; min-height:0; overflow:hidden; touch-action:none; overscroll-behavior:contain; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:grab; background:#254650 url("/catan/sea-v3.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); }
+.catan-sea-surface { position:absolute; inset:0; z-index:-1; width:100%; height:100%; opacity:0; pointer-events:none; }
+@media(prefers-reduced-motion:reduce) { .catan-board-viewport { background-size:cover; background-position:center; } .catan-sea-surface { display:none; } }
 .catan-board-viewport[data-interacting=true], .catan-board-viewport[data-interacting=true] .catan-map-target { cursor:grabbing; }
 .catan-board { width:100%; height:100%; overflow:hidden; background:transparent; }
 .catan-board-controls { position:absolute; bottom:8px; left:8px; z-index:3; display:flex; flex-direction:column; gap:4px; padding:0; border:0; border-radius:10px; background:transparent; }

@@ -129,8 +129,11 @@ Slender roads connect painted cottages and cities with a taller central building
 roof colors identify their owners. Painted timber piers and rowing boats mark the harbors, and a painted
 ocean texture fills the whole map area. Material-colored resource pictograms are
 shared by the inventory, card overview, trade, costs and harbor badges.
-The ocean follows the camera with a slower, stronger parallax movement. Confirmed
-roads unroll over 700 ms; settlements and city upgrades rise from their foundation
+The ocean uses its original 1254 × 1254 image, gently distorted on the GPU at the
+display's animation cadence. It follows the camera with a slower, stronger
+parallax movement. Animation pauses when the island or page is hidden; reduced
+motion and browsers without WebGL retain the still sea texture.
+Confirmed roads unroll over 700 ms; settlements and city upgrades rise from their foundation
 with a short dust pulse over 750 ms. Every player's visible island animates these
 confirmed board changes. Camera and fullscreen-menu changes preserve the effects;
 reduced motion, hidden views and restored games show finished pieces immediately.

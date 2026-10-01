@@ -10,6 +10,7 @@ import { BuildingPiece, HarborIllustration, Landscape, LandscapeDefinitions } fr
 import { ResourceIcon } from "./resource-icon";
 import { useBoardCamera } from "./use-board-camera";
 import { useConstructionPlayback } from "./use-construction-playback";
+import { CatanSeaBackground } from "./sea-background";
 
 export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
@@ -80,6 +81,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   });
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
     <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" style={seaStyle} data-interacting={interactionActive} {...viewportProps}>
+      <CatanSeaBackground width={size.width} height={size.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && size.measured} />
       <svg ref={svgRef} className="catan-board" viewBox={viewBox} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom}>
         <title>Catan – Spielbrett</title>
         <defs>
