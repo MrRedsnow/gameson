@@ -24,7 +24,7 @@ Repaint this water-only image as an artist's GOUACHE sea surface to match a warm
 
 ## Continuous sea movement
 
-The original 1254 × 1254 `public/catan/sea-v3.jpg` is uploaded once as a WebGL texture. A fragment shader applies smooth periodic offsets of at most 3 native pixels horizontally and 2 vertically, preserving the painted details. Its wave phase repeats every 4.5 seconds; `requestAnimationFrame` computes each intermediate view at the display's animation cadence.
+The original 1254 × 1254 `public/catan/sea-v3.jpg` is uploaded once as a WebGL texture. A fragment shader applies smooth periodic offsets of at most 5.25 native pixels horizontally and 3.5 vertically, preserving the painted details. Its wave phase repeats every 4.5 seconds; `requestAnimationFrame` computes each intermediate view at the display's animation cadence.
 
 The shader uses the same size and camera offsets as the CSS sea background, so zoom and drag retain their parallax. Its drawing buffer accounts for device pixel density, with a pixel budget to limit GPU work. The animation pauses when the island or document is hidden. Reduced motion, image loading and unavailable WebGL use the original JPEG background; context restoration resumes the animation.
 
