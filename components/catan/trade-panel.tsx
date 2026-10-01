@@ -11,10 +11,10 @@ import { BagText, ResourceAmounts, ResourceChoices, Screen, type Send } from "./
 export function TradeInventoryPreview({ resources, give, receive, unavailable }: { resources: Resources; give: Partial<Resources>; receive: Partial<Resources>; unavailable?: string }) {
   const reason = unavailable || missingResources(resources, give);
   return <section className="catan-trade-result" aria-label="Dein Bestand nach dem Handel">
-    <h3>Dein Bestand danach</h3>
-    <div>{RESOURCES.map((r) => {
+    <h3>Nach dem Tausch</h3>
+    <div>{RESOURCES.filter((r) => (receive[r] ?? 0) !== (give[r] ?? 0)).map((r) => {
       const change = (receive[r] ?? 0) - (give[r] ?? 0);
-      return <span key={r} className={change > 0 ? "is-gain" : change < 0 ? "is-loss" : ""}><ResourceIcon resource={r} /><strong>{reason ? "—" : resources[r] + change}</strong><small>{RESOURCE_INFO[r].label}</small><small>{!reason && change ? `${change > 0 ? "+" : "−"}${Math.abs(change)}` : "·"}</small></span>;
+      return <span key={r} className={change > 0 ? "is-gain" : "is-loss"}><ResourceIcon resource={r} /><strong>{RESOURCE_INFO[r].label}</strong><b>{`${change > 0 ? "+" : "-"}${Math.abs(change)}`}</b><small>{reason ? "Danach —" : `Danach ${resources[r] + change}`}</small></span>;
     })}</div>
     {reason && <p className="catan-inline-hint" role="status">{reason}</p>}
   </section>;
@@ -29,6 +29,15 @@ export function TradePanel({ game, send, busy, turnActions }: { game: CatanView;
   const [give, setGive] = useState<Resource>("wood"); const [receive, setReceive] = useState<Resource>("brick");
   const [offered, setOffered] = useState(emptyResources()); const [wanted, setWanted] = useState(emptyResources());
   const offer = game.trade; const partner = recipients.find((p) => p.id === toId);
+  const incomingOfferId = offer?.toId === me.id ? offer.id : null;
+  const [navigation, setNavigation] = useState({ turn: game.turn, incomingOfferId });
+  const turnChanged = navigation.turn !== game.turn;
+  const newIncomingOffer = incomingOfferId !== null && navigation.incomingOfferId !== incomingOfferId;
+  if (turnChanged || newIncomingOffer) {
+    setNavigation({ turn: game.turn, incomingOfferId: incomingOfferId ?? navigation.incomingOfferId });
+    setView("choice");
+    if (turnChanged) { setOffered(emptyResources()); setWanted(emptyResources()); }
+  }
   const ratio = tradeRatio(game, me.id, give); const bestRatio = Math.min(...RESOURCES.map((r) => tradeRatio(game, me.id, r)));
   const mixed = RESOURCES.some((r) => offered[r] && wanted[r]) ? "Geben und Erhalten müssen unterschiedliche Rohstoffarten sein." : undefined;
   const reset = () => { setView("choice"); setOffered(emptyResources()); setWanted(emptyResources()); };
@@ -61,18 +70,18 @@ export function TradePanel({ game, send, busy, turnActions }: { game: CatanView;
 
   if (view === "bank") {
     const reason = offer ? "Schließe zuerst das offene Handelsangebot ab." : give === receive ? "Wähle zwei unterschiedliche Rohstoffe." : !game.bank[receive] ? `Die Bank hat kein ${RESOURCE_INFO[receive].label} mehr.` : missingResources(me.resources, { [give]: ratio });
-    return <Screen title="Hafen & Bank" back={() => setView("choice")} actions={<Button className="catan-primary" disabled={busy || !isTurn || Boolean(reason)} onClick={() => void send({ type: "bank_trade", give, receive })}><ArrowRightLeft />{ratio} {RESOURCE_INFO[give].label} gegen 1 {RESOURCE_INFO[receive].label} tauschen</Button>}>
+    return <Screen title="Hafen & Bank" back={() => setView("choice")} actions={<Button className="catan-primary" disabled={busy || !isTurn || Boolean(reason)} onClick={() => void send({ type: "bank_trade", give, receive })}><ArrowRightLeft />Tausch bestätigen</Button>}>
       <div className="catan-bank-selection">
-        <ResourceChoices label={`Du gibst ${ratio} · dein Vorrat`} value={give} counts={me.resources} onChange={setGive} disabled={busy} />
+        <ResourceChoices label={`Du gibst ${ratio}`} value={give} onChange={setGive} disabled={busy} />
         <ResourceChoices label="Du erhältst 1 · Bankvorrat" value={receive} counts={game.bank} onChange={setReceive} disabled={busy} />
       </div>
-      <p className="catan-inline-hint" role="status">{reason || `Dein Kurs: ${ratio}:1. Tausche ${ratio} ${RESOURCE_INFO[give].label} gegen 1 ${RESOURCE_INFO[receive].label}.`}</p>
+      {!reason && <p className="catan-inline-hint">{ratio}:1 · {ratio < 4 ? "Hafenkurs" : "Bankkurs"}</p>}
       <TradeInventoryPreview resources={me.resources} give={{ [give]: ratio }} receive={{ [receive]: 1 }} unavailable={reason} />
     </Screen>;
   }
 
-  if (view === "who" || (["give", "receive", "review"].includes(view) && !partner)) return <Screen title="Mit wem handelst du?" eyebrow="Schritt 1 von 4" back={() => setView("choice")}>
-    {recipients.map((p) => <button type="button" className="catan-person-choice" key={p.id} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties} disabled={busy} onClick={() => selectPartner(p.id)}><i className="catan-player-dot" /><span><strong>{p.name}</strong><small>{p.resourceCount} Rohstoffkarten · {p.developmentCount} Entwicklungskarten</small></span><ChevronRight /></button>)}
+  if (view === "who" || (["give", "receive", "review"].includes(view) && !partner)) return <Screen title="Mit wem handelst du?" eyebrow="Schritt 1 von 4" back={() => setView("choice")} actions={turnActions}>
+    {recipients.map((p) => <button type="button" className="catan-person-choice" key={p.id} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties} disabled={busy} onClick={() => selectPartner(p.id)}><i className="catan-player-dot" /><span><strong>{p.name}</strong><small>{p.resourceCount} Rohstoffkarten</small></span><ChevronRight /></button>)}
   </Screen>;
 
   if (view === "give") return <Screen title={`Was gibst du ${partner!.name}?`} eyebrow="Schritt 2 von 4" back={() => setView("who")} actions={<Button className="catan-primary" disabled={busy || !resourceCount(offered) || !canAfford(me.resources, offered)} onClick={() => setView("receive")}>Weiter: Was möchtest du?<ChevronRight /></Button>}>

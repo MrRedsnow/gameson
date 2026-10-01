@@ -4,9 +4,11 @@ import { createServer } from "node:http";
 import { mkdir, readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 const root = resolve(import.meta.dirname, "..");
+const fixture = process.env.CATAN_QA_FIXTURE ?? "catan-ux.tsx";
+const port = Number(process.env.CATAN_QA_PORT ?? 3002);
 const output = resolve(root, ".wrangler/ux-preview/app.js");
 await mkdir(resolve(root, ".wrangler/ux-preview"), { recursive: true });
-const bundle = await context({ entryPoints: [resolve(root, "tests/fixtures/catan-ux.tsx")], outfile: output, bundle: true, platform: "browser", format: "esm", jsx: "automatic", logLevel: "warning" });
+const bundle = await context({ entryPoints: [resolve(root, "tests/fixtures", fixture)], outfile: output, bundle: true, platform: "browser", format: "esm", jsx: "automatic", logLevel: "warning" });
 await bundle.watch(); await bundle.rebuild();
 const cssDir = resolve(root, "dist/client/_next/static/css");
 const server = createServer(async (req, res) => {
@@ -27,5 +29,5 @@ const server = createServer(async (req, res) => {
     }
   } catch (error) { res.statusCode = 500; res.end(error.message); }
 });
-server.listen(3002, "127.0.0.1", () => console.log("Catan QA ready: http://127.0.0.1:3002"));
+server.listen(port, "127.0.0.1", () => console.log(`Catan QA ready: http://127.0.0.1:${port}`));
 process.once("SIGINT", () => { server.close(); void bundle.dispose().then(() => process.exit(0)); });

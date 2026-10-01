@@ -98,18 +98,25 @@ A running game uses five menus with scrollable content when needed.
 The active player, dice, own score and resource counts stay visible; the menu and
 the current action stay pinned. In landscape, status and navigation move beside
 the game. Build choices and compact player scores can be compared in one list;
-player details expand on demand. Development cards are grouped by type, showing
-their count and availability, and prefer an older playable copy. Large text can
-scroll the entire screen so headings and actions remain reachable. Rules and
-activity details are divided into short pages.
+player details expand on demand. Overview opens the player scores directly, with
+list links to history, private receipts and rules. Cards opens development cards
+grouped by type, showing their count and availability, and prefers an older
+playable copy; resources appear only in the global strip. Required discards
+temporarily replace the card list with five resource quantity rows. Large text
+can scroll the entire screen so headings and actions remain reachable. Rules
+use topic accordions with shared build costs; private receipts are expandable
+entries ordered newest first and retain their unread markers.
 
-The island fits its available space. A larger island mode hides the surrounding
-menus and supports panning. Landscape gives more space to the map. Tapping a field or using the place arrows
+The island fits its available space. A larger island mode keeps status, resources
+and navigation visible and supports panning. Landscape gives more space to the
+map. Tapping a field or using the place arrows
 opens a close view with larger touch targets. A separate confirmation prevents
 accidental construction. Placement previews explain adjacent resources, number
 probabilities, robber blocks and ports. The build menu explains missing resources,
-pieces and legal positions. Rolling keeps the island visible, with trade offered
-when nothing can be built. A three-step setup guide explains placement, resources
+pieces and legal positions. Tabs are the single entrypoints for building and
+trading; ordinary phase changes preserve the selected view and unfinished
+inputs. New required tasks and incoming trades open their relevant view. A
+three-step setup guide explains placement, resources
 and number probabilities; it can be skipped and reopened during setup.
 
 Hand-painted terrain textures show forests, sheep pastures, wheat fields, clay hills,
@@ -124,7 +131,7 @@ The island's speaker button optionally enables synthesized
 sheep and wood-chopping effects when receiving those resources or inspecting a
 matching field. Sound starts off and works offline.
 
-Bank trades show both resources, the harbor rate and resulting stock together,
+Bank trades show both resources, the harbor rate and only affected stock changes,
 with one explicit confirmation; the selection stays available for repeat trades.
 Player offers use four steps, ending with the exchange and resulting stock.
 Incoming offers pin accept, decline and counteroffer actions.

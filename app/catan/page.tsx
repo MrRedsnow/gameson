@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Flag, LockKeyhole, LogOut, Plus, RotateCcw, Settings2, Users, X } from "lucide-react";
+import { ArrowLeft, Flag, LockKeyhole, LogOut, Plus, RotateCcw, Users, X } from "lucide-react";
 import { ConfirmDialog, GameBackLink, GameDialog, GameModes, LobbyInviteDialog, LobbyLeaveButton, LobbyToolbar, ResumeSessionDialog, type ResumeLobbyInfo } from "@/components/game-entry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,7 +175,7 @@ export default function CatanPage() {
       <section className="catan-lobby-heading"><span className="catan-kicker">Eure Catan-Lobby</span><h1>{state.lobby.name}</h1><p>Teilt den Code oder Einladungslink. Startet mit drei oder vier Personen.</p></section>
       <LobbyToolbar onInvite={() => setInviteOpen(true)} onSettings={isHost ? () => setSettingsOpen(true) : undefined} busy={busy} />
       <section className="catan-panel"><div className="catan-section-heading"><h2><Users />Mitspielende</h2><span>{state.members.length} / 4</span></div><ul className="catan-lobby-players">{state.members.map((p, i) => <li key={p.id}><span style={{ background: PLAYER_COLORS[i] }}>{p.name.slice(0, 1)}</span><div><strong>{p.name}{p.id === state.me.id ? " (du)" : ""}</strong>{p.id === state.lobby.hostPlayerId && <small>Spielleitung</small>}</div>{isHost && p.id !== state.me.id && <Button variant="ghost" size="icon" disabled={busy} onClick={() => void post("remove", { playerId: p.id })} aria-label={`${p.name} aus der Lobby entfernen`}><X /></Button>}</li>)}</ul>
-        <div className="catan-target"><div><strong>Eure Spielregeln</strong><p>Siegpunktziel {state.lobby.targetPoints} · {state.lobby.discoverable ? "in der Nähe sichtbar" : "nicht in der Nähe sichtbar"}</p></div>{isHost && <Button variant="outline" onClick={() => setSettingsOpen(true)}><Settings2 />Bearbeiten</Button>}</div>
+        <div className="catan-target"><div><strong>Eure Spielregeln</strong><p>Siegpunktziel {state.lobby.targetPoints} · {state.lobby.discoverable ? "in der Nähe sichtbar" : "nicht in der Nähe sichtbar"}</p></div></div>
         {isHost ? <Button className="catan-primary" disabled={busy || state.members.length < 3} onClick={() => void post("start")}><Flag />{state.members.length < 3 ? `Noch ${3 - state.members.length} ${state.members.length === 2 ? "Person fehlt" : "Personen fehlen"}` : "Partie starten"}</Button> : <p className="catan-muted">Die Spielleitung startet, sobald alle da sind.</p>}
       </section><LobbyLeaveButton busy={busy} onClick={() => setLeaveOpen(true)} /><CatanRules />
       {inviteOpen && <LobbyInviteDialog theme="catan" name={state.lobby.name} code={state.lobby.id} codeLabel="Lobbycode" url={inviteUrl} onClose={() => setInviteOpen(false)} onError={() => setNotice(`Einladungslink: ${inviteUrl}`)} />}

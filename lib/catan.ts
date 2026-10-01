@@ -38,9 +38,12 @@ export type DevCard = { id: string; type: Development; boughtOnTurn: number };
 export type CatanPlayer = { id: string; name: string; color: number; resources: Resources; development: DevCard[]; knights: number };
 export type CatanPhase = "setup_settlement" | "setup_road" | "roll" | "main" | "discard" | "robber" | "steal" | "free_roads" | "finished";
 export type TradeOffer = { id: number; fromId: string; toId: string; give: Resources; receive: Resources };
+export type CatanResourceOrigin = { hexId: number; resource: Resource; amount: number };
 export type CatanNotification = {
   id: number; actionId?: number; playerId: string | null; kind: "resources" | "card" | "award" | "robber";
   tone: "gain" | "loss" | "info"; title: string; message: string; resources?: Resources;
+  // Historical field contributions stay exact even when later actions change the board.
+  resourceOrigins?: CatanResourceOrigin[];
 };
 export type CatanGame = {
   version: 1; id: string; board: Board; players: CatanPlayer[]; targetPoints: number; bank: Resources;
@@ -269,6 +272,33 @@ function produce(game: CatanGame, roll: number) {
   }
 }
 
+/** Attribute only awarded cards; a bank shortage must never create extra flying cards. */
+function resourceOriginsForGain(before: CatanGame, game: CatanGame, playerId: string, action: CatanAction, gains: Resources): CatanResourceOrigin[] | undefined {
+  const candidates: CatanResourceOrigin[] = [];
+  if (action.type === "roll") {
+    const roll = game.dice![0] + game.dice![1];
+    for (const hex of before.board.hexes) {
+      if (hex.number !== roll || hex.id === before.robberHex || hex.resource === "desert") continue;
+      const amount = hex.vertices.reduce((sum, id) => {
+        const vertex = before.board.vertices[id];
+        return sum + (vertex.owner === playerId ? vertex.building === "city" ? 2 : 1 : 0);
+      }, 0);
+      if (amount) candidates.push({ hexId: hex.id, resource: hex.resource, amount });
+    }
+  } else if (action.type === "build" && action.building === "settlement" && before.phase === "setup_settlement" && before.setupIndex >= before.players.length) {
+    for (const id of before.board.vertices[action.position].hexes) {
+      const hex = before.board.hexes[id];
+      if (hex.resource !== "desert") candidates.push({ hexId: hex.id, resource: hex.resource, amount: 1 });
+    }
+  } else return undefined;
+  const remaining = { ...gains };
+  return candidates.flatMap((origin) => {
+    const amount = Math.min(origin.amount, remaining[origin.resource]);
+    remaining[origin.resource] -= amount;
+    return amount ? [{ ...origin, amount }] : [];
+  });
+}
+
 /** Record each confirmed action, so opposite changes between two polls cannot cancel out. */
 function recordNotifications(before: CatanGame, game: CatanGame, actorId: string, action: CatanAction) {
   const actor = before.players.find((p) => p.id === actorId)!;
@@ -314,7 +344,10 @@ function recordNotifications(before: CatanGame, game: CatanGame, actorId: string
     }
     // A trade has two receipts: its payment must stay visible alongside its gain.
     for (const [tone, resources] of [["loss", losses], ["gain", gains]] as const) {
-      if (resourceCount(resources)) add({ playerId: player.id, kind: "resources", tone, title: source, message, resources });
+      if (resourceCount(resources)) {
+        const resourceOrigins = tone === "gain" ? resourceOriginsForGain(before, game, player.id, action, gains) : undefined;
+        add({ playerId: player.id, kind: "resources", tone, title: source, message, resources, ...(resourceOrigins ? { resourceOrigins } : {}) });
+      }
     }
   }
   for (const [key, title] of [["longestRoad", "Längste Handelsstraße"], ["largestArmy", "Größte Rittermacht"]] as const) {

@@ -26,13 +26,18 @@ export function missingResources(resources: Resources, cost: Partial<Resources>)
   return missing.length ? `Dir fehlen ${missing.map((r) => `${(cost[r] ?? 0) - resources[r]} ${RESOURCE_INFO[r].label}`).join(", ")}.` : undefined;
 }
 
-/** The reason is shared by the build cards and the choice of the next useful screen. */
-export function buildUnavailable(game: CatanView, kind: BuildKind): string | undefined {
-  const me = game.me!;
+export function buildPhaseUnavailable(game: CatanView): string | undefined {
   if (game.phase === "finished") return "Die Partie ist beendet.";
-  if (game.players[game.currentPlayer].id !== me.id) return "Du kannst in deinem eigenen Zug bauen.";
+  if (game.players[game.currentPlayer].id !== game.me!.id) return "Du kannst in deinem eigenen Zug bauen.";
   if (game.phase === "roll") return "Würfle zuerst.";
   if (game.phase !== "main") return "Schließe zuerst deine aktuelle Aufgabe ab.";
+}
+
+/** The reason is shared by the build list and placement validation. */
+export function buildUnavailable(game: CatanView, kind: BuildKind): string | undefined {
+  const phaseReason = buildPhaseUnavailable(game);
+  if (phaseReason) return phaseReason;
+  const me = game.me!;
   const pieces = game.players.find((p) => p.id === me.id)!.pieces;
   if (kind === "development" && !game.deckCount) return "Der Kartenstapel ist leer.";
   if (kind !== "development" && pieces[kind] >= { road: 15, settlement: 5, city: 4 }[kind]) return `Keine ${kind === "road" ? "Straßen" : kind === "city" ? "Städte" : "Siedlungen"} mehr im Vorrat.`;

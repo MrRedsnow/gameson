@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RESOURCES, RESOURCE_INFO, type Resource, type Resources } from "@/lib/catan";
 import { ResourceIcon } from "./board";
@@ -37,15 +37,14 @@ export function ResourceChoices({ label, value, onChange, counts, disabled = fal
 export function ResourceAmounts({ label, value, maximum, onChange, disabled, limit, availabilityLabel = "verfügbar" }: {
   label: string; value: Resources; maximum: Resources; onChange: (value: Resources) => void; disabled: boolean; limit?: number; availabilityLabel?: string;
 }) {
-  const [selected, setSelected] = useState<Resource>("wood");
   const total = RESOURCES.reduce((sum, r) => sum + value[r], 0);
-  return <div className="catan-resource-amounts">
-    <ResourceChoices label={label} value={selected} counts={value} onChange={setSelected} disabled={disabled} />
-    <div className="catan-amount-controls"><div><strong>{RESOURCE_INFO[selected].label}</strong><small>{maximum[selected]} {availabilityLabel}{limit !== undefined ? ` · ${total} / ${limit} gewählt` : ""}</small></div><div className="catan-stepper">
-      <Button variant="outline" aria-label={`${label}: weniger ${RESOURCE_INFO[selected].label}`} disabled={disabled || !value[selected]} onClick={() => onChange({ ...value, [selected]: value[selected] - 1 })}>−</Button>
-      <output aria-label={`${label}: ${RESOURCE_INFO[selected].label}`}>{value[selected]}</output>
-      <Button variant="outline" aria-label={`${label}: mehr ${RESOURCE_INFO[selected].label}`} disabled={disabled || value[selected] >= maximum[selected] || (limit !== undefined && total >= limit)} onClick={() => onChange({ ...value, [selected]: value[selected] + 1 })}>+</Button>
-    </div></div>
+  return <div className="catan-resource-amounts" role="group" aria-label={label}>
+    <div className="catan-amount-heading"><strong>{label}</strong><output aria-label={`${label}: insgesamt gewählt`} aria-live="polite">{limit === undefined ? `${total} gewählt` : `${total} / ${limit} gewählt`}</output></div>
+    {RESOURCES.map((r) => <div className="catan-amount-controls" key={r}><ResourceIcon resource={r} /><div><strong>{RESOURCE_INFO[r].label}</strong><small>{maximum[r]} {availabilityLabel}</small></div><div className="catan-stepper">
+      <Button type="button" variant="outline" size="icon" aria-label={`${label}: weniger ${RESOURCE_INFO[r].label}`} disabled={disabled || !value[r]} onClick={() => onChange({ ...value, [r]: value[r] - 1 })}><Minus /></Button>
+      <output aria-label={`${label}: ${RESOURCE_INFO[r].label}`}>{value[r]}</output>
+      <Button type="button" variant="outline" size="icon" aria-label={`${label}: mehr ${RESOURCE_INFO[r].label}`} disabled={disabled || value[r] >= maximum[r] || (limit !== undefined && total >= limit)} onClick={() => onChange({ ...value, [r]: value[r] + 1 })}><Plus /></Button>
+    </div></div>)}
   </div>;
 }
 
