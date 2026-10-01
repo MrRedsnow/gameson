@@ -24,7 +24,7 @@ void main() {
   vec2 uv = (screen - origin) / u_sea.x;
   vec2 p = uv * u_textureSize;
   float phase = u_time * 6.28318530718 / 4.5;
-  vec2 wave = 1.75 * vec2(
+  vec2 wave = 1.5 * vec2(
     2.25 * sin(phase + p.y / 72.0) + 0.75 * sin(2.0 * phase + p.x / 118.0 + p.y / 160.0),
     1.5 * cos(phase + p.x / 96.0 - p.y / 128.0) + 0.5 * sin(2.0 * phase + p.y / 110.0)
   );
