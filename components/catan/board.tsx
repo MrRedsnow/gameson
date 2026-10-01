@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useLayoutEffect, useState } from "react";
+import { useId, useLayoutEffect, useState, type CSSProperties } from "react";
 import { Anchor, ChevronLeft, ChevronRight, LocateFixed, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Resource } from "@/lib/catan";
 import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from "@/lib/catan-camera";
+import { seaParallax } from "@/lib/catan-parallax";
 import { BuildingPiece, HarborIllustration, Landscape, LandscapeDefinitions } from "./landscape";
 import { ResourceIcon } from "./resource-icon";
 import { useBoardCamera } from "./use-board-camera";
@@ -17,7 +18,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean;
 }) {
   const artId = `catan-${useId().replace(/:/g, "")}`;
-  const [size, setSize] = useState({ width: 360, height: 300 });
+  const [size, setSize] = useState({ width: 360, height: 300, measured: false });
   const [inspect, setInspect] = useState<number | null>(null);
   const index = selected === null ? -1 : choices.indexOf(selected);
   const { board } = game;
@@ -35,11 +36,17 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   })];
   const left = Math.min(...bounds.map((p) => p.x)) - 12; const top = Math.min(...bounds.map((p) => p.y)) - 12;
   const width = Math.max(...bounds.map((p) => p.x)) - left + 12; const height = Math.max(...bounds.map((p) => p.y)) - top + 12;
-  const { camera, viewBox, scale, reset, zoomBy, viewportProps, viewportRef, interactionActive } = useBoardCamera({ x: left, y: top, width, height }, size);
+  const boardBounds = { x: left, y: top, width, height };
+  const { camera, viewBox, scale, reset, zoomBy, viewportProps, viewportRef, interactionActive } = useBoardCamera(boardBounds, size);
+  const sea = seaParallax(boardBounds, size, camera);
+  const seaStyle = size.measured ? { "--catan-sea-size": `${sea.size}px`, "--catan-sea-x": `${sea.x}px`, "--catan-sea-y": `${sea.y}px` } as CSSProperties : undefined;
   useLayoutEffect(() => {
     const node = viewportRef.current;
     if (!node) return;
-    const measure = () => { if (node.clientWidth && node.clientHeight) setSize({ width: node.clientWidth, height: node.clientHeight }); };
+    const measure = () => {
+      const { width, height } = node.getBoundingClientRect();
+      if (width && height) setSize({ width, height, measured: true });
+    };
     measure(); const observer = new ResizeObserver(measure); observer.observe(node);
     return () => observer.disconnect();
   }, [viewportRef]);
@@ -70,7 +77,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!disabled) { if (run) run(); else activate(id); } } },
   });
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
-    <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" data-interacting={interactionActive} {...viewportProps}>
+    <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" style={seaStyle} data-interacting={interactionActive} {...viewportProps}>
       <svg className="catan-board" viewBox={viewBox} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom}>
         <title>Catan – Spielbrett</title>
         <defs>
