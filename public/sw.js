@@ -1,15 +1,15 @@
-const CACHE = "gameson-shell-v23";
+const CACHE = "gameson-shell-v25";
 const SHELL = [
   "/", "/imposter", "/werwolf", "/catan", "/stadt-land-fluss", "/hive", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
-  "/catan/terrain-atlas-v3.jpg", "/catan/sea-v3.jpg", "/catan/buildings-v3.png", "/catan/harbor-atlas-v3.png",
-  "/audio/catan/v1/resource-wood-gain.mp3", "/audio/catan/v1/resource-brick-gain.mp3",
+  "/catan/terrain-atlas-v3.jpg", "/catan/sea-v3.jpg", "/catan/buildings-v3.png", "/catan/harbor-atlas-v3.png", "/catan/robber-v2.png",
+  "/audio/catan/v1/resource-wood-planks-gain.mp3", "/audio/catan/v1/resource-brick-gain.mp3",
   "/audio/catan/v1/resource-wool-gain.mp3", "/audio/catan/v1/resource-grain-gain.mp3", "/audio/catan/v1/resource-ore-gain.mp3",
   "/audio/catan/v1/dice-roll.mp3", "/audio/catan/v1/build-road.mp3", "/audio/catan/v1/build-settlement.mp3", "/audio/catan/v1/build-city.mp3",
   "/audio/catan/v1/development-draw.mp3", "/audio/catan/v1/development-play.mp3",
   "/audio/catan/v1/trade-offer-received.mp3", "/audio/catan/v1/trade-complete.mp3",
   "/audio/catan/v1/robber-seven.mp3", "/audio/catan/v1/robber-move.mp3", "/audio/catan/v1/resource-steal.mp3",
   "/audio/catan/v1/turn-start.mp3", "/audio/catan/v1/special-award.mp3", "/audio/catan/v1/game-won.mp3",
-  "/audio/catan/v1/ui-select.mp3", "/audio/catan/v1/ui-cancel.mp3", "/audio/catan/v1/ui-error.mp3",
+  "/audio/catan/v1/ui-cancel.mp3", "/audio/catan/v1/ui-error.mp3",
   "/audio/werwolf/role-reveal.mp3", "/audio/werwolf/mayor-vote.mp3",
   "/audio/werwolf/thief.mp3", "/audio/werwolf/cupid.mp3", "/audio/werwolf/wild-child.mp3",
   "/audio/werwolf/healer.mp3", "/audio/werwolf/seer.mp3", "/audio/werwolf/wolves.mp3",

@@ -1,4 +1,4 @@
-import { acceptMap } from "./catan-helpers.mjs";
+import { acceptMap, terrainGroups } from "./catan-helpers.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { RESOURCES, COSTS, DEFAULT_TARGET_POINTS, createBoard, createCatanGame, applyCatanAction, legalSettlements, legalRoads, legalCities, pieceCounts, longestRoadLength, victoryPoints, tradeRatio, resourceCount, emptyResources, canAfford, catanView, localActorId } from "../lib/catan.ts";
@@ -36,9 +36,72 @@ test("Catan hat exakt die Basisspiel-Geometrie, Vorräte und nicht benachbarte r
     for (const edge of b.edges.filter((e) => e.hexes.length === 2)) assert.ok(!edge.hexes.every((id) => [6, 8].includes(b.hexes[id].number)));
     assert.equal(new Set(b.harbors.flatMap((h) => [b.edges[h.edge].a, b.edges[h.edge].b])).size, 18);
     assert.equal(b.harbors.filter((h) => h.resource === "any").length, 4);
+    assert.ok(terrainGroups(b).every((group) => group.length <= 3));
   }
   const g = fresh(); assert.equal(g.deck.length, 25); assert.equal(g.deck.filter((c) => c === "knight").length, 14);
   assert.equal(g.deck.filter((c) => c === "victory").length, 5); assert.equal(resourceCount(g.bank), 95);
+});
+
+test("Landschaften bleiben abwechslungsreich, ohne Dreiergruppen künstlich auszusortieren", () => {
+  let withoutTriples = 0; const layouts = new Set(); const desertPositions = new Set();
+  const resourcesByPosition = Array.from({ length: 19 }, () => new Set());
+  for (let seed = 1; seed <= 500; seed++) {
+    const board = createBoard(rng(seed)); const groups = terrainGroups(board);
+    assert.ok(groups.every((group) => group.length <= 3), `Vierergruppe bei Seed ${seed}`);
+    if (groups.every((group) => group.length < 3)) withoutTriples++;
+    layouts.add(board.hexes.map((hex) => hex.resource).join(","));
+    desertPositions.add(board.hexes.find((hex) => hex.resource === "desert").id);
+    for (const hex of board.hexes) resourcesByPosition[hex.id].add(hex.resource);
+  }
+  assert.equal(layouts.size, 500, "Die Karten wiederholen keine festen Landschaftsvorlagen.");
+  assert.equal(desertPositions.size, 19, "Auch die Wüste kann überall stehen.");
+  assert.ok(withoutTriples > 75 && withoutTriples < 225, "Die Verteilung enthält sowohl verstreute Felder als auch natürliche Dreiergruppen.");
+  assert.ok(resourcesByPosition.every((resources) => resources.size === 6), "Jeder Feldplatz kann jeden Landschaftstyp erhalten.");
+  assert.deepEqual(createBoard(rng(23)), createBoard(rng(23)), "Die eingespeiste Zufallsquelle bleibt reproduzierbar.");
+});
+
+test("rote Zahlen verteilen sich entsprechend allen gültigen Vierer-Anordnungen", () => {
+  const topology = createBoard(rng(19)); const placements = [];
+  // Independent reference: enumerate combinations and check shared edges.
+  for (let a = 0; a < 16; a++) for (let b = a + 1; b < 17; b++) for (let c = b + 1; c < 18; c++) for (let d = c + 1; d < 19; d++) {
+    const ids = [a, b, c, d];
+    if (!topology.edges.some((edge) => edge.hexes.length === 2 && edge.hexes.every((id) => ids.includes(id)))) placements.push(ids);
+  }
+  const probabilities = topology.hexes.map((desert) => {
+    const allowed = placements.filter((ids) => !ids.includes(desert.id));
+    return topology.hexes.map((hex) => allowed.filter((ids) => ids.includes(hex.id)).length / allowed.length);
+  });
+  const observed = Array(19).fill(0); const expected = Array(19).fill(0); const variance = Array(19).fill(0);
+  for (let seed = 1; seed <= 5000; seed++) {
+    const board = createBoard(rng(seed)); const desert = board.hexes.find((hex) => hex.resource === "desert").id;
+    for (const hex of board.hexes) {
+      const probability = probabilities[desert][hex.id];
+      expected[hex.id] += probability; variance[hex.id] += probability * (1 - probability);
+      if ([6, 8].includes(hex.number)) observed[hex.id]++;
+    }
+  }
+  for (const hex of topology.hexes) {
+    assert.ok(Math.abs(observed[hex.id] - expected[hex.id]) < 5 * Math.sqrt(variance[hex.id]), `Rote Zahlen bevorzugen Feld ${hex.id}: ${observed[hex.id]} statt ungefähr ${Math.round(expected[hex.id])}.`);
+  }
+});
+
+test("Backtracking und Neuwürfe funktionieren auch mit konstanten Zufallsquellen", () => {
+  for (const value of [() => 0, (length) => length - 1]) {
+    let calls = 0; const random = (length) => { calls++; return value(length); };
+    let previous = createBoard(random);
+    for (let cycle = 0; cycle < 10; cycle++) {
+      calls = 0; const snapshot = structuredClone(previous); const board = createBoard(random, previous);
+      assert.ok(calls < 512, "Der Generator versucht endlich viele zufällige Mischungen.");
+      assert.notDeepEqual(board.hexes.map((hex) => hex.resource), previous.hexes.map((hex) => hex.resource));
+      assert.deepEqual(previous, snapshot, "Die vorherige Karte wird nicht verändert.");
+      assert.ok(terrainGroups(board).every((group) => group.length <= 3));
+      assert.deepEqual(RESOURCES.map((resource) => board.hexes.filter((hex) => hex.resource === resource).length), [4, 3, 4, 4, 3]);
+      assert.equal(board.hexes.filter((hex) => hex.resource === "desert" && hex.number === null).length, 1);
+      assert.deepEqual(board.hexes.map((hex) => hex.number).filter(Boolean).sort((a, b) => a - b), [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12]);
+      for (const edge of board.edges.filter((edge) => edge.hexes.length === 2)) assert.ok(!edge.hexes.every((id) => [6, 8].includes(board.hexes[id].number)));
+      previous = board;
+    }
+  }
 });
 
 test("nur 3–4 Personen, eindeutige Namen und ein gültiges wählbares Punktziel", () => {

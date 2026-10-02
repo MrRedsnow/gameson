@@ -180,7 +180,7 @@ test("the player caches local samples and queues gains while UI cues remain imme
   assert.equal(env.sources.length, 3);
   assert.ok(env.sources[1].starts[0] >= env.sources[0].starts[0] + 1);
   assert.ok(env.sources[2].starts[0] >= env.sources[1].starts[0] + 1);
-  await player.play(["ui_select"], "ui");
+  await player.play(["ui_error"], "ui");
   assert.ok(env.sources.at(-1).starts[0] < env.sources[2].starts[0]);
   await player.play(["resource_wood_gain"], "preview");
   const preview = env.sources.at(-1);
@@ -194,13 +194,13 @@ test("the player caches local samples and queues gains while UI cues remain imme
 });
 
 test("muting cancels late decoding and scheduled sources, but later playback still works", async (t) => {
-  const env = audioEnvironment(t, { hold: ["resource-wood-gain.mp3"] });
+  const env = audioEnvironment(t, { hold: [CATAN_SOUND_FILES.resource_wood_gain] });
   const player = new CatanSoundPlayer(); t.after(() => player.close()); await player.resume();
   const old = player.play(["resource_wood_gain"]); player.stop();
-  await player.play(["ui_select"], "ui");
-  env.release("resource-wood-gain.mp3"); await old;
+  await player.play(["ui_error"], "ui");
+  env.release(CATAN_SOUND_FILES.resource_wood_gain); await old;
   assert.equal(env.sources.length, 1);
-  assert.match(env.sources[0].buffer.id, /ui-select/);
+  assert.match(env.sources[0].buffer.id, /ui-error/);
   await player.play(["resource_wood_gain"]);
   assert.equal(env.sources.length, 2);
   player.close(); player.close();
@@ -266,7 +266,7 @@ test("the hook skips muted history and waits for the actual dice overlay before 
   const env = await hookHarness(t, view(before));
   await env.render(view(earned)); await env.toggle();
   assert.equal(env.current.enabled, true);
-  assert.equal(env.sources.length, 1); assert.match(env.sources[0].buffer.id, /ui-select/);
+  assert.equal(env.sources.length, 0, "Enabling sounds stays silent and never replays muted history.");
   const next = { ...view(earned), sequence: earned.sequence + 1, turn: earned.turn + 1 };
   next.me = { ...next.me, resources: { ...next.me.resources, wood: next.me.resources.wood + 1 } };
   env.document.documentElement.classList.add("catan-dice-rolling");
@@ -338,5 +338,5 @@ test("the real service worker precaches and returns every mapped sound without a
     assert.equal(response.headers.get("content-type"), "audio/mpeg");
     assert.deepEqual(Buffer.from(await response.arrayBuffer()), assets.get(url));
   }
-  assert.equal(fetches, before); assert.equal(urls.length, 22);
+  assert.equal(fetches, before); assert.equal(urls.length, 21);
 });

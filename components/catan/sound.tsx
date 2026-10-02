@@ -83,12 +83,12 @@ export function useCatanSounds(game: CatanView, animationBaseline = 0) {
       if (typeof AudioContext === "undefined") { wanted.current = false; return; }
       player.current ??= new CatanSoundPlayer();
       await player.current.resume();
-      if (request === toggleRequest.current && wanted.current && player.current) { setEnabled(true); void player.current.play(["ui_select"], "ui"); }
+      if (request === toggleRequest.current && wanted.current && player.current) setEnabled(true);
     } catch {
       if (request === toggleRequest.current) { wanted.current = false; setEnabled(false); stop(); }
     }
   };
-  const cue = (effect: "ui_select" | "ui_cancel" | "ui_error") => {
+  const cue = (effect: "ui_cancel" | "ui_error") => {
     if (enabled && wanted.current && !document.hidden) void player.current?.play([effect], "ui");
   };
   const preview = (resource: Resource) => {

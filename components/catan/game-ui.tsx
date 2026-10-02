@@ -226,7 +226,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
   const notice = <ActivityNotice scope={JSON.stringify([game.id, me.id])} unread={activity.unread} onOpen={() => showOverview("activity")} onRead={activity.read} />;
   return <TabsPrimitive.Root className={`catan-play${voting ? " is-map-vote" : ""}${expanded ? " is-board-expanded" : ""}`} value={expanded ? "insel" : tab} onClickCapture={(event) => {
     const control = event.target instanceof Element ? event.target.closest("button, [role='button']") : null;
-    if (control && !control.hasAttribute("disabled") && control.getAttribute("aria-disabled") !== "true" && !control.classList.contains("catan-sound-toggle")) sounds.cue(control.getAttribute("data-catan-sound") === "cancel" ? "ui_cancel" : "ui_select");
+    if (control?.getAttribute("data-catan-sound") === "cancel" && !control.hasAttribute("disabled") && control.getAttribute("aria-disabled") !== "true") sounds.cue("ui_cancel");
   }} onKeyDown={(event) => {
     if (event.key === "Escape" && expanded && !event.defaultPrevented && !(event.target instanceof Element && event.target.closest("[data-radix-popper-content-wrapper]"))) {
       event.preventDefault();

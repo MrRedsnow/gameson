@@ -118,8 +118,10 @@ incoming offers open the relevant area.
   Local setup roads allow an 800 ms transition before the next handoff.
 - The sea pauses when the island or document is hidden. Its wave cycle lasts
   4.5 seconds; movement strength and camera parallax are separate settings.
-- Optional synthesized sheep and wood-chopping sounds play for resource gains
-  or field inspection. They start disabled and work offline.
+- Optional resource sounds play for gains or field inspection. They start
+  disabled and work offline. The wood sound uses the complete user-provided
+  `Wood Planks Falling Sound - Sound Effects_.ogg`, converted to
+  [MP3](public/audio/catan/v1/resource-wood-planks-gain.mp3).
 
 </details>
 

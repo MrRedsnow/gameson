@@ -13,6 +13,7 @@ export function LandscapeDefinitions({ id }: { id: string }) {
     <image id={`${id}-terrain-atlas`} href="/catan/terrain-atlas-v3.jpg" width="324" height="216" preserveAspectRatio="none" />
     <image id={`${id}-buildings-atlas`} href="/catan/buildings-v3.png" width="400" height="200" preserveAspectRatio="none" />
     <image id={`${id}-harbor-atlas`} href="/catan/harbor-atlas-v3.png" width="200" height="100" preserveAspectRatio="none" />
+    <image id={`${id}-robber`} href="/catan/robber-v2.png" width="40" height="40" />
     {Object.entries(TERRAIN_CELLS).map(([resource, [column, row]]) => <g key={resource} id={`${id}-${resource}`}>
       <rect x="-54" y="-54" width="108" height="108" fill={TERRAIN_FALLBACKS[resource as Resource | "desert"]} />
       <svg x="-54" y="-54" width="108" height="108" viewBox={`${column * 108} ${row * 108} 108 108`} overflow="hidden">
@@ -22,8 +23,12 @@ export function LandscapeDefinitions({ id }: { id: string }) {
   </>;
 }
 
-export function Landscape({ id, resource, x, y, mirrored = false }: { id: string; resource: Resource | "desert"; x: number; y: number; mirrored?: boolean }) {
-  return <use className="catan-landscape" href={`#${id}-${resource}`} transform={`translate(${x} ${y})${mirrored ? " scale(-1 1)" : ""}`} aria-hidden="true" />;
+export function Landscape({ id, resource, x, y, mirrored = false, blocked = false }: { id: string; resource: Resource | "desert"; x: number; y: number; mirrored?: boolean; blocked?: boolean }) {
+  return <use className={`catan-landscape${blocked ? " is-blocked" : ""}`} href={`#${id}-${resource}`} transform={`translate(${x} ${y})${mirrored ? " scale(-1 1)" : ""}`} aria-hidden="true" />;
+}
+
+export function RobberPiece({ id, x, y }: { id: string; x: number; y: number }) {
+  return <use className="catan-robber-piece" href={`#${id}-robber`} transform={`translate(${x - 20} ${y - 29})`} aria-hidden="true" />;
 }
 
 export function HarborIllustration({ id, x, y, angle }: { id: string; x: number; y: number; angle: number }) {

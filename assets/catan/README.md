@@ -1,6 +1,6 @@
 # Catan artwork
 
-The current v3 artwork was generated with the built-in ImageGen tool on 2026-10-01. It uses gouache illustration with natural proportions and visible brushwork, between flat vector art and photorealism. No external stock assets are used. The original generation prompts below document the requested designs; the table lists the actual files and dimensions.
+The current v3 terrain, sea, building and harbor artwork was generated with the built-in ImageGen tool on 2026-10-01. The v1 robber was generated with the same tool on 2026-10-02, using the building atlas as its style reference. The v2 robber is an ImageGen edit of v1 from the same day, with a bright gold sack and warm highlights for contrast against its grayed field. The artwork uses gouache illustration with natural proportions and visible brushwork, between flat vector art and photorealism. No external stock assets are used. The original generation prompts below document the requested designs; the table lists the actual files and dimensions.
 
 ## Current assets
 
@@ -10,12 +10,15 @@ The current v3 artwork was generated with the built-in ImageGen tool on 2026-10-
 | Sea | [sea-v3.jpg](../../public/catan/sea-v3.jpg) | 1254 × 1254 | One square texture covering the map viewport, shared by the animated sea and static fallback. |
 | Buildings | [buildings-v3.png](../../public/catan/buildings-v3.png) | 1774 × 887 | Transparent 4 × 2 atlas: settlements above cities; columns are coral, blue, ivory and purple. |
 | Harbors | [harbor-atlas-v3.png](../../public/catan/harbor-atlas-v3.png) | 1774 × 887 | Two transparent square cells: a weathered wooden T-shaped pier and a rowing boat. |
+| Robber | [robber-v2.png](../../public/catan/robber-v2.png) | 1254 × 1254 | One transparent full-body person with a dark hooded cloak, warm rim highlights and a luminous gold sack with coins. |
 
 Terrain and sea were encoded as JPEG at quality 85, retaining their source dimensions. Buildings and harbors retain PNG alpha for compositing over the board. The terrain and sea are painterly edits of the v2 images; buildings used the v3 terrain as a style reference, and harbors used the building atlas.
 
 [landscape.tsx](../../components/catan/landscape.tsx) selects atlas cells with native SVG view boxes. [board.tsx](../../components/catan/board.tsx) clips terrain to hexagons, places buildings and aligns harbors with the coastline. Roof colors identify ownership; a native SVG mooring line joins each boat to its pier. Resource pictograms are original filled SVG in [resource-icon.tsx](../../components/catan/resource-icon.tsx), shared by inventory, cards, costs, trading, placement previews and harbor badges: stacked logs, terracotta bricks, a sheep, wheat ears and mineral rocks.
 
-All four v3 files are precached by the [service worker](../../public/sw.js) for offline play after the app has been loaded online. Earlier [terrain-atlas-v2.jpg](../../public/catan/terrain-atlas-v2.jpg) and [sea-v2.jpg](../../public/catan/sea-v2.jpg) remain as source references in `public/catan/`; the board no longer loads them and the service worker does not precache them.
+All four v3 files and the v2 robber are precached by the [service worker](../../public/sw.js) for offline play after the app has been loaded online. Earlier [terrain-atlas-v2.jpg](../../public/catan/terrain-atlas-v2.jpg), [sea-v2.jpg](../../public/catan/sea-v2.jpg) and [robber-v1.png](../../public/catan/robber-v1.png) remain as source references in `public/catan/`; the board no longer loads them and the service worker does not precache them.
+
+The robber is drawn at 40 × 40 board units at (x − 20, y − 29), horizontally centered and close to the middle of its field. Only the occupied landscape is fully desaturated and darkened to 74% brightness; its terrain detail remains visible. Its number moves below the character to y + 29 and uses light ink with a stronger dark stroke, including on grain. The desert label receives the same contrast treatment. A dedicated SVG layer follows buildings and construction effects, and allows pointer events to pass through to the field and placement targets. Moving the robber restores the old field's normal colors automatically.
 
 ## Continuous sea movement
 
@@ -60,6 +63,23 @@ Primary request: Create ONE atlas containing exactly TWO separate sprites, on a 
 LEFT CELL: a small rustic wooden T-shaped landing pier seen from a HIGH overhead view, with just enough slight three-quarter depth to see timber thickness and support posts. Long axis runs horizontally LEFT to RIGHT. The narrow walkway starts near the left edge of the cell at mid-height and extends to a wider cross-platform at the right. Weathered warm gray-brown planks, subdued grain and handmade joints, several short round mooring posts at the platform corners, a small neatly coiled rope near a post. No railing or roof. Entire pier occupies about 88% of cell width and 46% cell height, centered at 50% cell height. Keep every part inside the cell.
 RIGHT CELL: one small wooden coastal rowing boat, seen from the SAME high overhead camera, with its long axis running horizontally LEFT to RIGHT and its bow pointing RIGHT. Natural narrow hull, warm honey-brown wood with a softly lighter rim, visibly hollow dark interior, three broad wooden bench seats, one slender wooden oar resting diagonally across the interior. No sail, mast, people, flag or canopy. The boat fills about 82% of cell width and 35% of cell height, centered at the center of its cell. Keep every part inside the cell.
 Style: hand-painted gouache with subtly irregular soft brush edges, broad painted material shading, recognizable physical objects. Natural proportions, quiet matte highlights and slightly worn timber. Soft consistent light from upper left. These objects must remain clear at 20–40 pixels wide on a sea background. No flat vector lines, black outlines, cute cartoon exaggeration, plastic toy shine, photographic micro-detail, strong cast shadows or dramatic perspective. A restrained soft contact shadow immediately beneath each object is allowed, with transparency around it. Output ONLY the two isolated painted sprites in the exact two-cell atlas.
+
+## Robber v2 edit prompt
+
+Reference: [robber-v1.png](../../public/catan/robber-v1.png). Tool: built-in ImageGen, transparent background.
+
+Edit the provided transparent Catan board-game robber sprite. Preserve its handmade gouache painting style, full-body hooded person, simple readable silhouette, slightly elevated three-quarter perspective, dark charcoal cloak, and transparent background. This is a tiny game piece displayed about 40 pixels wide against a desaturated, moderately darkened landscape. Make the figure much easier to recognize at that size: replace the dull brown bag with a prominent warm golden ochre money sack with a visible cluster of bright gold coins at its opening, painted yellow-gold highlights and a gentle warm luminous glow immediately around the sack. Make the sack a little larger so its gold area is clearly readable at tiny size. Add restrained warm ivory and ochre rim highlights along the hood, shoulders and cloak folds to separate the dark human silhouette from gray terrain. Keep the human face simple, recognizable and softly lit. Preserve the dark cloak as the main body color, natural human proportions and the existing calm standing pose. Maintain softly textured opaque gouache strokes with clear edges. Keep all of the person, feet and sack inside the square canvas, with only a narrow transparent margin. No scenery, floor, pedestal, text, letters, icons, border, frame, weapon, additional person, giant glow aura or scattered particles. The final output must be one isolated full-body robber with a bright painted gold sack on a truly transparent background.
+
+## Archived robber v1 prompt
+
+Use case: stylized-concept.
+Asset type: one transparent production character sprite for a hand-painted island board game, displayed at 20–32 pixels.
+Primary request: a recognizable human robber wearing a dark charcoal hooded cloak and carrying a small worn brown cloth loot bag in one hand.
+Input image: style reference ONLY. Match the reference cottages' gouache brushwork, natural proportions, warm muted colors, matte materials and soft light from upper left. Do not include any building or terrain.
+Subject: ONE standing adult robber, full body, hood framing a partly visible face, simple tunic, leather boots, and clearly separate bag. A restrained medieval traveler / bandit look. Believable human proportions, not a pawn, letter, emoji, cute cartoon, or photorealistic person.
+Composition: square canvas, completely transparent alpha background. Center the figure horizontally. The full figure including bag occupies about 72% of the canvas width and 84% of its height, with boots ending at 89% of the canvas height. Keep hood, hands, cloak, bag, and boots entirely inside the canvas. Slightly elevated three-quarter orthographic view matching the cottages.
+Style: hand-painted gouache, broad simplified shapes and soft irregular paint edges, modeled matte volume. Use warm charcoal-gray cloth with taupe highlights along the hood and shoulders so the silhouette reads clearly over dark green forest as well as pale dunes. Avoid large areas of flat pure black. One small soft painted contact shadow immediately beneath the boots is allowed.
+Constraints: clean real transparency everywhere around the single person, including around the bag. No ground patch, landscape, scenic background, floor, buildings, circle, badge, outline border, letters, numbers, labels, watermarks, weapons, extra characters or duplicate sprites. Output only this one isolated painted robber.
 
 ## Archived v2 terrain prompt
 

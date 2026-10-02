@@ -2,7 +2,7 @@ import type { Resource } from "./catan";
 
 const AUDIO_ROOT = "/audio/catan/v1/";
 export const CATAN_SOUND_FILES = {
-  resource_wood_gain: "resource-wood-gain.mp3",
+  resource_wood_gain: "resource-wood-planks-gain.mp3",
   resource_brick_gain: "resource-brick-gain.mp3",
   resource_wool_gain: "resource-wool-gain.mp3",
   resource_grain_gain: "resource-grain-gain.mp3",
@@ -21,7 +21,6 @@ export const CATAN_SOUND_FILES = {
   turn_start: "turn-start.mp3",
   special_award: "special-award.mp3",
   game_won: "game-won.mp3",
-  ui_select: "ui-select.mp3",
   ui_cancel: "ui-cancel.mp3",
   ui_error: "ui-error.mp3",
 } as const;

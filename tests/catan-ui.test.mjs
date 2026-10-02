@@ -141,6 +141,58 @@ test("die maximierte Karte behält Bauziele und Kamerasteuerung ohne die zusätz
   assert.equal((expanded.match(/aria-label="Siedlung auf Kreuzung/g) ?? []).length, choices.length);
 });
 
+test("der gemalte Räuber bleibt auf allen 19 Feldern über Gebäuden und Baueffekten sichtbar", () => {
+  const initial = acceptedCatanGame(seats, 12, sequence([0]));
+  for (const hex of initial.board.hexes) {
+    const game = structuredClone(initial); game.robberHex = hex.id;
+    for (const [index, vertexId] of hex.vertices.filter((_, corner) => corner % 2 === 0).entries()) {
+      Object.assign(game.board.vertices[vertexId], { owner: game.players[index].id, building: index === 0 ? "city" : "settlement" });
+    }
+    for (const expanded of [false, true]) {
+      const html = render(CatanBoard, { game: catanView(game, game.players[0].id), mode: null, choices: [], selected: null, onSelect() {}, disabled: false, expanded });
+      const layer = html.match(/<g class="catan-robber-layer"[^>]*>[\s\S]*?<\/g>/)?.[0];
+      assert.ok(layer, `Räuberebene fehlt auf Feld ${hex.id}.`);
+      assert.equal((html.match(/class="catan-robber-piece"/g) ?? []).length, 1);
+      assert.equal((html.match(/class="catan-number-label[^"]*"/g) ?? []).length, 18);
+      assert.match(html, /href="\/catan\/robber-v2\.png" width="40" height="40"/);
+      const landscapes = html.match(/<use class="catan-landscape[^"]*"[^>]*>/g);
+      assert.equal(landscapes.length, 19);
+      assert.equal(landscapes.filter((landscape) => landscape.includes("is-blocked")).length, 1, "Nur das aktuelle Räuberfeld darf ausgegraut werden.");
+      assert.ok(landscapes[hex.id].includes('class="catan-landscape is-blocked"'));
+      assert.match(layer, /role="img"[^>]*aria-label="Räuber auf Feld \d+ – blockiert den Ertrag"[^>]*pointer-events="none"/);
+      assert.ok(layer.includes(`data-catan-robber="${hex.id}"`));
+      assert.ok(layer.includes(`transform="translate(${hex.x - 20} ${hex.y - 29})"`));
+      assert.ok(html.indexOf(layer) > html.lastIndexOf("data-catan-building="));
+      assert.ok(html.indexOf(layer) > html.indexOf('class="catan-construction-effects"'));
+      assert.match(html, /Räuber blockiert den Ertrag/);
+      assert.doesNotMatch(html, />R<\/text>/);
+      if (hex.number) {
+        assert.ok(layer.includes(`x="${hex.x}" y="${hex.y + 29}" text-anchor="middle" aria-hidden="true">${hex.number}</text>`));
+        assert.match(layer, /class="catan-number-label[^"]* is-blocked"/);
+        assert.doesNotMatch(layer, /on-grain/, "Auch auf ausgegrautem Acker muss die Zahl hell sein.");
+      } else {
+        assert.doesNotMatch(layer, /catan-number-label/);
+        assert.match(layer, /class="catan-blocked-desert-label"[^>]*>Wüste<\/text>/);
+        assert.equal((html.match(/>Wüste<\/text>/g) ?? []).length, 1);
+      }
+    }
+  }
+});
+
+test("die Räuberebene erhält Feld- und Bauziele einschließlich Tastaturauswahl", () => {
+  const game = acceptedCatanGame(seats, 12, sequence([0])); const viewer = game.players[0].id;
+  const choices = game.board.hexes.filter((hex) => hex.id !== game.robberHex).map((hex) => hex.id);
+  for (const disabled of [false, true]) {
+    const html = render(CatanBoard, { game: catanView(game, viewer), mode: "robber", choices, selected: choices[0], onSelect() {}, disabled });
+    assert.equal((html.match(/role="button"[^>]*aria-label="Räuber auf Feld/g) ?? []).length, 18);
+    assert.match(html, new RegExp(`role="button"[^>]*tabindex="${disabled ? -1 : 0}"[^>]*aria-label="Räuber auf Feld ${choices[0] + 1}:[^"]*"[^>]*aria-pressed="true"[^>]*aria-disabled="${disabled}"`));
+    assert.match(html, /class="catan-robber-layer"[^>]*pointer-events="none"/);
+  }
+  const settlements = legalSettlements(game, viewer, true);
+  const html = render(CatanBoard, { game: catanView(game, viewer), mode: "settlement", choices: settlements, selected: settlements[0], onSelect() {}, disabled: false });
+  assert.equal((html.match(/aria-label="Siedlung auf Kreuzung/g) ?? []).length, settlements.length);
+});
+
 test("öffnet den Bereich, dessen Aufgabe gerade ansteht", () => {
   const setup = acceptedCatanGame(seats, 12, sequence([0]));
   assert.equal(suggestedTab(catanView(setup, setup.players[0].id)), "insel");

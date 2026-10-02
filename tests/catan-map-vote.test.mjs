@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createCatanGame, applyCatanAction, mapVoteProgress, localActorId, catanView, legalSettlements, RESOURCES } from "../lib/catan.ts";
 import { submitCatanMapVote } from "../lib/catan-map-vote-client.ts";
+import { terrainGroups } from "./catan-helpers.mjs";
 
 const seats = ["Anna", "Ben", "Clara", "David"].map((name, i) => ({ id: `p${i}`, name }));
 const ballot = (game, id, accept) => applyCatanAction(game, id, { type: "map_vote", mapId: game.mapVote.id, accept });
@@ -51,6 +52,8 @@ test("rerolls preserve the match and generator invariants, clear votes and inval
     const oldId = game.mapVote.id; const previous = structuredClone(game.board);
     for (const p of seats) game = applyCatanAction(game, p.id, { type: "map_vote", mapId: oldId, accept: false }, rng(20 + cycle));
     assert.notDeepEqual(game.board, previous); assert.deepEqual(game.mapVote.votes, {});
+    assert.notDeepEqual(game.board.hexes.map((hex) => hex.resource), previous.hexes.map((hex) => hex.resource));
+    assert.ok(terrainGroups(game.board).every((group) => group.length <= 3));
     assert.deepEqual([game.board.hexes.length, game.board.vertices.length, game.board.edges.length, game.board.harbors.length], [19, 54, 72, 9]);
     assert.deepEqual(RESOURCES.map((r) => game.board.hexes.filter((h) => h.resource === r).length), [4, 3, 4, 4, 3]);
     assert.equal(game.robberHex, game.board.hexes.find((h) => h.resource === "desert").id);
@@ -61,6 +64,18 @@ test("rerolls preserve the match and generator invariants, clear votes and inval
     for (const key of ["id", "players", "deck", "bank", "targetPoints", "currentPlayer"]) assert.deepEqual(game[key], initial[key]);
   }
   assert.ok(game.sequence > initial.sequence);
+});
+
+test("eine abgelehnte gespeicherte Karte ändert die Landschaften trotz identischer Zufallsquelle", () => {
+  let game = createCatanGame(seats.slice(0, 3), 12, () => 0);
+  for (let cycle = 0; cycle < 3; cycle++) {
+    game = JSON.parse(JSON.stringify(game)); const before = structuredClone(game);
+    for (const player of game.players) game = applyCatanAction(game, player.id, { type: "map_vote", mapId: game.mapVote.id, accept: false }, () => 0);
+    assert.notDeepEqual(game.board.hexes.map((hex) => hex.resource), before.board.hexes.map((hex) => hex.resource));
+    assert.ok(terrainGroups(game.board).every((group) => group.length <= 3));
+    assert.equal(game.robberHex, game.board.hexes.find((hex) => hex.resource === "desert").id);
+    for (const key of ["id", "version", "players", "bank", "deck", "targetPoints", "currentPlayer"]) assert.deepEqual(game[key], before[key]);
+  }
 });
 
 test("votes are immutable and idempotent; regular, malformed and unauthorized actions do not mutate state", () => {

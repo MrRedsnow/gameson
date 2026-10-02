@@ -3,10 +3,10 @@
 import { useId, useLayoutEffect, useState, type CSSProperties } from "react";
 import { Anchor, ChevronLeft, ChevronRight, LocateFixed, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Resource } from "@/lib/catan";
+import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Hex, type Resource } from "@/lib/catan";
 import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from "@/lib/catan-camera";
 import { seaParallax } from "@/lib/catan-parallax";
-import { BuildingPiece, HarborIllustration, Landscape, LandscapeDefinitions } from "./landscape";
+import { BuildingPiece, HarborIllustration, Landscape, LandscapeDefinitions, RobberPiece } from "./landscape";
 import { ResourceIcon } from "./resource-icon";
 import { useBoardCamera } from "./use-board-camera";
 import { useConstructionPlayback } from "./use-construction-playback";
@@ -14,6 +14,10 @@ import { CatanSeaBackground } from "./sea-background";
 
 export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
+
+function HexNumber({ hex, blocked = false }: { hex: Hex; blocked?: boolean }) {
+  return hex.number ? <text className={`catan-number-label${[6, 8].includes(hex.number) ? " is-frequent" : ""}${hex.resource === "grain" && !blocked ? " on-grain" : ""}${blocked ? " is-blocked" : ""}`} x={hex.x} y={hex.y + (blocked ? 29 : 7)} textAnchor="middle" aria-hidden="true">{hex.number}</text> : null;
+}
 
 export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, expanded = false, islandVisible = true, animationBaseline = 0 }: {
   game: CatanView; mode: BoardMode; choices: number[]; selected: number | null;
@@ -25,6 +29,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   const [inspect, setInspect] = useState<number | null>(null);
   const index = selected === null ? -1 : choices.indexOf(selected);
   const { board } = game;
+  const robberHex = board.hexes[game.robberHex];
   // Shared edges form one continuous seam, so neighboring hexes never double its opacity.
   const seamPath = board.edges.map((edge) => {
     const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
@@ -99,12 +104,11 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           const regionAction = () => { setInspect(hex.id); if (hex.resource !== "desert") onInspect?.(hex.resource); };
           return <g key={hex.id} className={enabled || inspectable ? "catan-map-target" : undefined} {...(enabled ? interactive(hex.id, `Räuber auf Feld ${hex.id + 1}: ${name}${hex.number ? `, Zahl ${hex.number}` : ""}`) : inspectable ? interactive(hex.id, `Feld ansehen: ${name}, ${hex.number ?? "Wüste"}, Feld ${hex.id + 1}`, regionAction) : {})}>
             <title>{`Feld ${hex.id + 1}: ${name}${hex.number ? ` (${hex.number})` : ""}${hex.id === game.robberHex ? " – Räuber blockiert den Ertrag" : ""}`}</title>
-            <g clipPath={`url(#${artId}-hex-${hex.id})`}><Landscape id={artId} resource={hex.resource} x={hex.x} y={hex.y} mirrored={hex.id % 2 === 1} /></g>
+            <g clipPath={`url(#${artId}-hex-${hex.id})`}><Landscape id={artId} resource={hex.resource} x={hex.x} y={hex.y} mirrored={hex.id % 2 === 1} blocked={hex.id === game.robberHex} /></g>
             <polygon className="catan-hex-border" points={hex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} fill="transparent" stroke="none" strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            {hex.number && <text className={`catan-number-label${[6, 8].includes(hex.number) ? " is-frequent" : ""}${hex.resource === "grain" ? " on-grain" : ""}`} x={hex.x} y={hex.y + 7} textAnchor="middle" aria-hidden="true">{hex.number}</text>}
-            {hex.id === game.robberHex && <g aria-label="Räuber"><circle cx={hex.x + 30} cy={hex.y - 27} r="13" fill="#172129" stroke="#fff2d7" strokeWidth="2" /><text x={hex.x + 30} y={hex.y - 21} textAnchor="middle" fill="#fff2d7" fontSize="17" fontWeight="800">R</text></g>}
+            {hex.id !== game.robberHex && <HexNumber hex={hex} />}
             {enabled && !picked && <circle cx={hex.x} cy={hex.y} r="46" fill="none" stroke="#fff5c3" strokeDasharray="4 6" strokeWidth="2" />}
-            {hex.resource === "desert" && <text x={hex.x} y={hex.y + 32} fill="#283132" fontSize="13" textAnchor="middle">Wüste</text>}
+            {hex.resource === "desert" && hex.id !== game.robberHex && <text x={hex.x} y={hex.y + 32} fill="#283132" fontSize="13" textAnchor="middle">Wüste</text>}
           </g>;
         })}
         <g className="catan-hex-seams" aria-hidden="true" pointerEvents="none">
@@ -156,6 +160,11 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           </g>;
         })}
         <g ref={effectsRef} className="catan-construction-effects" pointerEvents="none" aria-hidden="true" />
+        <g className="catan-robber-layer" data-catan-robber={robberHex.id} role="img" aria-label={`Räuber auf Feld ${robberHex.id + 1} – blockiert den Ertrag`} pointerEvents="none">
+          <RobberPiece id={artId} x={robberHex.x} y={robberHex.y} />
+          <HexNumber hex={robberHex} blocked />
+          {robberHex.resource === "desert" && <text className="catan-blocked-desert-label" x={robberHex.x} y={robberHex.y + 29} fontSize="13" textAnchor="middle" aria-hidden="true">Wüste</text>}
+        </g>
       </svg>
       {!mode && inspect !== null && <p className="catan-board-field-info" role="status">{board.hexes[inspect].resource === "desert" ? "Wüste" : RESOURCE_INFO[board.hexes[inspect].resource as Resource].terrain} · {board.hexes[inspect].number ? `Zahl ${board.hexes[inspect].number}` : "kein Ertrag"}{inspect === game.robberHex ? " · Räuber blockiert den Ertrag" : ""}</p>}
     </div>
