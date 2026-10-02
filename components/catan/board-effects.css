@@ -1,0 +1,19 @@
+.catan-roll-field { stroke:#ffedaa; stroke-width:3; stroke-linejoin:round; vector-effect:non-scaling-stroke; filter:drop-shadow(0 0 3px #ffe49a99); }
+.catan-roll-field.is-blocked { stroke:#e2af9b; stroke-dasharray:5 4; }
+.catan-roll-blocked { fill:#fff0cb; stroke:#342b2a; stroke-width:2.5; paint-order:stroke; font:700 10px Georgia,serif; }
+.catan-number-label.is-roll-hit { fill:#ffedb0; stroke:#3b3525; stroke-width:2; filter:drop-shadow(0 0 3px #f7cc65aa); }
+.catan-building-preview { opacity:.5; pointer-events:none; }
+.catan-harbor-flag { pointer-events:none; filter:drop-shadow(0 1px 1px #132b3270); }
+.catan-harbor-flag-pole { stroke:#ddc49a; stroke-width:1.2; stroke-linecap:round; }
+.catan-harbor.is-newly-opened .catan-harbor-flag,.catan-harbor.is-newly-opened .catan-harbor-label { filter:drop-shadow(0 0 4px #fff0a9); }
+.catan-road-award-glow { stroke:#fff0b7; stroke-width:7; stroke-linecap:round; filter:drop-shadow(0 0 3px #fff0b7); }
+.catan-robber-dust { pointer-events:none; }
+/* The path's top-right corner is the pier anchor (30,8). Scaling about that
+   point keeps it fixed while its other end follows the boat's gentle sway. */
+.catan-harbor-mooring { transform-box:fill-box; transform-origin:100% 0%; animation:catan-harbor-mooring var(--catan-boat-period,6.4s) ease-in-out infinite; animation-delay:var(--catan-boat-delay,0ms); animation-play-state:paused; }
+.catan-board[data-catan-ambient-active=true] .catan-harbor-mooring { animation-play-state:running; }
+@keyframes catan-harbor-mooring { 0%,100% { transform:scale(1.014,.989); } 50% { transform:scale(.948,1.12); } }
+@media (prefers-reduced-motion:reduce) {
+  .catan-roll-field,.catan-number-label.is-roll-hit,.catan-road-award-glow { filter:none; }
+  .catan-harbor-mooring { animation:none !important; transform:none !important; }
+}

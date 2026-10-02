@@ -16,7 +16,7 @@ export function groupedActivity(game: Pick<CatanView, "notifications" | "me">, a
   let previous: CatanNotification | undefined;
   let legacyKey = "";
   for (const notice of game.notifications ?? []) {
-    if (notice.id <= afterSequence || (notice.playerId !== null && notice.playerId !== game.me?.id)) continue;
+    if (notice.kind === "roll" || notice.id <= afterSequence || (notice.playerId !== null && notice.playerId !== game.me?.id)) continue;
     if (notice.actionId === undefined && !(previous && previous.id + 1 === notice.id && previous.kind === "resources" && notice.kind === "resources" && previous.tone === "loss" && notice.tone === "gain" && previous.title === notice.title && previous.message === notice.message)) legacyKey = `legacy:${notice.id}`;
     const key = notice.actionId === undefined ? legacyKey : `${notice.actionId}:${notice.kind === "resources" ? "resources" : notice.title}`;
     const group = groups.get(key) ?? { id: notice.id, title: notice.title, message: notice.message, gains: emptyResources(), losses: emptyResources() };

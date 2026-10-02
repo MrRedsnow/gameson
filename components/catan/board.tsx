@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useLayoutEffect, useState, type CSSProperties } from "react";
+import { useEffect, useId, useLayoutEffect, useState, type CSSProperties } from "react";
 import { Anchor, ChevronLeft, ChevronRight, LocateFixed, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Hex, type Resource } from "@/lib/catan";
@@ -11,24 +11,32 @@ import { ResourceIcon } from "./resource-icon";
 import { useBoardCamera } from "./use-board-camera";
 import { useConstructionPlayback } from "./use-construction-playback";
 import { CatanSeaBackground } from "./sea-background";
+import { harborOwners } from "./board-effects";
+import { useBoardEffects } from "./use-board-effects";
+import { CatanAmbientIsland } from "./ambient-island";
+import { preloadAmbientArtwork } from "@/lib/catan-ambient";
 
 export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
 
 function HexNumber({ hex, blocked = false }: { hex: Hex; blocked?: boolean }) {
-  return hex.number ? <text className={`catan-number-label${[6, 8].includes(hex.number) ? " is-frequent" : ""}${hex.resource === "grain" && !blocked ? " on-grain" : ""}${blocked ? " is-blocked" : ""}`} x={hex.x} y={hex.y + (blocked ? 29 : 7)} textAnchor="middle" aria-hidden="true">{hex.number}</text> : null;
+  return hex.number ? <text className={`catan-number-label${[6, 8].includes(hex.number) ? " is-frequent" : ""}${hex.resource === "grain" && !blocked ? " on-grain" : ""}${blocked ? " is-blocked" : ""}`} data-catan-number={hex.id} x={hex.x} y={hex.y + (blocked ? 29 : 7)} textAnchor="middle" aria-hidden="true">{hex.number}</text> : null;
 }
 
-export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, expanded = false, islandVisible = true, animationBaseline = 0 }: {
+export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, expanded = false, islandVisible = true, animationBaseline = 0, ambientEnabled = true }: {
   game: CatanView; mode: BoardMode; choices: number[]; selected: number | null;
-  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number;
+  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number; ambientEnabled?: boolean;
 }) {
   const artId = `catan-${useId().replace(/:/g, "")}`;
   const { svgRef, effectsRef } = useConstructionPlayback(game, islandVisible, animationBaseline);
+  const { boardEffectsRef, effectsBusy } = useBoardEffects(svgRef, game, islandVisible, animationBaseline);
+  const [pastureReady, setPastureReady] = useState(false);
+  useEffect(() => preloadAmbientArtwork(setPastureReady), []);
   const [size, setSize] = useState({ width: 360, height: 300, measured: false });
   const [inspect, setInspect] = useState<number | null>(null);
   const index = selected === null ? -1 : choices.indexOf(selected);
   const { board } = game;
+  const buildingPreview = !disabled && game.me && (mode === "settlement" || mode === "city") && selected !== null && choices.includes(selected) ? board.vertices[selected] : null;
   const robberHex = board.hexes[game.robberHex];
   // Shared edges form one continuous seam, so neighboring hexes never double its opacity.
   const seamPath = board.edges.map((edge) => {
@@ -86,11 +94,11 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   });
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
     <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" style={seaStyle} data-interacting={interactionActive} {...viewportProps}>
-      <CatanSeaBackground width={size.width} height={size.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && size.measured} />
-      <svg ref={svgRef} className="catan-board" viewBox={viewBox} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom}>
+      <CatanSeaBackground width={size.width} height={size.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && size.measured} ambientEnabled={ambientEnabled} />
+      <svg ref={svgRef} className="catan-board" viewBox={viewBox} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom} data-catan-ambient-active={ambientEnabled && islandVisible && !interactionActive && !effectsBusy}>
         <title>Catan – Spielbrett</title>
         <defs>
-          <LandscapeDefinitions id={artId} />
+          <LandscapeDefinitions id={artId} cleanPasture={pastureReady} />
           {board.hexes.map((hex) => <clipPath key={hex.id} id={`${artId}-hex-${hex.id}`}><polygon points={hex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} /></clipPath>)}
         </defs>
         <g aria-hidden="true" className="catan-shoreline">{board.edges.filter((edge) => edge.hexes.length === 1).map((edge) => {
@@ -106,28 +114,36 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
             <title>{`Feld ${hex.id + 1}: ${name}${hex.number ? ` (${hex.number})` : ""}${hex.id === game.robberHex ? " – Räuber blockiert den Ertrag" : ""}`}</title>
             <g clipPath={`url(#${artId}-hex-${hex.id})`}><Landscape id={artId} resource={hex.resource} x={hex.x} y={hex.y} mirrored={hex.id % 2 === 1} blocked={hex.id === game.robberHex} /></g>
             <polygon className="catan-hex-border" points={hex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} fill="transparent" stroke="none" strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            {hex.id !== game.robberHex && <HexNumber hex={hex} />}
             {enabled && !picked && <circle cx={hex.x} cy={hex.y} r="46" fill="none" stroke="#fff5c3" strokeDasharray="4 6" strokeWidth="2" />}
-            {hex.resource === "desert" && hex.id !== game.robberHex && <text x={hex.x} y={hex.y + 32} fill="#283132" fontSize="13" textAnchor="middle">Wüste</text>}
           </g>;
         })}
         <g className="catan-hex-seams" aria-hidden="true" pointerEvents="none">
           <path className="catan-hex-seam-shadow" d={seamPath} fill="none" vectorEffect="non-scaling-stroke" />
           <path className="catan-hex-seam-light" d={seamPath} fill="none" vectorEffect="non-scaling-stroke" />
         </g>
+        <CatanAmbientIsland game={game} artId={artId} viewBox={viewBox} active={islandVisible} interacting={interactionActive} enabled={ambientEnabled} effectsBusy={effectsBusy} cleanPasture={pastureReady} />
+        {board.hexes.filter((hex) => hex.resource === "desert" && hex.id !== game.robberHex).map((hex) => <text key={`desert-${hex.id}`} x={hex.x} y={hex.y + 32} fill="#283132" fontSize="13" textAnchor="middle" pointerEvents="none" aria-hidden="true">Wüste</text>)}
+        {board.hexes.filter((hex) => hex.id !== game.robberHex).map((hex) => <HexNumber key={hex.id} hex={hex} />)}
         {selectedHex && <polygon className="catan-hex-selection" points={selectedHex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} fill="none" stroke="#fff5c3" strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" pointerEvents="none" aria-hidden="true" />}
+        <g ref={boardEffectsRef} className="catan-board-effects" pointerEvents="none" aria-hidden="true" />
         {board.harbors.map((harbor) => {
           const edge = board.edges[harbor.edge]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
           const coastX = (a.x + b.x) / 2; const coastY = (a.y + b.y) / 2;
           const x = coastX * 1.29; const y = coastY * 1.29;
           const label = harbor.resource === "any" ? "3:1" : "2:1";
-          return <g key={harbor.edge} className="catan-harbor"><title>{harbor.resource === "any" ? "Hafen für alle Rohstoffe, 3 zu 1" : `${RESOURCE_INFO[harbor.resource].label}-Hafen, 2 zu 1`}</title>
-            <HarborIllustration id={artId} x={coastX} y={coastY} angle={Math.atan2(coastY, coastX) * 180 / Math.PI} />
+          const owners = harborOwners(board, harbor.edge);
+          const harborTitle = `${harbor.resource === "any" ? "Hafen für alle Rohstoffe, 3 zu 1" : `${RESOURCE_INFO[harbor.resource].label}-Hafen, 2 zu 1`}${owners.length ? ` · erschlossen von ${owners.map((owner) => game.players.find((player) => player.id === owner)?.name).join(", ")}` : ""}`;
+          return <g key={harbor.edge} className="catan-harbor" data-catan-harbor={harbor.edge}><title>{harborTitle}</title>
+            <HarborIllustration id={artId} x={coastX} y={coastY} angle={Math.atan2(coastY, coastX) * 180 / Math.PI} phase={harbor.edge} />
             <g className="catan-harbor-label">
               <rect x={x - 19} y={y - 17} width="38" height="34" rx="4" fill="#132b32" fillOpacity=".78" />
               {harbor.resource === "any" ? <Anchor x={x - 7} y={y - 14} width="14" height="14" color="#dfdac7" strokeWidth="1.5" /> : <ResourceIcon resource={harbor.resource} x={x - 8} y={y - 15} width="16" height="16" />}
               <text x={x} y={y + 12} fill="#f2ecda" textAnchor="middle" fontSize="15" fontWeight="600">{label}</text>
             </g>
+            {owners.map((owner, ownerIndex) => <g key={owner} className="catan-harbor-flag" data-catan-harbor-owner={owner} transform={`translate(${x + 21 + ownerIndex * 10} ${y - 14})`} aria-hidden="true" pointerEvents="none">
+              <path className="catan-harbor-flag-pole" d="M0 17V-2" />
+              <path d="M.5-2L10 1.5 .5 5Z" fill={color(owner)} stroke="#24392d" strokeWidth=".6" />
+            </g>)}
           </g>;
         })}
         {board.edges.filter((e) => e.owner).map((edge) => {
@@ -137,10 +153,13 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
             <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color(edge.owner!)} strokeWidth="4" strokeLinecap="round" />
           </g>;
         })}
-        {board.vertices.filter((v) => v.owner).map((v) => <g key={v.id} data-catan-building={v.id}>
+        {board.vertices.filter((v) => v.owner && !(mode === "city" && buildingPreview?.id === v.id)).map((v) => <g key={v.id} data-catan-building={v.id}>
           <title>{`${game.players.find((p) => p.id === v.owner)!.name}: ${v.building === "city" ? "Stadt" : "Siedlung"} auf Kreuzung ${v.id + 1}`}</title>
           <BuildingPiece id={artId} building={v.building === "city" ? "city" : "settlement"} colorIndex={game.players.find((p) => p.id === v.owner)!.color} x={v.x} y={v.y} />
         </g>)}
+        {buildingPreview && game.me && (mode === "settlement" || mode === "city") && <g className="catan-building-preview" pointerEvents="none" aria-hidden="true" data-catan-building-preview={buildingPreview.id}>
+          <BuildingPiece id={artId} building={mode} colorIndex={game.me.color} x={buildingPreview.x} y={buildingPreview.y} />
+        </g>}
         {mode === "road" && choices.map((id) => {
           const edge = board.edges[id]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
           return <g key={id} className="catan-map-target" {...interactive(id, `Straße auf Weg ${id + 1} bauen`)}>
@@ -155,8 +174,8 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           return <g key={id} className="catan-map-target" {...interactive(id, `${mode === "city" ? "Stadt" : "Siedlung"} auf Kreuzung ${id + 1} bauen`)}>
             <circle cx={v.x} cy={v.y} r={Math.max(22, hitRadius)} fill="transparent" />
             <circle className="catan-target-focus" cx={v.x} cy={v.y} r={radius + 5} fill="none" stroke="#fff5c3" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none" />
-            <circle className="catan-vertex-target" cx={v.x} cy={v.y} r={radius} fill={selected === id ? "#ffe7a1" : "#162b34"} stroke="#ffe7a1" strokeWidth="3" />
-            {(camera.zoom >= 2 || selected === id) && <text x={v.x} y={v.y + 5} fontSize="18" textAnchor="middle" fill={selected === id ? "#162b34" : "#ffe7a1"}>{selected === id ? "✓" : "+"}</text>}
+            <circle className="catan-vertex-target" cx={v.x} cy={v.y} r={radius} fill={buildingPreview?.id === id ? "transparent" : selected === id ? "#ffe7a1" : "#162b34"} stroke="#ffe7a1" strokeWidth="3" />
+            {(camera.zoom >= 2 || selected === id) && <text x={v.x} y={v.y + (buildingPreview?.id === id ? 29 : 5)} fontSize={buildingPreview?.id === id ? 13 : 18} textAnchor="middle" fill={selected === id && buildingPreview?.id !== id ? "#162b34" : "#ffe7a1"}>{selected === id ? "✓" : "+"}</text>}
           </g>;
         })}
         <g ref={effectsRef} className="catan-construction-effects" pointerEvents="none" aria-hidden="true" />

@@ -11,6 +11,8 @@ The current v3 terrain, sea, building and harbor artwork was generated with the 
 | Buildings | [buildings-v3.png](../../public/catan/buildings-v3.png) | 1774 × 887 | Transparent 4 × 2 atlas: settlements above cities; columns are coral, blue, ivory and purple. |
 | Harbors | [harbor-atlas-v3.png](../../public/catan/harbor-atlas-v3.png) | 1774 × 887 | Two transparent square cells: a weathered wooden T-shaped pier and a rowing boat. |
 | Robber | [robber-v2.png](../../public/catan/robber-v2.png) | 1254 × 1254 | One transparent full-body person with a dark hooded cloak, warm rim highlights and a luminous gold sack with coins. |
+| Ambient sprites | [ambient-atlas-v1.png](../../public/catan/ambient-atlas-v1.png) | 1448 × 1086 | Transparent 4 × 3 atlas; two poses each for gull, woodland bird, butterfly, dolphin, sheep and pedestrian. |
+| Clean pasture | [pasture-v1.png](../../public/catan/pasture-v1.png) | 1254 × 1254 | Sheep-free meadow matching the v3 pasture; independent sheep sprites are added on top. |
 
 Terrain and sea were encoded as JPEG at quality 85, retaining their source dimensions. Buildings and harbors retain PNG alpha for compositing over the board. The terrain and sea are painterly edits of the v2 images; buildings used the v3 terrain as a style reference, and harbors used the building atlas.
 
@@ -19,6 +21,24 @@ Terrain and sea were encoded as JPEG at quality 85, retaining their source dimen
 All four v3 files and the v2 robber are precached by the [service worker](../../public/sw.js) for offline play after the app has been loaded online. Earlier [terrain-atlas-v2.jpg](../../public/catan/terrain-atlas-v2.jpg), [sea-v2.jpg](../../public/catan/sea-v2.jpg) and [robber-v1.png](../../public/catan/robber-v1.png) remain as source references in `public/catan/`; the board no longer loads them and the service worker does not precache them.
 
 The robber is drawn at 40 × 40 board units at (x − 20, y − 29), horizontally centered and close to the middle of its field. Only the occupied landscape is fully desaturated and darkened to 74% brightness; its terrain detail remains visible. Its number moves below the character to y + 29 and uses light ink with a stronger dark stroke, including on grain. The desert label receives the same contrast treatment. A dedicated SVG layer follows buildings and construction effects, and allows pointer events to pass through to the field and placement targets. Moving the robber restores the old field's normal colors automatically.
+
+## Living island and action details
+
+The ambient sprites and clean pasture were created with the built-in ImageGen tool on 2026-10-02, using the v3 terrain and buildings as style references. They retain the matte gouache palette and alpha for sprite compositing. Originals are preserved; the v3 wool tile remains a fallback if either the clean pasture or ambient sprite atlas cannot load. Both replacement images must finish loading before independent sheep replace the painted sheep. Both new files are precached for offline play.
+
+The sprite atlas has twelve equal square cells in row-major order: gull wings raised/lowered, woodland bird wings raised/lowered; butterfly open/closed, dolphin swimming/jumping; sheep grazing/head raised, pedestrian stepping left/right. SVG view boxes select the cells without separate image requests. All movement uses board coordinates and follows the existing camera.
+
+One shared scheduler runs occasional gulls, birds, butterflies, dolphins, sheep, pedestrians, smoke and feathered wind patches. At most three transient scenes run on desktop and two below 640px; a breeze is separately limited to two fields. Dolphins use sampled water-only paths with coastline, harbor and jump clearance; pedestrians use confirmed roads. Hidden, disabled and reduced-motion views stop scheduling and remove moving scenes. Game actions and camera interaction take priority. The “Lebendige Insel” preference is stored on the device; static sheep remain part of the landscape. Existing boats gently sway; the existing sea shader adds at most ±1.5% slow brightness variation when ambience is enabled.
+
+Confirmed optional notification metadata drives roll highlights, robber travel, private card reveals and award handovers. Old saved games fall back to confirmed snapshot differences. Restore/reconnect baselines consume earlier effects. Resource receipts preserve separate gross +N and −N badges, while the total reflects the net change. The field numbers and play markers are drawn above the ambient layer.
+
+### Ambient sprite prompt
+
+Use case: stylized-concept. Create one transparent production sprite atlas matching the v3 terrain/buildings’ matte gouache brushwork, natural proportions, muted colors and upper-left light. Exactly four equal square columns by three rows, no visible grid or gutters. Twelve isolated subjects with transparent margin and matching body centers/scales between paired poses: white coastal gull wings lifted/lowered; charcoal woodland bird wings lifted/lowered; ochre butterfly wings open/folded; slate-gray dolphin swimming/jumping; off-white dark-faced sheep grazing/head raised; neutral brown medieval villager left/right walking step. Subjects face right except the butterfly viewed from above. No scenery, ground, text, labels, weapons or extra subjects. Preserve real transparency.
+
+### Clean pasture prompt
+
+Use case: precise-object-edit. Use only the top-middle pasture of the v3 terrain atlas as the target. Preserve its grassland composition, olive/moss palette, gouache brushwork, flowers, shrubs, trees and lower-middle rocks. Remove every sheep and fill the removed areas with matching grass and flowers. Output one opaque square, edge-to-edge pasture tile, retaining the perspective and lighting. No animals, people, text, labels, fences, buildings, roads or borders.
 
 ## Continuous sea movement
 

@@ -1,7 +1,8 @@
-const CACHE = "gameson-shell-v25";
+const CACHE = "gameson-shell-v27";
 const SHELL = [
   "/", "/imposter", "/werwolf", "/catan", "/stadt-land-fluss", "/hive", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
   "/catan/terrain-atlas-v3.jpg", "/catan/sea-v3.jpg", "/catan/buildings-v3.png", "/catan/harbor-atlas-v3.png", "/catan/robber-v2.png",
+  "/catan/ambient-atlas-v1.png", "/catan/pasture-v1.png",
   "/audio/catan/v1/resource-wood-planks-gain.mp3", "/audio/catan/v1/resource-brick-gain.mp3",
   "/audio/catan/v1/resource-wool-gain.mp3", "/audio/catan/v1/resource-grain-gain.mp3", "/audio/catan/v1/resource-ore-gain.mp3",
   "/audio/catan/v1/dice-roll.mp3", "/audio/catan/v1/build-road.mp3", "/audio/catan/v1/build-settlement.mp3", "/audio/catan/v1/build-city.mp3",

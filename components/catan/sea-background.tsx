@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 
-type SeaLayout = { width: number; height: number; size: number; x: number; y: number; active: boolean };
+type SeaLayout = { width: number; height: number; size: number; x: number; y: number; active: boolean; ambientEnabled?: boolean };
 const VERTEX = `
 attribute vec2 a_position;
 varying vec2 v_uv;
@@ -18,6 +18,7 @@ uniform vec2 u_viewport;
 uniform vec2 u_textureSize;
 uniform vec3 u_sea;
 uniform float u_time;
+uniform float u_ambient;
 void main() {
   vec2 screen = vec2(v_uv.x, 1.0 - v_uv.y) * u_viewport;
   vec2 origin = (u_viewport - vec2(u_sea.x)) * 0.5 + u_sea.yz;
@@ -28,7 +29,9 @@ void main() {
     2.25 * sin(phase + p.y / 72.0) + 0.75 * sin(2.0 * phase + p.x / 118.0 + p.y / 160.0),
     1.5 * cos(phase + p.x / 96.0 - p.y / 128.0) + 0.5 * sin(2.0 * phase + p.y / 110.0)
   );
-  gl_FragColor = texture2D(u_texture, clamp(uv + wave / u_textureSize, 0.0, 1.0));
+  vec4 paintedSea = texture2D(u_texture, clamp(uv + wave / u_textureSize, 0.0, 1.0));
+  float reflection = 1.0 + u_ambient * 0.015 * sin(u_time * 6.28318530718 / 30.0 + p.x / 260.0 + p.y / 340.0);
+  gl_FragColor = vec4(paintedSea.rgb * reflection, paintedSea.a);
 }`;
 
 /** One original texture, warped on the GPU at the display's animation cadence. */
@@ -94,7 +97,7 @@ export function CatanSeaBackground(props: SeaLayout) {
         gl.attachShader(program, vertex); gl.attachShader(program, fragment); gl.linkProgram(program);
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error("Sea program failed");
         gl.useProgram(program);
-        for (const name of ["u_texture", "u_viewport", "u_textureSize", "u_sea", "u_time"]) uniforms[name] = gl.getUniformLocation(program, name);
+        for (const name of ["u_texture", "u_viewport", "u_textureSize", "u_sea", "u_time", "u_ambient"]) uniforms[name] = gl.getUniformLocation(program, name);
         buffer = gl.createBuffer(); texture = gl.createTexture();
         if (!buffer || !texture) throw new Error("Sea buffers unavailable");
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -121,7 +124,7 @@ export function CatanSeaBackground(props: SeaLayout) {
     function tick(now: number) {
       frame = null;
       if (!canAnimate() || !ready || !gl) { sync(); return; }
-      if (previousTime !== null) time = (time + (now - previousTime) / 1000) % 4.5;
+      if (previousTime !== null) time = (time + (now - previousTime) / 1000) % 90;
       previousTime = now;
       const { width, height, size, x, y } = layout.current;
       // Keep native CSS resolution and enough retina detail without an oversized drawing buffer.
@@ -130,6 +133,7 @@ export function CatanSeaBackground(props: SeaLayout) {
       if (canvas!.width !== pixelWidth || canvas!.height !== pixelHeight) { canvas!.width = pixelWidth; canvas!.height = pixelHeight; }
       gl.viewport(0, 0, pixelWidth, pixelHeight);
       gl.uniform2f(uniforms.u_viewport, width, height); gl.uniform3f(uniforms.u_sea, size, x, y);
+      gl.uniform1f(uniforms.u_ambient, layout.current.ambientEnabled === false ? 0 : 1);
       gl.uniform1f(uniforms.u_time, time); gl.drawArrays(gl.TRIANGLES, 0, 3);
       if (canvas!.style.opacity !== "1") canvas!.style.opacity = "1";
       frame = requestAnimationFrame(tick);

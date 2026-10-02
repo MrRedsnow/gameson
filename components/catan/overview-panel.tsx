@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Bell, BookOpen, CheckCheck, ChevronRight, ScrollText, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GameBackLink } from "@/components/game-entry";
@@ -24,11 +24,13 @@ const RULES = [
 const BUILDING_NAMES: Record<keyof typeof COSTS, string> = { road: "Straße", settlement: "Siedlung", city: "Stadt", development: "Entwicklungskarte" };
 export type OverviewPage = "menu" | "scores" | "log" | "rules" | "activity";
 
-export function OverviewPanel({ game, page, setPage, activity, unreadActivity, unread, onRead, onRematch, busy, turnActions }: {
+export function OverviewPanel({ game, page, setPage, activity, unreadActivity, unread, onRead, onRematch, busy, turnActions, ambientEnabled = true, onAmbientChange }: {
   game: CatanView; page: OverviewPage; setPage: (page: OverviewPage) => void; activity: CatanActivity[]; unreadActivity?: CatanActivity[]; unread: number; onRead: () => void;
   local: boolean; onHide?: () => void; onRematch?: () => void; busy: boolean; turnActions?: ReactNode;
+  ambientEnabled?: boolean; onAmbientChange?: (enabled: boolean) => void;
 }) {
   const me = game.me!; const back = () => setPage("menu");
+  const ambientId = useId();
   if (page === "rules") return <Screen title="Spielregeln & Baukosten" back={back} actions={turnActions}>
     <div className="catan-rule-list">
       <details className="catan-rule-section" open><summary>Baukosten</summary><div className="catan-rule-costs">{(Object.keys(COSTS) as (keyof typeof COSTS)[]).map((kind) => <div key={kind}><strong>{BUILDING_NAMES[kind]}</strong><span className="catan-cost">{RESOURCES.filter((resource) => COSTS[kind][resource]).map((resource) => <span key={resource} title={RESOURCE_INFO[resource].label}><ResourceIcon resource={resource} />{COSTS[kind][resource]}<span className="sr-only"> {RESOURCE_INFO[resource].label}</span></span>)}</span></div>)}</div></details>
@@ -55,6 +57,7 @@ export function OverviewPanel({ game, page, setPage, activity, unreadActivity, u
         <p>Vorrat: {15 - p.pieces.road} Straßen · {5 - p.pieces.settlement} Siedlungen · {4 - p.pieces.city} Städte</p></div>
     </details>)}</div>
     <div className="catan-overview-links">{([{ id: "log", title: "Spielverlauf", Icon: ScrollText }, { id: "activity", title: "Deine Meldungen", Icon: Bell }, { id: "rules", title: "Spielregeln & Baukosten", Icon: BookOpen }] as const).map(({ id, title, Icon }) => <button type="button" className="catan-overview-link" key={id} onClick={() => setPage(id)}><Icon /><span>{title}</span>{id === "activity" && unread > 0 && <b>{unread} neu</b>}<ChevronRight /></button>)}</div>
+    {onAmbientChange && <label htmlFor={ambientId} aria-label="Lebendige Insel" className="catan-ambient-preference"><span><strong>Lebendige Insel</strong><small>Tiere, Boote und kleine Bewegungen</small></span><input id={ambientId} type="checkbox" checked={ambientEnabled} onChange={(event) => onAmbientChange(event.target.checked)} /></label>}
     <div className="catan-overview-exit"><GameBackLink /></div>
   </Screen>;
 }

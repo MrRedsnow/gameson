@@ -118,18 +118,18 @@ function showRoll(values: [number, number]) {
 }
 
 /** Mounted at page level so every online viewer and the local handoff screen see new rolls. */
-export function CatanDiceOverlay({ game }: { game: Pick<CatanGame, "id" | "turn" | "dice"> | null | undefined }) {
+export function CatanDiceOverlay({ game, animationBaseline = 0 }: { game: Pick<CatanGame, "id" | "turn" | "dice"> | null | undefined; animationBaseline?: number }) {
   const gameId = game?.id;
   const [first, second] = game?.dice ?? [0, 0];
   const rollKey = game?.dice ? `${game.id}:${game.turn}:${first}:${second}` : null;
-  const seen = useRef({ gameId, rollKey });
+  const seen = useRef({ gameId, rollKey, animationBaseline });
   useLayoutEffect(() => {
     const previous = seen.current;
-    seen.current = { gameId, rollKey };
+    seen.current = { gameId, rollKey, animationBaseline };
     // A restored game is already known. Polls and actions within this turn must
     // not replay it; an identical result on a later turn is still a new roll.
-    if (previous.gameId !== gameId || !rollKey || previous.rollKey === rollKey || document.hidden) return;
+    if (previous.gameId !== gameId || previous.animationBaseline !== animationBaseline || !rollKey || previous.rollKey === rollKey || document.hidden) return;
     return showRoll([first, second]);
-  }, [gameId, rollKey, first, second]);
+  }, [gameId, rollKey, first, second, animationBaseline]);
   return null;
 }

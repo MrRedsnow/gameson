@@ -2,6 +2,24 @@ import { RESOURCES, emptyResources, type CatanView, type Resource, type Resource
 
 export type ResourceGainStep = { id: string; resource: Resource; hexId: number | null };
 export type ResourceGainBatch = { id: string; gains: Resources; steps: ResourceGainStep[] };
+export type ResourceLossBatch = { id: string; losses: Resources };
+
+/** Payments remain visible even when a later receipt cancels their net difference. */
+export function resourceLossBatch(previous: CatanView | null, current: CatanView): ResourceLossBatch | null {
+  if (!previous?.me || !current.me || previous.id !== current.id || previous.me.id !== current.me.id || current.sequence <= previous.sequence) return null;
+  const losses = emptyResources();
+  for (const notice of current.notifications ?? []) {
+    if (notice.id <= previous.sequence || notice.id > current.sequence || notice.playerId !== current.me.id || notice.kind !== "resources" || notice.tone !== "loss") continue;
+    for (const resource of RESOURCES) {
+      const amount = notice.resources?.[resource] ?? 0;
+      if (Number.isSafeInteger(amount) && amount > 0) losses[resource] += amount;
+    }
+  }
+  for (const resource of RESOURCES) {
+    if (!losses[resource]) losses[resource] = Math.max(0, previous.me.resources[resource] - current.me.resources[resource]);
+  }
+  return RESOURCES.some((resource) => losses[resource]) ? { id: `${current.id}:${current.me.id}:${previous.sequence}:${current.sequence}:loss`, losses } : null;
+}
 
 /** New receipts drive animations; opening a hand or reading old activity never replays them. */
 export function resourceGainBatch(previous: CatanView | null, current: CatanView): ResourceGainBatch | null {

@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Resource } from "@/lib/catan";
 
 const TERRAIN_CELLS: Record<Resource | "desert", readonly [number, number]> = {
@@ -8,16 +9,17 @@ const TERRAIN_FALLBACKS = { wood: "#3d5431", wool: "#78904e", grain: "#c6a264", 
 
 // Six scenes share one image request. Nested view boxes select the atlas cells;
 // the board's hexagonal clip paths trim them without stretching the terrain.
-export function LandscapeDefinitions({ id }: { id: string }) {
+export function LandscapeDefinitions({ id, cleanPasture = false }: { id: string; cleanPasture?: boolean }) {
   return <>
     <image id={`${id}-terrain-atlas`} href="/catan/terrain-atlas-v3.jpg" width="324" height="216" preserveAspectRatio="none" />
     <image id={`${id}-buildings-atlas`} href="/catan/buildings-v3.png" width="400" height="200" preserveAspectRatio="none" />
     <image id={`${id}-harbor-atlas`} href="/catan/harbor-atlas-v3.png" width="200" height="100" preserveAspectRatio="none" />
     <image id={`${id}-robber`} href="/catan/robber-v2.png" width="40" height="40" />
+    <image id={`${id}-pasture`} href="/catan/pasture-v1.png" width="108" height="108" preserveAspectRatio="none" />
     {Object.entries(TERRAIN_CELLS).map(([resource, [column, row]]) => <g key={resource} id={`${id}-${resource}`}>
       <rect x="-54" y="-54" width="108" height="108" fill={TERRAIN_FALLBACKS[resource as Resource | "desert"]} />
-      <svg x="-54" y="-54" width="108" height="108" viewBox={`${column * 108} ${row * 108} 108 108`} overflow="hidden">
-        <use href={`#${id}-terrain-atlas`} />
+      <svg x="-54" y="-54" width="108" height="108" viewBox={resource === "wool" && cleanPasture ? "0 0 108 108" : `${column * 108} ${row * 108} 108 108`} overflow="hidden">
+        <use href={`#${id}-${resource === "wool" && cleanPasture ? "pasture" : "terrain-atlas"}`} />
       </svg>
     </g>)}
   </>;
@@ -28,18 +30,19 @@ export function Landscape({ id, resource, x, y, mirrored = false, blocked = fals
 }
 
 export function RobberPiece({ id, x, y }: { id: string; x: number; y: number }) {
-  return <use className="catan-robber-piece" href={`#${id}-robber`} transform={`translate(${x - 20} ${y - 29})`} aria-hidden="true" />;
+  return <use className="catan-robber-piece" data-catan-robber-traveller="" href={`#${id}-robber`} transform={`translate(${x - 20} ${y - 29})`} aria-hidden="true" />;
 }
 
-export function HarborIllustration({ id, x, y, angle }: { id: string; x: number; y: number; angle: number }) {
+export function HarborIllustration({ id, x, y, angle, phase = 0 }: { id: string; x: number; y: number; angle: number; phase?: number }) {
+  const motionStyle = { "--catan-boat-delay": `${-phase * 1.13}s`, "--catan-boat-period": `${5.2 + phase % 3 * .6}s` } as CSSProperties;
   return <g className="catan-harbor-illustration" transform={`translate(${x} ${y}) rotate(${angle})`} aria-hidden="true">
     <svg x="-6" y="-22" width="44" height="44" viewBox="0 0 100 100" overflow="hidden">
       <use href={`#${id}-harbor-atlas`} />
     </svg>
-    <svg x="3" y="3" width="32" height="32" viewBox="100 0 100 100" overflow="hidden">
+    <g className="catan-ambient-boat" style={motionStyle}><svg x="3" y="3" width="32" height="32" viewBox="100 0 100 100" overflow="hidden">
       <use href={`#${id}-harbor-atlas`} />
-    </svg>
-    <path d="M30 8q-1 5-8 6" fill="none" stroke="#c4ac82" strokeWidth=".7" opacity=".7" />
+    </svg></g>
+    <path className="catan-harbor-mooring" style={motionStyle} d="M30 8q-1 5-8 6" fill="none" stroke="#c4ac82" strokeWidth=".7" opacity=".7" vectorEffect="non-scaling-stroke" />
   </g>;
 }
 

@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import "./catan.css";
+import "@/components/catan/resource-feedback.css";
+import "@/components/catan/event-notice.css";
+import "@/components/catan/board-effects.css";
+import "@/components/catan/ambient-island.css";
 
 export const metadata: Metadata = {
   title: "Die Siedler von Catan – Gameson",

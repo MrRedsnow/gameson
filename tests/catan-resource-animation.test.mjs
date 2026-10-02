@@ -10,11 +10,11 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const output = resolve(root, `.wrangler/test-artifacts/catan-resource-animation-${process.pid}.cjs`);
 await mkdir(dirname(output), { recursive: true });
 await build({
-  stdin: { contents: 'export { playResourceGain } from "./components/catan/resource-hand"; export { RESOURCES, emptyResources, resourceCount } from "./lib/catan";', resolveDir: root, loader: "tsx" },
+  stdin: { contents: 'export { playResourceGain, playResourceLoss } from "./components/catan/resource-hand"; export { RESOURCES, emptyResources, resourceCount } from "./lib/catan";', resolveDir: root, loader: "tsx" },
   absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", jsx: "automatic", outfile: output, logLevel: "silent",
 });
 after(() => rm(output, { force: true }));
-const { playResourceGain, RESOURCES, emptyResources, resourceCount } = createRequire(import.meta.url)(output);
+const { playResourceGain, playResourceLoss, RESOURCES, emptyResources, resourceCount } = createRequire(import.meta.url)(output);
 
 class Classes {
   values = new Set();
@@ -79,9 +79,11 @@ function environment(t, { reducedMotion = false, clipped = false, expanded = fal
   for (const [resource, cell] of [...Object.entries(cells), ["total", total]]) {
     cell.queries.set("b", new Node());
     const badge = new Node(); badge.hidden = true; cell.queries.set(".catan-hand-gain", badge);
+    const loss = new Node(); loss.hidden = true; cell.queries.set(".catan-hand-loss", loss);
     if (resource !== "total") hand.queries.set(`[data-catan-resource="${resource}"]`, cell);
   }
   hand.queries.set(".catan-hand-total", total); hand.queries.set("[data-catan-gain-announcement]", announcement);
+  hand.queries.set("[data-catan-loss-announcement]", new Node());
   const play = new Node(); const board = new Node(); const viewport = new Node();
   if (expanded) play.classList.add("is-board-expanded");
   viewport.rect = { left: 0, top: 80, width: 600, height: 500 };
@@ -104,6 +106,7 @@ function environment(t, { reducedMotion = false, clipped = false, expanded = fal
     frameAt(time) { advanceTo(time); const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((callback) => callback(time)); },
     count(resource) { return Number((resource === "total" ? total : cells[resource]).querySelector("b").textContent); },
     gain(resource) { const badge = (resource === "total" ? total : cells[resource]).querySelector(".catan-hand-gain"); return badge.hidden ? null : badge.textContent; },
+    loss(resource) { const badge = (resource === "total" ? total : cells[resource]).querySelector(".catan-hand-loss"); return badge.hidden ? null : badge.textContent; },
     overlays() { return [...document.body.children, ...play.children].filter((node) => node.className === "catan-resource-flights"); },
     flights() { return this.overlays().flatMap((overlay) => overlay.children).map((node) => node.children[0].attributes.get("data-resource")); },
   };
@@ -118,6 +121,33 @@ function start(env, { before = emptyResources(5), gains = { wood: 3 }, losses = 
   const playback = playResourceGain(env.hand, previous, current, { id: "qa", gains: received, steps }, island);
   return { playback, resources };
 }
+
+test("loss feedback coexists with gains, shows only the net total loss and cleans up", (t) => {
+  const env = environment(t);
+  const previous = { me: { resources: emptyResources(5) } };
+  const current = { me: { resources: { ...emptyResources(5), wood: 2, ore: 6 } } };
+  const gain = start(env, { gains: { ore: 1 }, losses: { wood: 3 } });
+  const loss = playResourceLoss(env.hand, previous, current, { id: "loss", losses: { ...emptyResources(), wood: 3 } });
+  assert.equal(env.loss("wood"), "−3"); assert.equal(env.loss("total"), "−2");
+  env.frameAt(0); env.frameAt(120);
+  assert.equal(env.gain("ore"), "+1"); assert.equal(env.loss("wood"), "−3");
+  assert.equal(env.count("wood"), 2); assert.equal(env.count("ore"), 6);
+  env.advanceTo(4000);
+  assert.equal(env.loss("wood"), null); assert.equal(env.loss("total"), null);
+  assert.equal(env.cells.wood.classList.contains("is-losing"), false);
+  loss.dispose(); gain.playback.dispose();
+  assert.equal(env.document.size, 0); assert.equal(env.timers.size, 0);
+});
+
+test("hiding the document clears private loss feedback immediately", (t) => {
+  const env = environment(t);
+  const previous = { me: { resources: emptyResources(5) } };
+  const current = { me: { resources: { ...emptyResources(5), wood: 1 } } };
+  const playback = playResourceLoss(env.hand, previous, current, { id: "loss", losses: { ...emptyResources(), wood: 4 } });
+  env.document.hidden = true; env.document.emit("visibilitychange");
+  assert.equal(env.loss("wood"), null); assert.equal(env.document.size, 0); assert.equal(env.timers.size, 0);
+  playback.dispose();
+});
 
 test("header-only gains increment separately every 120ms with cumulative +1, +2, +3", (t) => {
   const env = environment(t); start(env);

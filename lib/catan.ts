@@ -41,10 +41,15 @@ export type CatanMapVote = { id: string; hostPlayerId: string; votes: Record<str
 export type TradeOffer = { id: number; fromId: string; toId: string; give: Resources; receive: Resources };
 export type CatanResourceOrigin = { hexId: number; resource: Resource; amount: number };
 export type CatanNotification = {
-  id: number; actionId?: number; playerId: string | null; kind: "resources" | "card" | "award" | "robber";
+  id: number; actionId?: number; playerId: string | null; kind: "resources" | "card" | "award" | "robber" | "roll";
   tone: "gain" | "loss" | "info"; title: string; message: string; resources?: Resources;
   // Historical field contributions stay exact even when later actions change the board.
   resourceOrigins?: CatanResourceOrigin[];
+  // Optional presentation receipts keep old saves compatible and card identities private.
+  roll?: { turn: number; dice: [number, number]; robberHex: number };
+  card?: { id: string; type: Development };
+  robber?: { fromHex: number; toHex: number };
+  award?: { type: "longestRoad" | "largestArmy"; fromId: string | null; toId: string | null };
 };
 export type CatanGame = {
   version: 1; id: string; board: Board; players: CatanPlayer[]; targetPoints: number; bank: Resources;
@@ -290,19 +295,30 @@ export function legalRoads(game: Pick<CatanGame, "board">, playerId: string, set
 export function legalCities(game: Pick<CatanGame, "board">, playerId: string): number[] {
   return pieceCounts(game, playerId).city >= 4 ? [] : game.board.vertices.filter((v) => v.owner === playerId && v.building === "settlement").map((v) => v.id);
 }
-export function longestRoadLength(board: Board, playerId: string): number {
-  function walk(vertexId: number, used: Set<number>): number {
+export function longestRoadPath(board: Board, playerId: string): number[] {
+  let best: number[] = [];
+  const path: number[] = []; const used = new Set<number>();
+  const compare = (a: number[], b: number[]) => {
+    for (let index = 0; index < a.length; index++) if (a[index] !== b[index]) return a[index] - b[index];
+    return 0;
+  };
+  function walk(vertexId: number) {
+    if (path.length >= best.length) {
+      const reverse = [...path].reverse();
+      const normalized = compare(path, reverse) <= 0 ? [...path] : reverse;
+      if (path.length > best.length || compare(normalized, best) < 0) best = normalized;
+    }
     const vertex = board.vertices[vertexId];
-    if (used.size && vertex.owner && vertex.owner !== playerId) return 0;
-    let best = 0;
+    if (used.size && vertex.owner && vertex.owner !== playerId) return;
     for (const edgeId of vertex.edges) {
       const edge = board.edges[edgeId]; if (edge.owner !== playerId || used.has(edgeId)) continue;
-      used.add(edgeId); best = Math.max(best, 1 + walk(edge.a === vertexId ? edge.b : edge.a, used)); used.delete(edgeId);
+      used.add(edgeId); path.push(edgeId); walk(edge.a === vertexId ? edge.b : edge.a); path.pop(); used.delete(edgeId);
     }
-    return best;
   }
-  return Math.max(0, ...board.vertices.map((v) => walk(v.id, new Set())));
+  for (const vertex of board.vertices) walk(vertex.id);
+  return best;
 }
+export function longestRoadLength(board: Board, playerId: string): number { return longestRoadPath(board, playerId).length; }
 export function victoryPoints(game: Pick<CatanGame, "board" | "longestRoad" | "largestArmy">, player: CatanPlayer, includeHidden = true): number {
   const pieces = pieceCounts(game, player.id);
   return pieces.settlement + 2 * pieces.city + (game.longestRoad === player.id ? 2 : 0) + (game.largestArmy === player.id ? 2 : 0)
@@ -402,7 +418,10 @@ function recordNotifications(before: CatanGame, game: CatanGame, actorId: string
       source = before.phase === "setup_settlement" ? "Startrohstoffe" : "Baukosten";
       message = before.phase === "setup_settlement" ? "Deine zweite Siedlung bringt dir Startrohstoffe." : `${actor.name} baut ${action.building === "road" ? "eine Straße" : action.building === "city" ? "eine Stadt" : "eine Siedlung"}.`;
       break;
-    case "roll": source = "Würfelertrag"; message = `Gewürfelt: ${game.dice![0] + game.dice![1]}. Deine Siedlungen und Städte liefern Rohstoffe.`; break;
+    case "roll":
+      source = "Würfelertrag"; message = `Gewürfelt: ${game.dice![0] + game.dice![1]}. Deine Siedlungen und Städte liefern Rohstoffe.`;
+      add({ playerId: null, kind: "roll", tone: "info", title: "Würfelwurf", message: `${actor.name} würfelt ${game.dice![0] + game.dice![1]}.`, roll: { turn: game.turn, dice: [...game.dice!], robberHex: before.robberHex } });
+      break;
     case "discard": source = "Räuber · Abgabe"; message = "Eine 7 wurde gewürfelt. Du gibst die Hälfte deiner Rohstoffkarten ab."; break;
     case "steal": source = "Räuber · Diebstahl"; message = `${actor.name} stiehlt ${game.players.find((p) => p.id === action.victimId)!.name} eine Rohstoffkarte.`; break;
     case "bank_trade": source = tradeRatio(before, actorId, action.give) < 4 ? "Hafenhandel" : "Bankhandel"; message = "Dein Tausch ist abgeschlossen."; break;
@@ -410,7 +429,7 @@ function recordNotifications(before: CatanGame, game: CatanGame, actorId: string
     case "buy_development": {
       source = "Entwicklungskarte · Kauf"; message = "Du bezahlst eine Entwicklungskarte.";
       const card = game.players.find((p) => p.id === actorId)!.development.at(-1)!;
-      add({ playerId: actorId, kind: "card", tone: "gain", title: `Neue Karte: ${DEVELOPMENT_INFO[card.type].label}`, message: DEVELOPMENT_INFO[card.type].description });
+      add({ playerId: actorId, kind: "card", tone: "gain", title: `Neue Karte: ${DEVELOPMENT_INFO[card.type].label}`, message: DEVELOPMENT_INFO[card.type].description, card: { id: card.id, type: card.type } });
       break;
     }
     case "play_development": {
@@ -421,7 +440,7 @@ function recordNotifications(before: CatanGame, game: CatanGame, actorId: string
       break;
     }
     case "move_robber":
-      add({ playerId: null, kind: "robber", tone: "info", title: "Räuber versetzt", message: `${actor.name} setzt den Räuber auf Feld ${action.hex + 1}. Dieses Feld liefert keine Rohstoffe, solange der Räuber dort steht.` });
+      add({ playerId: null, kind: "robber", tone: "info", title: "Räuber versetzt", message: `${actor.name} setzt den Räuber auf Feld ${action.hex + 1}. Dieses Feld liefert keine Rohstoffe, solange der Räuber dort steht.`, robber: { fromHex: before.robberHex, toHex: action.hex } });
       break;
   }
   for (const player of game.players) {
@@ -442,7 +461,7 @@ function recordNotifications(before: CatanGame, game: CatanGame, actorId: string
   for (const [key, title] of [["longestRoad", "Längste Handelsstraße"], ["largestArmy", "Größte Rittermacht"]] as const) {
     if (before[key] === game[key]) continue;
     if (before[key]) add({ playerId: before[key], kind: "award", tone: "loss", title: "Sonderkarte verloren", message: `Du verlierst „${title}“ und damit 2 Siegpunkte.` });
-    add({ playerId: null, kind: "award", tone: "info", title, message: game[key] ? `${game.players.find((p) => p.id === game[key])!.name} erhält diese Sonderkarte und 2 Siegpunkte.` : "Diese Sonderkarte ist jetzt unbesetzt." });
+    add({ playerId: null, kind: "award", tone: "info", title, message: game[key] ? `${game.players.find((p) => p.id === game[key])!.name} erhält diese Sonderkarte und 2 Siegpunkte.` : "Diese Sonderkarte ist jetzt unbesetzt.", award: { type: key, fromId: before[key], toId: game[key] } });
   }
   if (game.phase === "finished") for (const player of game.players) {
     const points = player.development.filter((card) => card.type === "victory").length;

@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { Hand } from "lucide-react";
 import { RESOURCES, RESOURCE_INFO, emptyResources, resourceCount, type CatanView, type Resource } from "@/lib/catan";
-import { resourceGainBatch, type ResourceGainBatch } from "@/lib/catan-resource-gains";
+import { resourceGainBatch, resourceLossBatch, type ResourceGainBatch, type ResourceLossBatch } from "@/lib/catan-resource-gains";
 import { ResourceIcon } from "./resource-icon";
 
 const FLIGHT_MS = 700;
@@ -195,21 +195,56 @@ export function playResourceGain(hand: HTMLElement, previous: CatanView, game: C
   return { dispose, hideFlights };
 }
 
-export function CatanResourceHand({ game, islandVisible }: { game: CatanView; islandVisible: boolean }) {
+export function playResourceLoss(hand: HTMLElement, previous: CatanView, game: CatanView, batch: ResourceLossBatch) {
+  let timer = 0;
+  let disposed = false;
+  const cells = RESOURCES.map((resource) => ({ cell: resourceCell(hand, resource), amount: batch.losses[resource] }));
+  cells.push({ cell: hand.querySelector<HTMLElement>(".catan-hand-total")!, amount: Math.max(0, resourceCount(previous.me!.resources) - resourceCount(game.me!.resources)) });
+  const announcement = hand.querySelector<HTMLElement>("[data-catan-loss-announcement]");
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true; clearTimeout(timer);
+    cells.forEach(({ cell }) => {
+      cell.classList.remove("is-losing");
+      const badge = cell.querySelector<HTMLElement>(".catan-hand-loss");
+      if (badge) { badge.hidden = true; badge.textContent = ""; }
+    });
+    if (announcement) announcement.textContent = "";
+    document.removeEventListener("visibilitychange", hide);
+  };
+  const hide = () => { if (document.hidden) dispose(); };
+  cells.forEach(({ cell, amount }) => {
+    const badge = cell.querySelector<HTMLElement>(".catan-hand-loss");
+    if (amount && badge) { badge.textContent = `−${amount}`; badge.hidden = false; cell.classList.add("is-losing"); }
+  });
+  if (announcement) announcement.textContent = `Abgegeben: ${RESOURCES.filter((r) => batch.losses[r]).map((r) => `${batch.losses[r]} ${RESOURCE_INFO[r].label}`).join(", ")}.`;
+  document.addEventListener("visibilitychange", hide);
+  timer = window.setTimeout(dispose, HOLD_MS);
+  return { dispose };
+}
+
+export function CatanResourceHand({ game, islandVisible, animationBaseline = 0 }: { game: CatanView; islandVisible: boolean; animationBaseline?: number }) {
   const hand = useRef<HTMLDivElement>(null);
   const seen = useRef(game);
   const playback = useRef<Playback | null>(null);
+  const lossPlayback = useRef<ReturnType<typeof playResourceLoss> | null>(null);
+  const baseline = useRef(animationBaseline);
   const resources = game.me!.resources; const count = resourceCount(resources);
   const needsDiscard = game.phase === "discard" && game.discards[game.me!.id] > 0;
   const warning = needsDiscard ? `${game.discards[game.me!.id]} Rohstoffe abgeben` : count > 7 ? `Mehr als sieben Karten: Bei einer 7 musst du ${Math.floor(count / 2)} abgeben.` : `${count} Rohstoffkarten`;
 
   useLayoutEffect(() => {
     if (!islandVisible) playback.current?.hideFlights();
-    const previous = seen.current; seen.current = game;
-    const batch = resourceGainBatch(previous, game);
+    const previous = seen.current;
+    const reset = previous.id !== game.id || previous.me?.id !== game.me?.id || baseline.current !== animationBaseline;
+    if (!reset && game.sequence < previous.sequence) return;
+    seen.current = game; baseline.current = animationBaseline;
+    const batch = reset ? null : resourceGainBatch(previous, game);
+    const lossBatch = reset ? null : resourceLossBatch(previous, game);
     const changed = previous.id !== game.id || previous.me?.id !== game.me?.id || RESOURCES.some((resource) => previous.me?.resources[resource] !== game.me?.resources[resource]);
-    if (!batch && !changed) return;
+    if (!reset && !batch && !lossBatch && !changed) return;
     playback.current?.dispose(); playback.current = null;
+    lossPlayback.current?.dispose(); lossPlayback.current = null;
     // Disposal restores the preceding confirmed hand. A loss-only update must
     // immediately replace it with the latest hand, just like a new receipt does.
     if (hand.current) {
@@ -217,14 +252,16 @@ export function CatanResourceHand({ game, islandVisible }: { game: CatanView; is
       hand.current.querySelector(".catan-hand-total b")!.textContent = String(resourceCount(game.me!.resources));
     }
     if (batch && !document.hidden && hand.current) playback.current = playResourceGain(hand.current, previous, game, batch, islandVisible);
-  }, [game, islandVisible]);
-  useLayoutEffect(() => () => { playback.current?.dispose(); }, []);
+    if (lossBatch && !document.hidden && hand.current) lossPlayback.current = playResourceLoss(hand.current, previous, game, lossBatch);
+  }, [game, islandVisible, animationBaseline]);
+  useLayoutEffect(() => () => { playback.current?.dispose(); lossPlayback.current?.dispose(); }, []);
 
   return <div ref={hand} className={`catan-hand-bar ${needsDiscard ? "is-alert" : count > 7 ? "is-warn" : ""}`}>
     <div className="catan-hand-strip" role="group" aria-label={`Deine Rohstoffe: ${RESOURCES.map((resource) => `${resources[resource]} ${RESOURCE_INFO[resource].label}`).join(", ")}`}>
-      <span className="catan-hand-total" title={warning} aria-label={warning}><Hand aria-hidden="true" /><b className="catan-hand-count">{count}</b><em className="catan-hand-gain" hidden aria-hidden="true" />{(needsDiscard || count > 7) && <span className="sr-only">{warning}</span>}</span>
-      {RESOURCES.map((resource) => <span key={resource} className="catan-hand-resource" data-catan-resource={resource}><ResourceIcon resource={resource} /><b className="catan-hand-count">{resources[resource]}</b><small>{RESOURCE_INFO[resource].label}</small><em className="catan-hand-gain" hidden aria-hidden="true" /></span>)}
+      <span className="catan-hand-total" title={warning} aria-label={warning}><Hand aria-hidden="true" /><b className="catan-hand-count">{count}</b><span className="catan-hand-feedback"><em className="catan-hand-gain" hidden aria-hidden="true" /><em className="catan-hand-loss" hidden aria-hidden="true" /></span>{(needsDiscard || count > 7) && <span className="sr-only">{warning}</span>}</span>
+      {RESOURCES.map((resource) => <span key={resource} className="catan-hand-resource" data-catan-resource={resource}><ResourceIcon resource={resource} /><b className="catan-hand-count">{resources[resource]}</b><small>{RESOURCE_INFO[resource].label}</small><span className="catan-hand-feedback"><em className="catan-hand-gain" hidden aria-hidden="true" /><em className="catan-hand-loss" hidden aria-hidden="true" /></span></span>)}
     </div>
     <span className="sr-only" data-catan-gain-announcement role="status" aria-live="polite" aria-atomic="true" />
+    <span className="sr-only" data-catan-loss-announcement role="status" aria-live="polite" aria-atomic="true" />
   </div>;
 }

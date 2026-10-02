@@ -1,0 +1,26 @@
+.catan-event-notice { position:fixed; bottom:calc(78px + env(safe-area-inset-bottom)); left:50%; z-index:85; width:min(360px,calc(100vw - 24px)); transform:translateX(-50%); perspective:800px; pointer-events:none; user-select:none; }
+.catan-event-notice[hidden] { display:none; }
+.catan-event-card-inner { position:relative; transform-style:preserve-3d; }
+.catan-event-card-front,.catan-event-card-back { border:1px solid var(--catan-event-player,#d6c39e); border-radius:13px; background:linear-gradient(135deg,#29413ded,#142d32f5); box-shadow:0 8px 24px #0006; backface-visibility:hidden; }
+.catan-event-card-front { display:flex; align-items:center; gap:12px; padding:14px; border-left-width:4px; }
+.catan-event-card-back { position:absolute; inset:0; display:grid; place-items:center; transform:rotateY(180deg); background:repeating-linear-gradient(45deg,#253d39,#253d39 8px,#2b433e 8px,#2b433e 16px); }
+.catan-event-card-back>svg { width:46px; height:46px; color:#f1d895; }
+.catan-event-icon { display:grid; place-items:center; flex:0 0 35px; width:35px; height:42px; color:var(--catan-event-player,#e8d6aa); }
+.catan-event-icon>svg { width:30px; height:30px; }
+.catan-event-road,.catan-event-trophy { display:none; }
+.catan-event-notice.is-longestRoad .catan-event-shield { display:none; }
+.catan-event-notice.is-longestRoad .catan-event-road { display:block; }
+.catan-event-notice.is-largestArmy .catan-event-shield { display:none; }
+.catan-event-notice.is-largestArmy .catan-event-trophy { display:block; }
+.catan-event-copy { display:grid; gap:5px; min-width:0; color:#e8e8d8; font:14px/1.35 Arial,Helvetica,sans-serif; overflow-wrap:anywhere; }
+.catan-event-copy>strong { color:#fae5b4; font-size:17px; }
+.catan-event-copy>small { color:#becfc5; font-size:11px; }
+.catan-event-copy>small:first-child { letter-spacing:.07em; text-transform:uppercase; }
+.catan-event-notice.is-card.is-entering .catan-event-card-inner { animation:catan-development-reveal 450ms ease-out both; }
+.catan-event-notice.is-award.is-entering .catan-event-card-inner { animation:catan-award-arrival 250ms ease-out both; }
+@keyframes catan-development-reveal { from { transform:rotateY(180deg); } to { transform:rotateY(0); } }
+@keyframes catan-award-arrival { from { transform:translateY(8px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.catan-event-notice[data-motion=still] .catan-event-card-inner { animation:none !important; }
+.catan-play.is-board-expanded>.catan-event-notice { position:absolute; bottom:132px; z-index:5; }
+@media(max-width:420px) { .catan-event-card-front { padding:11px; gap:8px; } .catan-event-copy { font-size:12px; } .catan-event-copy>strong { font-size:15px; } }
+@media(prefers-reduced-motion:reduce) { .catan-event-notice .catan-event-card-inner { animation:none !important; } }

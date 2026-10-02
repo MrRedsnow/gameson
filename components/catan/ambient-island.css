@@ -1,0 +1,31 @@
+.catan-ambient-island,.catan-ambient-island * { pointer-events:none; }
+.catan-ambient-standing-sheep.is-blocked { filter:grayscale(1) brightness(.74); }
+.catan-ambient-pose { opacity:1; animation:catan-ambient-first-pose .85s steps(1,end) infinite; }
+.catan-ambient-pose.is-secondary { opacity:0; animation-name:catan-ambient-second-pose; }
+.catan-ambient-sprite.is-static .catan-ambient-pose { animation:none; }
+.catan-ambient-butterfly .catan-ambient-pose { animation-duration:.24s; }
+.catan-ambient-forest_bird .catan-ambient-pose { animation-duration:.55s; }
+.catan-ambient-pedestrian .catan-ambient-pose { animation-duration:.64s; }
+.catan-ambient-sheep .catan-ambient-pose { animation-duration:3s; }
+.catan-ambient-dolphin .catan-ambient-pose { animation:catan-ambient-swim 5.5s linear both; }
+.catan-ambient-dolphin .catan-ambient-pose.is-secondary { animation-name:catan-ambient-jump; }
+.catan-ambient-wind-patch { animation:catan-ambient-breeze 3.4s ease-in-out infinite; animation-delay:var(--ambient-wind-delay,0ms); transform-origin:0 40px; }
+.catan-ambient-wind-patch.on-grain { animation-name:catan-ambient-grain-breeze; }
+.catan-ambient-smoke-puff { fill:#d8d6c6; opacity:0; animation:catan-ambient-smoke 2.4s ease-out both; }
+.catan-ambient-water-ring { fill:none; stroke:#d4e0da; stroke-width:.55; opacity:0; animation:catan-ambient-ring 1.2s ease-out both; }
+.catan-ambient-boat { transform-box:fill-box; transform-origin:50% 50%; animation:catan-ambient-boat var(--catan-boat-period,6.4s) ease-in-out infinite; animation-delay:var(--catan-boat-delay,0ms); animation-play-state:paused; }
+.catan-board[data-catan-ambient-active=true] .catan-ambient-boat { animation-play-state:running; }
+@keyframes catan-ambient-first-pose { 0%,49.99% { opacity:1; } 50%,100% { opacity:0; } }
+@keyframes catan-ambient-second-pose { 0%,49.99% { opacity:0; } 50%,100% { opacity:1; } }
+@keyframes catan-ambient-swim { 0%,23%,79%,100% { opacity:1; } 32%,68% { opacity:0; } }
+@keyframes catan-ambient-jump { 0%,23%,79%,100% { opacity:0; } 32%,68% { opacity:1; } }
+@keyframes catan-ambient-breeze { 0%,100% { transform:translate(0px,0px) skewX(0deg); } 50% { transform:translate(.28px,-.12px) skewX(.25deg); } }
+@keyframes catan-ambient-grain-breeze { 0%,100% { transform:translate(0px,0px) skewX(0deg); } 50% { transform:translate(.34px,-.12px) skewX(.35deg); } }
+@keyframes catan-ambient-smoke { 0% { opacity:0; transform:translate(0px,0px) scale(.65); } 20% { opacity:.19; } 70% { opacity:.1; } 100% { opacity:0; transform:translate(4px,-15px) scale(2); } }
+@keyframes catan-ambient-ring { 0% { opacity:0; transform:scale(.5); } 15% { opacity:.27; } 100% { opacity:0; transform:scale(1.65); } }
+@keyframes catan-ambient-boat { 0%,100% { transform:translate(0px,0px) rotate(-1.3deg); } 50% { transform:translate(.3px,.65px) rotate(1.3deg); } }
+@media(prefers-reduced-motion:reduce) {
+  .catan-ambient-island *,.catan-ambient-boat { animation:none !important; }
+  .catan-ambient-boat { transform:none !important; }
+  .catan-ambient-pose.is-secondary { display:none; }
+}

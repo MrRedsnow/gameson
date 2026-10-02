@@ -15,11 +15,35 @@ await build({
   absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", outfile: output, logLevel: "silent",
 });
 after(() => rm(output, { force: true }));
-const { RESOURCES, createCatanGame, applyCatanAction, catanView, emptyResources, resourceGainBatch } = createRequire(import.meta.url)(output);
+const { RESOURCES, createCatanGame, applyCatanAction, catanView, emptyResources, resourceGainBatch, resourceLossBatch } = createRequire(import.meta.url)(output);
 const seats = [{ id: "a", name: "Anna" }, { id: "b", name: "Ben" }, { id: "c", name: "Clara" }];
 const act = (game, action, actor = "a", random = () => 2) => applyCatanAction(game, actor, action, random);
 const view = (game, actor = "a") => catanView(game, actor);
 const gainNotice = (game, actor = "a") => game.notifications.findLast((notice) => notice.playerId === actor && notice.kind === "resources" && notice.tone === "gain");
+
+test("loss receipts survive a later gain in the same update and stay private", () => {
+  const before = game(); fund(before, "a", { wood: 4 });
+  const previous = view(before);
+  const next = structuredClone(previous); next.sequence += 3;
+  next.notifications = [
+    { id: previous.sequence + 1, playerId: "a", kind: "resources", tone: "loss", resources: { ...emptyResources(), wood: 4 } },
+    { id: previous.sequence + 2, playerId: "a", kind: "resources", tone: "gain", resources: { ...emptyResources(), wood: 4 } },
+    { id: previous.sequence + 3, playerId: "b", kind: "resources", tone: "loss", resources: { ...emptyResources(), ore: 3 } },
+  ];
+  assert.deepEqual(resourceLossBatch(previous, next).losses, { ...emptyResources(), wood: 4 });
+  assert.equal(resourceGainBatch(previous, next).gains.wood, 4);
+  assert.equal(resourceLossBatch(next, next), null);
+  assert.equal(resourceLossBatch(next, previous), null);
+  assert.equal(resourceLossBatch(previous, { ...next, me: { ...next.me, id: "b" } }), null);
+});
+
+test("legacy loss snapshots report only the confirmed decrease", () => {
+  const before = game(); fund(before, "a", { wood: 4, grain: 2 });
+  const previous = view(before);
+  const next = structuredClone(previous); next.sequence++; next.notifications = [];
+  next.me.resources.wood = 1; next.me.resources.grain = 3;
+  assert.deepEqual(resourceLossBatch(previous, next).losses, { ...emptyResources(), wood: 3 });
+});
 function game() { const result = acceptedCatanGame(seats, 12, () => 0); result.phase = "main"; result.turn = 2; return result; }
 function fund(game, actor, resources) {
   const player = game.players.find((player) => player.id === actor);
