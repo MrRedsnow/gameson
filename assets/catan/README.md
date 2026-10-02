@@ -14,6 +14,7 @@ The current v3 terrain, sea, building and harbor artwork was generated with the 
 | Robber | [robber-v2.png](../../public/catan/robber-v2.png) | 1254 × 1254 | One transparent full-body person with a dark hooded cloak, warm rim highlights and a luminous gold sack with coins. |
 | Ambient sprites | [ambient-atlas-v1.png](../../public/catan/ambient-atlas-v1.png) | 1448 × 1086 | Transparent 4 × 3 atlas; two poses each for gull, woodland bird, butterfly, dolphin, sheep and pedestrian. |
 | Wildlife | [wildlife-atlas-v1.png](../../public/catan/wildlife-atlas-v1.png) | 1254 × 1254 | Transparent 4 × 4 atlas: paired doe, stag, fox, boar, fire salamander, common toad and newt poses; the last two cells are empty. |
+| Field and forest wildlife | [field-forest-wildlife-v1.png](../../public/catan/field-forest-wildlife-v1.png) | 1254 × 1254 | Transparent 4 × 4 atlas: paired hare, field mouse, pheasant, red squirrel, badger and hedgehog poses; the last row is empty. |
 | Clean pasture | [pasture-v1.png](../../public/catan/pasture-v1.png) | 1254 × 1254 | Sheep-free meadow matching the v3 pasture; independent sheep sprites are added on top. |
 
 Terrain and sea were encoded as JPEG at quality 85, retaining their source dimensions. Buildings and harbors retain PNG alpha for compositing over the board. The terrain and sea are painterly edits of the v2 images; buildings used the v3 terrain as a style reference, and harbors used the building atlas.
@@ -46,6 +47,8 @@ Visibility was increased on 2026-10-03: gulls are 28 board units, woodland birds
 | Wind | 8–12 seconds | 16–28 seconds |
 | Ore wildlife | 6–12 seconds | 16–28 seconds |
 | Clay wildlife | 6–12 seconds | 16–28 seconds |
+| Wheat wildlife | 6–12 seconds | 16–28 seconds |
+| Forest wildlife | 6–12 seconds | 16–28 seconds |
 
 Intervals may be delayed by the scene budget or an active game effect. Waiting kinds retain their original deadlines so frequent birds cannot repeatedly displace walkers or wildlife. A route longer than its repeat interval finishes before another walk is scheduled. Reduced motion and the island switch stop the additional animations rather than replaying a backlog later.
 
@@ -53,7 +56,7 @@ Settlement and city smoke begins at the painted chimney, accounting for the buil
 
 The directional boats and wildlife were generated with the built-in ImageGen tool on 2026-10-03. Boat views change the physically painted heading under a fixed camera and light, so the north-facing boats show the nearer stern correctly. The pier follows its coastal edge's outward normal; a separate, upright 44-unit boat sprite selects the matching view. [catan-harbor.ts](../../lib/catan-harbor.ts) jointly places all boats in stable coastal order, protecting each full rocking sprite against every land hex, harbor label and other vessel, including independent motion phases. A sea mask additionally excludes all land pixels, and camera bounds include the full boat motion. Public ownership or reordered transport snapshots do not change a vessel's position. Harbor anchor and exchange rate use the accessing player's color, with a 50/50 split for two owners; specialized resource icons retain their terrain color. Separate flags are no longer drawn.
 
-Ore fields host doe deer, stags, foxes and wild boars; clay fields host fire salamanders, common toads and newts. Short walking or hopping routes protect each complete sprite rectangle, including movement, against the hex boundary and an 18-unit number clearance. A robber on the field prevents these scenes. The two wildlife groups share the existing scene budget and visibility/reduced-motion controls.
+Ore fields host doe deer, stags, foxes and wild boars; clay fields host fire salamanders, common toads and newts. Wheat fields additionally host brown hares, field mice and pheasants; forests host red squirrels, badgers and hedgehogs alongside the existing woodland birds. The field and forest atlas was generated with the built-in ImageGen tool on 2026-10-03, using the existing wildlife atlas as its style reference. All six species have two walking poses. Matched square badger crops include the whole nose while excluding neighboring sprites. Short walking or hopping routes protect each complete sprite rectangle, including movement, against the hex boundary and an 18-unit number clearance. A robber on the field prevents these scenes. All four wildlife groups share the existing scene budget and visibility/reduced-motion controls, and both atlases are precached for offline play.
 
 Confirmed optional notification metadata drives roll highlights, robber travel, private card reveals and award handovers. Old saved games fall back to confirmed snapshot differences. Restore/reconnect baselines consume earlier effects. Resource receipts preserve separate gross +N and −N badges, while the total reflects the net change. The field numbers and play markers are drawn above the ambient layer.
 
@@ -95,6 +98,22 @@ Camera: fixed elevated three-quarter view looking down at every animal, heads po
 Exact ROW-MAJOR grid contents: row1 cell1 doe deer standing/walking step A (no antlers), cell2 SAME doe step B, cell3 red deer stag with modest branched antlers walking step A, cell4 SAME stag step B. Row2 cell1 red fox walking step A, cell2 SAME fox step B, cell3 sturdy brown wild boar walking step A, cell4 SAME boar step B. Row3 cell1 black-and-yellow fire salamander walking step A, cell2 SAME salamander step B, cell3 earthy brown common toad crouched, cell4 SAME toad in a short lifted hopping pose. Row4 cell1 olive-brown smooth newt walking step A, cell2 SAME newt step B, cells3 and4 MUST BE COMPLETELY EMPTY TRANSPARENT.
 Layout: each animal is isolated and centered in its exact cell, including all antlers, feet and tail. Keep at least 15% completely transparent padding on ALL FOUR edges of every cell; no animal can touch a grid boundary or neighbor. Maximum painted width OR height 70% of a cell. Pair poses identical physical scale and identity with only legs/body motion changed.
 Backdrop: genuine transparent alpha, nothing except the fourteen animal cutouts. No rocks, grass, soil, scenery, water, shadow, atmospheric background, labels, cell lines, text, caption, logo or watermark.
+
+### Field and forest wildlife prompt
+
+Reference: `wildlife-atlas-v1.png`; built-in ImageGen with transparent background. Final generation prompt:
+
+Use case: precise-object-edit. Asset: production transparent game sprite sheet.
+Edit the provided SQUARE 4×4 wildlife atlas, using its exact image layout and clear small sprite spacing as the template. Replace animals, while preserving square canvas dimensions, EXACT 4 columns ×4 rows of equal square cells, all transparent background, right-facing painterly naturalistic style, no labels, no grid lines.
+Replace in exact order:
+Row1: brown European hare walking A, same hare walking B, brown field mouse walking A, same field mouse walking B.
+Row2: common male pheasant walking A, same pheasant walking B, red squirrel walking A, same red squirrel walking B.
+Row3: European badger with black-white face walking A, same badger walking B, European hedgehog walking A, same hedgehog walking B.
+Row4: all four cells entirely EMPTY TRANSPARENT, no animals at all.
+The final image has exactly twelve animals and four empty cells. Each complete sprite including feet, long ears and tails must be SMALL, centered strictly in its square cell, using at most 65% of cell width and height. At least 17.5% fully transparent margin inside EVERY cell edge. Keep pair identity and scale identical, alternating leg poses. ALL animal pixels must stay within these normalized canvas bounds:
+row1 y=4.5%..20.5%, row2 y=29.5%..45.5%, row3 y=54.5%..70.5%.
+col1 x=4.5%..20.5%, col2 x=29.5%..45.5%, col3 x=54.5%..70.5%, col4 x=79.5%..95.5%.
+Match the reference's brushwork, soft natural colors, fixed elevated side camera, upper-left lighting. Each animal is standalone with all background pixels exactly alpha=0. No shadows, floors, scenery, colored edge noise or isolated specks. Output a SQUARE canvas; use the provided square reference layout.
 
 ## Continuous sea movement
 

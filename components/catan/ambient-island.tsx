@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import {
-  AMBIENT_DOLPHIN_SIZE, AMBIENT_WALK_REST, AMBIENT_WILDLIFE_BOB, AMBIENT_WILDLIFE_SPRITES, AmbientSchedule, ambientBounds, ambientHarborExclusions, ambientPathPoint, ambientRandom, ambientSceneValid, ambientSheep, createAmbientScene,
+  AMBIENT_DOLPHIN_SIZE, AMBIENT_WALK_REST, AMBIENT_WILDLIFE_BOB, AMBIENT_WILDLIFE_SPRITES, AmbientSchedule, ambientBounds, ambientHarborExclusions, ambientPathPoint, ambientRandom, ambientSceneValid, ambientSheep, createAmbientScene, isAmbientWildlifeKind,
   type AmbientGame, type AmbientKind, type AmbientScene, type WildlifeSpecies,
 } from "@/lib/catan-ambient";
 
@@ -13,12 +13,12 @@ const SPRITE_CELLS: Partial<Record<AmbientKind, readonly [number, number]>> = {
 const SPRITE_SIZES: Partial<Record<AmbientKind, number>> = { gull: 28, forest_bird: 24, butterfly: 12, dolphin: AMBIENT_DOLPHIN_SIZE, sheep: 18, pedestrian: 26 };
 
 function Sprite({ artId, kind, wildlifeSpecies, staticPose = false }: { artId: string; kind: AmbientKind; wildlifeSpecies?: WildlifeSpecies; staticPose?: boolean }) {
-  const wildlife = wildlifeSpecies && (kind === "ore_wildlife" || kind === "clay_wildlife") ? AMBIENT_WILDLIFE_SPRITES[wildlifeSpecies] : undefined;
+  const wildlife = wildlifeSpecies && isAmbientWildlifeKind(kind) ? AMBIENT_WILDLIFE_SPRITES[wildlifeSpecies] : undefined;
   const cells = wildlife?.cells ?? SPRITE_CELLS[kind]; const size = wildlife?.size ?? SPRITE_SIZES[kind];
   if (!cells || !size) return null;
   return <g className={`catan-ambient-sprite catan-ambient-${kind}${wildlife ? ` catan-ambient-wildlife catan-ambient-${wildlifeSpecies}` : ""}${staticPose ? " is-static" : ""}`}>
-    {(staticPose ? cells.slice(0, 1) : cells).map((cell, index) => <svg key={cell} className={`catan-ambient-pose${index ? " is-secondary" : ""}`} x={-size / 2} y={-size * .72} width={size} height={size} viewBox={`${cell % 4 * 100} ${Math.floor(cell / 4) * 100} 100 100`} overflow="hidden">
-      <use href={`#${artId}-${wildlife ? "wildlife" : "ambient"}-atlas`} />
+    {(staticPose ? cells.slice(0, 1) : cells).map((cell, index) => <svg key={cell} className={`catan-ambient-pose${index ? " is-secondary" : ""}`} x={-size / 2} y={-size * .72} width={size} height={size} viewBox={wildlife?.viewBoxes?.[index] ?? `${cell % 4 * 100} ${Math.floor(cell / 4) * 100} 100 100`} overflow="hidden">
+      <use href={`#${artId}-${wildlife?.atlas ?? "ambient"}-atlas`} />
     </svg>)}
   </g>;
 }
@@ -181,6 +181,7 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
     <defs>
       <image id={`${artId}-ambient-atlas`} href="/catan/ambient-atlas-v1.png" width={400} height={300} preserveAspectRatio="none" />
       <image id={`${artId}-wildlife-atlas`} href="/catan/wildlife-atlas-v1.png" width={400} height={400} preserveAspectRatio="none" />
+      <image id={`${artId}-field-forest-atlas`} href="/catan/field-forest-wildlife-v1.png" width={400} height={400} preserveAspectRatio="none" />
       <g id={`${artId}-ambient-pedestrians`}>
         {scenes.filter((scene) => scene.kind === "pedestrian").map((scene) => <Scene key={scene.id} game={game} artId={artId} scene={scene} />)}
       </g>

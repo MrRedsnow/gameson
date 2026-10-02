@@ -4,7 +4,7 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 
 const artwork = await readFile(new URL("../public/catan/robber-v2.png", import.meta.url));
-const additionalArtwork = new Map(await Promise.all(["boats-directions-v1.png", "wildlife-atlas-v1.png"].map(async (name) => [
+const additionalArtwork = new Map(await Promise.all(["boats-directions-v1.png", "wildlife-atlas-v1.png", "field-forest-wildlife-v1.png"].map(async (name) => [
   `/catan/${name}`, await readFile(new URL(`../public/catan/${name}`, import.meta.url)),
 ])));
 const offlineArtwork = new Map([["/catan/robber-v2.png", artwork], ...additionalArtwork]);
@@ -16,7 +16,14 @@ test("die Räubergrafik ist eine quadratische PNG mit echtem Alphakanal", () => 
   assert.ok([4, 6].includes(artwork[25]), "Der PNG-Farbtyp muss einen Alphakanal enthalten.");
 });
 
-test("der echte Service Worker liefert Räuber, Bootsansichten und Wildtiere auch ohne Netzwerk", async () => {
+test("die Weizenfeld- und Waldtiere besitzen eine PNG-Grafik mit echtem Alphakanal", () => {
+  const animals = additionalArtwork.get("/catan/field-forest-wildlife-v1.png");
+  assert.deepEqual([...animals.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.ok(animals.readUInt32BE(16) > 0 && animals.readUInt32BE(20) > 0);
+  assert.ok([4, 6].includes(animals[25]), "Die isolierten Tiere müssen sich mit transparentem Hintergrund über ihr Gelände legen.");
+});
+
+test("der echte Service Worker liefert Räuber, Bootsansichten und alle Geländetiere auch ohne Netzwerk", async () => {
   const origin = "https://gameson.test"; const handlers = new Map();
   const buckets = new Map([["gameson-shell-v21", new Map()]]);
   let online = true; let fetches = 0;

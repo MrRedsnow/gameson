@@ -12,7 +12,7 @@ import { PLAYER_COLORS, RESOURCES, applyCatanAction, catanView, createCatanGame,
 import type { AmbientKind } from "../../lib/catan-ambient";
 
 const seats = ["Anna", "Ben", "Clara"].map((name, index) => ({ id: `details-${index}`, name }));
-const ambientKinds: AmbientKind[] = ["gull", "forest_bird", "butterfly", "dolphin", "sheep", "pedestrian", "smoke", "wind", "ore_wildlife", "clay_wildlife"];
+const ambientKinds: AmbientKind[] = ["gull", "forest_bird", "butterfly", "dolphin", "sheep", "pedestrian", "smoke", "wind", "ore_wildlife", "clay_wildlife", "grain_wildlife", "forest_wildlife"];
 // Bookmarkable visual checks, without depending on the testing toolbar.
 const previewParams = new URLSearchParams(window.location.search);
 const requestedKind = previewParams.get("ambient") as AmbientKind | null;

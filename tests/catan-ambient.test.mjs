@@ -26,6 +26,12 @@ const makeGame = (seed = "island") => {
   const board = createBoard(() => 0);
   return { id: seed, board, robberHex: board.hexes.find((hex) => hex.resource === "desert").id };
 };
+const wildlifeTerrains = [
+  ["ore_wildlife", "ore", ["deer", "stag", "fox", "boar"]],
+  ["clay_wildlife", "brick", ["salamander", "toad", "newt"]],
+  ["grain_wildlife", "grain", ["hare", "field_mouse", "pheasant"]],
+  ["forest_wildlife", "wood", ["squirrel", "badger", "hedgehog"]],
+];
 
 test("ambient camera input is finite and deterministic decoration has its own random source", () => {
   assert.deepEqual(ambientBounds("-420,-370 840 740"), bounds);
@@ -295,12 +301,9 @@ test("grazing sheep and wind never begin on the robber's blocked field", () => {
   }
 });
 
-test("every ore and clay animal keeps both complete poses, its bob and return walk inside its terrain away from the number", () => {
+test("every terrain animal keeps both complete poses, its bob and return walk inside its terrain away from the number", () => {
   const game = makeGame(); const before = structuredClone(game); const seen = new Set();
-  for (const [kind, resource, species] of [
-    ["ore_wildlife", "ore", ["deer", "stag", "fox", "boar"]],
-    ["clay_wildlife", "brick", ["salamander", "toad", "newt"]],
-  ]) {
+  for (const [kind, resource, species] of wildlifeTerrains) {
     const fields = new Set();
     for (let seed = 0; seed < 120; seed++) {
       const scene = createAmbientScene(kind, game, bounds, ambientRandom(`${kind}-${seed}`));
@@ -327,21 +330,23 @@ test("every ore and clay animal keeps both complete poses, its bob and return wa
     }
     assert.equal(fields.size, game.board.hexes.filter((hex) => hex.resource === resource).length, "Decoration can reach every field of its terrain.");
   }
-  assert.deepEqual([...seen].sort(), ["boar", "deer", "fox", "newt", "salamander", "stag", "toad"]);
+  assert.deepEqual([...seen].sort(), wildlifeTerrains.flatMap(([, , species]) => species).sort());
   assert.deepEqual(game, before, "Ambient animals do not change public game state.");
 });
 
 test("wildlife respects missing terrain, robber changes, transport snapshots and camera clipping", () => {
-  for (const [kind, resource] of [["ore_wildlife", "ore"], ["clay_wildlife", "brick"]]) {
+  for (const [kind, resource, species] of wildlifeTerrains) {
     const game = makeGame(); const chosen = game.board.hexes.find((hex) => hex.resource === resource);
-    game.board.hexes.forEach((hex) => { if (hex.resource === resource && hex.id !== chosen.id) hex.resource = "wood"; });
+    game.board.hexes.forEach((hex) => { if (hex.resource === resource && hex.id !== chosen.id) hex.resource = "desert"; });
     const scene = { ...createAmbientScene(kind, game, bounds, ambientRandom(kind)), kind };
     assert.equal(scene.hexId, chosen.id); assert.equal(ambientSceneValid(scene, structuredClone(game), false), true, "Wildlife does not depend on clean pasture artwork.");
+    const foreignSpecies = wildlifeTerrains.flatMap(([, , animals]) => animals).find((animal) => !species.includes(animal));
+    assert.equal(ambientSceneValid({ ...scene, wildlifeSpecies: foreignSpecies }, game), false, "An animal from another habitat cannot remain on this field.");
     assert.equal(createAmbientScene(kind, game, { x: chosen.x - 10, y: chosen.y - 10, width: 20, height: 20 }, () => .5), null, "A clipped or zoomed number area cannot spawn half an animal.");
     game.robberHex = chosen.id;
     assert.equal(createAmbientScene(kind, game, bounds, () => .5), null); assert.equal(ambientSceneValid(scene, game), false);
     game.robberHex = game.board.hexes.find((hex) => hex.resource === "desert").id;
-    chosen.resource = "grain";
+    chosen.resource = "desert";
     assert.equal(ambientSceneValid(scene, game), false); assert.equal(createAmbientScene(kind, game, bounds, () => .5), null);
     const queue = new AmbientSchedule(() => 0);
     queue.preview(kind, 0, state, () => scene); queue.prune((running) => ambientSceneValid(running, game));
@@ -349,20 +354,41 @@ test("wildlife respects missing terrain, robber changes, transport snapshots and
   }
 });
 
-test("wildlife first appears after a short quiet interval, repeats gently and never catches up after suspension", () => {
-  const game = makeGame(); const queue = new AmbientSchedule(() => 0);
-  const create = (kind) => kind.endsWith("_wildlife") ? createAmbientScene(kind, game, bounds, () => 0) : null;
-  queue.tick(0, state, create); assert.deepEqual(queue.tick(5999, state, create), []);
-  const first = queue.tick(6000, state, create);
-  assert.deepEqual(first.map((scene) => scene.kind).sort(), ["clay_wildlife", "ore_wildlife"]);
-  assert.ok(first.every((scene) => scene.duration >= 6000 && scene.duration <= 9000));
-  assert.deepEqual(queue.tick(14_000, state, create), []);
-  assert.deepEqual(queue.tick(21_999, state, create), []);
-  assert.equal(queue.tick(22_000, state, create).length, 2);
-  assert.deepEqual(queue.tick(23_000, { ...state, available: false }, create), []);
-  assert.deepEqual(queue.tick(100_000, state, create), []);
-  assert.deepEqual(queue.tick(105_999, state, create), []);
-  assert.equal(queue.tick(106_000, state, create).length, 2);
+test("all four wildlife habitats share the scene budget, repeat gently and never catch up after suspension", () => {
+  const game = makeGame(); const kinds = wildlifeTerrains.map(([kind]) => kind);
+  const create = (kind) => kinds.includes(kind) ? createAmbientScene(kind, game, bounds, () => 0) : null;
+  for (const mobile of [false, true]) {
+    const queue = new AmbientSchedule(() => 0); const scheduleState = { ...state, mobile }; const cap = mobile ? 2 : 3;
+    queue.tick(0, scheduleState, create); assert.deepEqual(queue.tick(5999, scheduleState, create), []);
+    const first = queue.tick(6000, scheduleState, create);
+    assert.equal(first.length, cap, "Simultaneously due wildlife fills only the existing shared scene budget.");
+    assert.ok(first.every((scene) => kinds.includes(scene.kind) && scene.duration >= 6000 && scene.duration <= 9000));
+    const instances = new Set(); const starts = new Map(kinds.map((kind) => [kind, []]));
+    for (let now = 6000; now <= 48_000; now += 500) {
+      const scenes = queue.tick(now, scheduleState, create);
+      assert.ok(scenes.length <= cap);
+      for (const scene of scenes) if (!instances.has(scene.id)) {
+        instances.add(scene.id); starts.get(scene.kind).push(scene.startedAt);
+      }
+    }
+    for (const kind of kinds) {
+      const appearances = starts.get(kind);
+      assert.ok(appearances.length >= 2, `${kind}: each waiting habitat receives a first appearance and a repeat.`);
+      for (let index = 1; index < appearances.length; index++) assert.ok(appearances[index] - appearances[index - 1] >= AMBIENT_INTERVALS[kind][0], "Wildlife repeats respect their quiet interval even when the budget is full.");
+    }
+    assert.deepEqual(queue.tick(49_000, { ...scheduleState, available: false }, create), []);
+    assert.deepEqual(queue.tick(100_000, scheduleState, create), []);
+    assert.deepEqual(queue.tick(105_999, scheduleState, create), []);
+    assert.equal(queue.tick(106_000, scheduleState, create).length, cap);
+    const resumed = new Set();
+    for (let now = 106_000; now <= 116_000; now += 500) {
+      const scenes = queue.tick(now, scheduleState, create);
+      assert.ok(scenes.length <= cap);
+      for (const scene of scenes) { resumed.add(scene.kind); assert.ok(scene.startedAt >= 106_000); }
+    }
+    assert.deepEqual([...resumed].sort(), [...kinds].sort(), "Suspension restarts quiet scheduling without starving the habitats waiting for space.");
+    queue.dispose();
+  }
 });
 
 test("first birds arrive sooner than repeats and long visible scenes retain their shared budget", () => {
@@ -501,6 +527,7 @@ test("server rendering has silent sprites, exact 4×3 crops and optional pasture
   assert.match(markup, /aria-hidden="true" pointer-events="none"/);
   assert.match(markup, /width="400" height="300"/);
   assert.match(markup, /href="\/catan\/wildlife-atlas-v1\.png" width="400" height="400"/);
+  assert.match(markup, /href="\/catan\/field-forest-wildlife-v1\.png" width="400" height="400"/);
   assert.match(markup, /viewBox="0 200 100 100"/);
   assert.equal((markup.match(/catan-ambient-standing-sheep/g) ?? []).length, 16);
   const fallback = renderToStaticMarkup(createElement("svg", null, createElement(CatanAmbientIsland, { ...props, cleanPasture: false })));

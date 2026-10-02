@@ -16,6 +16,9 @@
 .catan-ambient-sheep .catan-ambient-pose { animation-duration:1.6s; }
 .catan-ambient-wildlife .catan-ambient-pose { animation-duration:.9s; }
 .catan-ambient-fox .catan-ambient-pose,.catan-ambient-boar .catan-ambient-pose { animation-duration:.7s; }
+.catan-ambient-hare .catan-ambient-pose,.catan-ambient-squirrel .catan-ambient-pose { animation-duration:.7s; }
+.catan-ambient-field_mouse .catan-ambient-pose { animation-duration:.55s; }
+.catan-ambient-hedgehog .catan-ambient-pose { animation-duration:1.2s; }
 .catan-ambient-toad .catan-ambient-pose,.catan-ambient-newt .catan-ambient-pose,.catan-ambient-salamander .catan-ambient-pose { animation-duration:1.2s; }
 .is-settling .catan-ambient-sheep .catan-ambient-pose { animation:none; opacity:1; }
 .is-settling .catan-ambient-sheep .catan-ambient-pose.is-secondary { opacity:0; }

@@ -4,8 +4,9 @@ import { HARBOR_BOAT_CLEARANCE, harborLayout } from "./catan-harbor";
 
 export { pointInPolygon, segmentDistance, type AmbientPoint } from "./catan-geometry";
 export type AmbientBounds = AmbientPoint & { width: number; height: number };
-export type AmbientKind = "gull" | "forest_bird" | "butterfly" | "dolphin" | "sheep" | "pedestrian" | "smoke" | "wind" | "ore_wildlife" | "clay_wildlife";
-export type WildlifeSpecies = "deer" | "stag" | "fox" | "boar" | "salamander" | "toad" | "newt";
+export type WildlifeKind = "ore_wildlife" | "clay_wildlife" | "grain_wildlife" | "forest_wildlife";
+export type AmbientKind = "gull" | "forest_bird" | "butterfly" | "dolphin" | "sheep" | "pedestrian" | "smoke" | "wind" | WildlifeKind;
+export type WildlifeSpecies = "deer" | "stag" | "fox" | "boar" | "salamander" | "toad" | "newt" | "hare" | "field_mouse" | "pheasant" | "squirrel" | "badger" | "hedgehog";
 export type AmbientGame = Pick<CatanView, "id" | "board" | "robberHex">;
 export type AmbientScene = {
   id: string; kind: AmbientKind; startedAt: number; duration: number;
@@ -18,29 +19,41 @@ export const AMBIENT_INTERVALS: Record<AmbientKind, readonly [number, number]> =
   dolphin: [18_000, 32_000], sheep: [6_000, 12_000], pedestrian: [8000, 14_000],
   smoke: [6000, 10_000], wind: [16_000, 28_000],
   ore_wildlife: [16_000, 28_000], clay_wildlife: [16_000, 28_000],
+  grain_wildlife: [16_000, 28_000], forest_wildlife: [16_000, 28_000],
 };
 export const AMBIENT_FIRST_INTERVALS: Record<AmbientKind, readonly [number, number]> = {
   gull: [2000, 4000], forest_bird: [5000, 8000], butterfly: [6000, 10_000],
   dolphin: [7000, 12_000], sheep: [1000, 3000], pedestrian: [1000, 2000],
   smoke: [3000, 5000], wind: [8000, 12_000],
   ore_wildlife: [6000, 12_000], clay_wildlife: [6000, 12_000],
+  grain_wildlife: [6000, 12_000], forest_wildlife: [6000, 12_000],
 };
 const KINDS = Object.keys(AMBIENT_INTERVALS) as AmbientKind[];
 export const AMBIENT_DURATIONS: Record<AmbientKind, number> = {
   gull: 10_000, forest_bird: 7000, butterfly: 6500, dolphin: 8000,
   sheep: 6000, pedestrian: 8500, smoke: 4500, wind: 8500,
   ore_wildlife: 8000, clay_wildlife: 7500,
+  grain_wildlife: 7500, forest_wildlife: 8000,
 };
-/** Geometry protects the full 4 × 4 atlas cell, including both walking poses. */
+/** Geometry protects the full square atlas cell, including both walking poses. */
 export const AMBIENT_WILDLIFE_BOB = .6;
-export const AMBIENT_WILDLIFE_SPRITES: Record<WildlifeSpecies, { cells: readonly [number, number]; size: number }> = {
-  deer: { cells: [0, 1], size: 26 }, stag: { cells: [2, 3], size: 26 },
-  fox: { cells: [4, 5], size: 24 }, boar: { cells: [6, 7], size: 24 },
-  salamander: { cells: [8, 9], size: 24 }, toad: { cells: [10, 11], size: 22 }, newt: { cells: [12, 13], size: 24 },
+export const AMBIENT_WILDLIFE_SPRITES: Record<WildlifeSpecies, { atlas: "wildlife" | "field-forest"; cells: readonly [number, number]; size: number; viewBoxes?: readonly [string, string] }> = {
+  deer: { atlas: "wildlife", cells: [0, 1], size: 26 }, stag: { atlas: "wildlife", cells: [2, 3], size: 26 },
+  fox: { atlas: "wildlife", cells: [4, 5], size: 24 }, boar: { atlas: "wildlife", cells: [6, 7], size: 24 },
+  salamander: { atlas: "wildlife", cells: [8, 9], size: 24 }, toad: { atlas: "wildlife", cells: [10, 11], size: 22 }, newt: { atlas: "wildlife", cells: [12, 13], size: 24 },
+  hare: { atlas: "field-forest", cells: [0, 1], size: 24 }, field_mouse: { atlas: "field-forest", cells: [2, 3], size: 22 },
+  pheasant: { atlas: "field-forest", cells: [4, 5], size: 26 }, squirrel: { atlas: "field-forest", cells: [6, 7], size: 24 },
+  // The badger's nose slightly exceeds the regular cell; matched square crops
+  // include both complete poses without admitting the neighboring sprites.
+  badger: { atlas: "field-forest", cells: [8, 9], size: 24, viewBoxes: ["0 198 104 104", "102 198 104 104"] }, hedgehog: { atlas: "field-forest", cells: [10, 11], size: 22 },
 };
-const WILDLIFE_SPECIES: Record<"ore_wildlife" | "clay_wildlife", readonly WildlifeSpecies[]> = {
-  ore_wildlife: ["deer", "stag", "fox", "boar"], clay_wildlife: ["salamander", "toad", "newt"],
+const WILDLIFE_TERRAINS: Record<WildlifeKind, { resource: Board["hexes"][number]["resource"]; species: readonly WildlifeSpecies[] }> = {
+  ore_wildlife: { resource: "ore", species: ["deer", "stag", "fox", "boar"] },
+  clay_wildlife: { resource: "brick", species: ["salamander", "toad", "newt"] },
+  grain_wildlife: { resource: "grain", species: ["hare", "field_mouse", "pheasant"] },
+  forest_wildlife: { resource: "wood", species: ["squirrel", "badger", "hedgehog"] },
 };
+export function isAmbientWildlifeKind(kind: AmbientKind): kind is WildlifeKind { return Object.hasOwn(WILDLIFE_TERRAINS, kind); }
 export const AMBIENT_DOLPHIN_SIZE = 40;
 // Sprite corner radius, the sea mask's 11-unit coast exclusion and rounding reserve.
 export const AMBIENT_DOLPHIN_CLEARANCE = Math.ceil(Math.hypot(AMBIENT_DOLPHIN_SIZE / 2, AMBIENT_DOLPHIN_SIZE * .72)) + 12;
@@ -267,10 +280,10 @@ function wildlifeRectangleClear(board: Board, hex: Board["hexes"][number], bound
   const dy = Math.max(rectangle.y - hex.y, 0, hex.y - rectangle.y - rectangle.height);
   return Math.hypot(dx, dy) >= 18.75 - 1e-7;
 }
-function wildlifeRoute(kind: "ore_wildlife" | "clay_wildlife", game: AmbientGame, bounds: AmbientBounds, random: () => number) {
-  const wildlifeSpecies = choose(WILDLIFE_SPECIES[kind], random)!;
+function wildlifeRoute(kind: WildlifeKind, game: AmbientGame, bounds: AmbientBounds, random: () => number) {
+  const { resource, species } = WILDLIFE_TERRAINS[kind];
+  const wildlifeSpecies = choose(species, random)!;
   const size = AMBIENT_WILDLIFE_SPRITES[wildlifeSpecies].size;
-  const resource = kind === "ore_wildlife" ? "ore" : "brick";
   const fields = game.board.hexes.filter((hex) => hex.resource === resource && hex.id !== game.robberHex);
   const paths: { hexId: number; path: AmbientPoint[] }[] = [];
   for (const hex of fields) {
@@ -364,7 +377,7 @@ export function ambientRoadRoute(board: Board, bounds: AmbientBounds, random: ()
 }
 
 export function createAmbientScene(kind: AmbientKind, game: AmbientGame, bounds: AmbientBounds, random: () => number): Omit<AmbientScene, "id" | "startedAt" | "duration" | "kind"> | null {
-  if (kind === "ore_wildlife" || kind === "clay_wildlife") return wildlifeRoute(kind, game, bounds, random);
+  if (isAmbientWildlifeKind(kind)) return wildlifeRoute(kind, game, bounds, random);
   if (kind === "dolphin") { const path = dolphinPath(game.board, bounds, random); return path ? { path, pathKind: "bezier" } : null; }
   if (kind === "pedestrian") return ambientRoadRoute(game.board, bounds, random);
   if (kind === "butterfly" || kind === "forest_bird") return terrainRoute(game, bounds, kind === "butterfly" ? ["wool", "grain"] : ["wood"], random);
@@ -407,9 +420,9 @@ export function createAmbientScene(kind: AmbientKind, game: AmbientGame, bounds:
 export type AmbientScheduleState = { available: boolean; blocked: boolean; mobile: boolean };
 /** Public board changes can invalidate a decorative route while it is running. */
 export function ambientSceneValid(scene: AmbientScene, game: AmbientGame, cleanPasture = true) {
-  if (scene.kind === "ore_wildlife" || scene.kind === "clay_wildlife") {
-    const resource = scene.kind === "ore_wildlife" ? "ore" : "brick";
-    return Boolean(scene.wildlifeSpecies && WILDLIFE_SPECIES[scene.kind].includes(scene.wildlifeSpecies) && scene.hexId !== game.robberHex && game.board.hexes[scene.hexId!]?.resource === resource);
+  if (isAmbientWildlifeKind(scene.kind)) {
+    const { resource, species } = WILDLIFE_TERRAINS[scene.kind];
+    return Boolean(scene.wildlifeSpecies && species.includes(scene.wildlifeSpecies) && scene.hexId !== game.robberHex && game.board.hexes[scene.hexId!]?.resource === resource);
   }
   if (scene.kind === "sheep") return cleanPasture && scene.hexId !== game.robberHex && game.board.hexes[scene.hexId!]?.resource === "wool";
   if (scene.kind === "wind") return Boolean(scene.windFields?.every((id) => id !== game.robberHex && ["wood", "grain"].includes(game.board.hexes[id]?.resource)));
