@@ -39,3 +39,7 @@ yarn-error.log*
 /outputs/
 /work/
 *.tsbuildinfo
+
+# Local audio auditions and processing notes
+/assets/audio/catan-candidates/
+/assets/audio/catan-prepared/
