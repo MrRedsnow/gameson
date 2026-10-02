@@ -16,6 +16,7 @@ await build({ stdin: { contents: 'export * from "./lib/catan"; export * from "./
 after(() => rm(output, { force: true }));
 const { createCatanGame, applyCatanAction, catanView, BoardEffectsPlayback, harborOwners, CatanBoard, longestRoadPath } = createRequire(import.meta.url)(output);
 const initial = () => catanView(acceptMap(createCatanGame([{ id: "a", name: "Anna" }, { id: "b", name: "Ben" }, { id: "c", name: "Clara" }], 12, () => 0), applyCatanAction), "a");
+const harborMarkup = (html, edge) => html.split(`data-catan-harbor="${edge}"`)[1].split('data-catan-harbor="')[0];
 
 class Listeners {
   handlers = new Map();
@@ -60,7 +61,7 @@ function rolled(game, sumHex) {
   return next;
 }
 
-test("harbor flags derive only owners with a building at either coast endpoint", () => {
+test("harbor access derives only owners with a building at either coast endpoint", () => {
   const game = initial(); const harbor = game.board.harbors[0]; const edge = game.board.edges[harbor.edge];
   assert.deepEqual(harborOwners(game.board, harbor.edge), []);
   game.board.vertices[edge.a].owner = "a";
@@ -198,11 +199,40 @@ test("selected settlement preview uses own color and city preview replaces the o
   assert.doesNotMatch(illegal, /data-catan-building-preview/);
 });
 
-test("harbor access flags render player ownership while labels remain readable", () => {
+test("harbor access colors both its anchor and rate while preserving the resource and title", () => {
   const game = initial(); const harbor = game.board.harbors[0];
   Object.assign(game.board.vertices[game.board.edges[harbor.edge].a], { owner: "b", building: "settlement" });
   const html = renderToStaticMarkup(createElement(CatanBoard, { game, mode: null, choices: [], selected: null, onSelect() {}, disabled: false }));
-  assert.match(html, /data-catan-harbor-owner="b"/); assert.match(html, /erschlossen von Ben/);
-  assert.match(html, /fill="#63a9e9"/);
+  const owned = harborMarkup(html, harbor.edge);
+  assert.match(owned, /erschlossen von Ben/);
+  assert.match(owned, /stroke="#63a9e9"[^>]*class="lucide lucide-anchor"/);
+  assert.match(owned, /<text[^>]*fill="#63a9e9"[^>]*>[23]:1<\/text>/);
+  if (harbor.resource !== "any") assert.match(owned, new RegExp(`data-resource="${harbor.resource}"`));
+  assert.doesNotMatch(html, /catan-harbor-flag|data-catan-harbor-owner=/);
   assert.ok(html.indexOf('class="catan-number-label') > html.indexOf('class="catan-ambient-island"'), "Numbers paint over ambient sprites.");
+});
+
+test("unopened harbors keep their neutral anchor and rate, including specific resource ports", () => {
+  const game = initial(); const html = renderToStaticMarkup(createElement(CatanBoard, { game, mode: null, choices: [], selected: null, onSelect() {}, disabled: false }));
+  for (const harbor of game.board.harbors) {
+    const rendered = harborMarkup(html, harbor.edge);
+    assert.match(rendered, /stroke="#dfdac7"[^>]*class="lucide lucide-anchor"/);
+    assert.match(rendered, /<text[^>]*fill="#f2ecda"[^>]*>[23]:1<\/text>/);
+    assert.doesNotMatch(rendered, /erschlossen von/);
+    if (harbor.resource !== "any") assert.match(rendered, new RegExp(`data-resource="${harbor.resource}"`));
+  }
+});
+
+test("shared harbor access divides anchor and rate between both owners without flags", () => {
+  const game = initial(); const harbor = game.board.harbors.find((harbor) => harbor.resource === "any");
+  const edge = game.board.edges[harbor.edge];
+  Object.assign(game.board.vertices[edge.a], { owner: "a", building: "settlement" });
+  Object.assign(game.board.vertices[edge.b], { owner: "b", building: "city" });
+  const html = renderToStaticMarkup(createElement(CatanBoard, { game, mode: null, choices: [], selected: null, onSelect() {}, disabled: false }));
+  const shared = harborMarkup(html, harbor.edge);
+  assert.match(shared, /erschlossen von Anna, Ben/);
+  assert.match(shared, /<stop offset="50%" stop-color="#eb7959"><\/stop><stop offset="50%" stop-color="#63a9e9">/);
+  assert.match(shared, /stroke="url\(#[^)]+-anchor\)"/);
+  assert.match(shared, /<text[^>]*fill="url\(#[^)]+-course\)"[^>]*>3:1<\/text>/);
+  assert.doesNotMatch(html, /catan-harbor-flag/);
 });

@@ -9,16 +9,18 @@ The current v3 terrain, sea, building and harbor artwork was generated with the 
 | Terrain | [terrain-atlas-v3.jpg](../../public/catan/terrain-atlas-v3.jpg) | 1536 × 1024 | Six square cells in a 3 × 2 grid: wood, wool, grain / brick, ore, desert. |
 | Sea | [sea-v3.jpg](../../public/catan/sea-v3.jpg) | 1254 × 1254 | One square texture covering the map viewport, shared by the animated sea and static fallback. |
 | Buildings | [buildings-v3.png](../../public/catan/buildings-v3.png) | 1774 × 887 | Transparent 4 × 2 atlas: settlements above cities; columns are coral, blue, ivory and purple. |
-| Harbors | [harbor-atlas-v3.png](../../public/catan/harbor-atlas-v3.png) | 1774 × 887 | Two transparent square cells: a weathered wooden T-shaped pier and a rowing boat. |
+| Harbor piers | [harbor-atlas-v3.png](../../public/catan/harbor-atlas-v3.png) | 1774 × 887 | The left transparent cell supplies the weathered T-shaped pier; the original right-hand boat remains a source reference. |
+| Directional boats | [boats-directions-v1.png](../../public/catan/boats-directions-v1.png) | 1536 × 1024 | Transparent 3 × 2 atlas: newly painted views facing right, lower-right, lower-left / left, upper-left, upper-right. |
 | Robber | [robber-v2.png](../../public/catan/robber-v2.png) | 1254 × 1254 | One transparent full-body person with a dark hooded cloak, warm rim highlights and a luminous gold sack with coins. |
 | Ambient sprites | [ambient-atlas-v1.png](../../public/catan/ambient-atlas-v1.png) | 1448 × 1086 | Transparent 4 × 3 atlas; two poses each for gull, woodland bird, butterfly, dolphin, sheep and pedestrian. |
+| Wildlife | [wildlife-atlas-v1.png](../../public/catan/wildlife-atlas-v1.png) | 1254 × 1254 | Transparent 4 × 4 atlas: paired doe, stag, fox, boar, fire salamander, common toad and newt poses; the last two cells are empty. |
 | Clean pasture | [pasture-v1.png](../../public/catan/pasture-v1.png) | 1254 × 1254 | Sheep-free meadow matching the v3 pasture; independent sheep sprites are added on top. |
 
 Terrain and sea were encoded as JPEG at quality 85, retaining their source dimensions. Buildings and harbors retain PNG alpha for compositing over the board. The terrain and sea are painterly edits of the v2 images; buildings used the v3 terrain as a style reference, and harbors used the building atlas.
 
 [landscape.tsx](../../components/catan/landscape.tsx) selects atlas cells with native SVG view boxes. [board.tsx](../../components/catan/board.tsx) clips terrain to hexagons, places buildings and aligns harbors with the coastline. Roof colors identify ownership; a native SVG mooring line joins each boat to its pier. Resource pictograms are original filled SVG in [resource-icon.tsx](../../components/catan/resource-icon.tsx), shared by inventory, cards, costs, trading, placement previews and harbor badges: stacked logs, terracotta bricks, a sheep, wheat ears and mineral rocks.
 
-All four v3 files and the v2 robber are precached by the [service worker](../../public/sw.js) for offline play after the app has been loaded online. Earlier [terrain-atlas-v2.jpg](../../public/catan/terrain-atlas-v2.jpg), [sea-v2.jpg](../../public/catan/sea-v2.jpg) and [robber-v1.png](../../public/catan/robber-v1.png) remain as source references in `public/catan/`; the board no longer loads them and the service worker does not precache them.
+All current assets are precached by the [service worker](../../public/sw.js) for offline play after the app has been loaded online. Earlier [terrain-atlas-v2.jpg](../../public/catan/terrain-atlas-v2.jpg), [sea-v2.jpg](../../public/catan/sea-v2.jpg) and [robber-v1.png](../../public/catan/robber-v1.png) remain as source references in `public/catan/`; the board no longer loads them and the service worker does not precache them.
 
 The robber is drawn at 40 × 40 board units at (x − 20, y − 29), horizontally centered and close to the middle of its field. Only the occupied landscape is fully desaturated and darkened to 74% brightness; its terrain detail remains visible. Its number moves below the character to y + 29 and uses light ink with a stronger dark stroke, including on grain. The desert label receives the same contrast treatment. A dedicated SVG layer follows buildings and construction effects, and allows pointer events to pass through to the field and placement targets. Moving the robber restores the old field's normal colors automatically.
 
@@ -28,7 +30,30 @@ The ambient sprites and clean pasture were created with the built-in ImageGen to
 
 The sprite atlas has twelve equal square cells in row-major order: gull wings raised/lowered, woodland bird wings raised/lowered; butterfly open/closed, dolphin swimming/jumping; sheep grazing/head raised, pedestrian stepping left/right. SVG view boxes select the cells without separate image requests. All movement uses board coordinates and follows the existing camera.
 
-One shared scheduler runs occasional gulls, birds, butterflies, dolphins, sheep, pedestrians, smoke and feathered wind patches. At most three transient scenes run on desktop and two below 640px; a breeze is separately limited to two fields. Dolphins use sampled water-only paths with coastline, harbor and jump clearance; pedestrians use confirmed roads. Hidden, disabled and reduced-motion views stop scheduling and remove moving scenes. Game actions and camera interaction take priority. The “Lebendige Insel” preference is stored on the device; static sheep remain part of the landscape. Existing boats gently sway; the existing sea shader adds at most ±1.5% slow brightness variation when ambience is enabled.
+One shared scheduler runs gulls, birds, butterflies, dolphins, sheep, pedestrians, smoke, wildlife and feathered wind patches. At most three transient scenes run on desktop and two below 640px; a breeze is separately limited to two fields. Dolphins use sampled water-only paths with clearance for the entire sprite, coastline, harbor labels, actual boat positions and jump. Valid routes are selected across compass sectors around the island. The fitted board leaves 32 units of water padding. Pedestrians traverse complete connected roads of one owner, including junctions and branches, at a steady pace; their duration follows the route length. They prefer an owned house at a road endpoint as their starting point and may choose an intermediate owned house as their destination. Each first encounter has a 25% stopping chance; otherwise the full route continues. At the destination, they stand still for 1.2 seconds before disappearing. Hidden, disabled and reduced-motion views stop scheduling and remove moving scenes. Game actions and camera interaction take priority. The “Lebendige Insel” preference is stored on the device; static sheep remain part of the landscape. Boats rock through ±5° and four vertical units; the boat and mooring line share their phase and 5.5–7.5-second period, while the line's pier anchor remains fixed. The existing sea shader adds at most ±1.5% slow brightness variation when ambience is enabled.
+
+Visibility was increased on 2026-10-03: gulls are 28 board units, woodland birds 24, dolphins 40, sheep 18 and pedestrians 26. Flying birds are no longer clipped to a single terrain hex; numbers and play markers remain above the scenery. Sheep walk 12–14 units and turn back, with more visible steps and grazing poses. Short, fixed-time entrances keep long walks visible from their first junction; sheep return directly to their resting sprite without a fading gap. Pedestrians render above confirmed road lines and below buildings, with stronger contrast and at least seven seconds per walk, even on a single starting road.
+
+| Scene | First idle appearance | Repeat interval |
+| --- | --- | --- |
+| Gull | 2–4 seconds | 10–18 seconds |
+| Woodland bird | 5–8 seconds | 12–24 seconds |
+| Butterfly | 6–10 seconds | 12–24 seconds |
+| Dolphin | 7–12 seconds | 18–32 seconds |
+| Sheep | 1–3 seconds | 6–12 seconds |
+| Pedestrian | 1–2 seconds | 8–14 seconds |
+| Smoke | 3–5 seconds | 6–10 seconds |
+| Wind | 8–12 seconds | 16–28 seconds |
+| Ore wildlife | 6–12 seconds | 16–28 seconds |
+| Clay wildlife | 6–12 seconds | 16–28 seconds |
+
+Intervals may be delayed by the scene budget or an active game effect. Waiting kinds retain their original deadlines so frequent birds cannot repeatedly displace walkers or wildlife. A route longer than its repeat interval finishes before another walk is scheduled. Reduced motion and the island switch stop the additional animations rather than replaying a backlog later.
+
+Settlement and city smoke begins at the painted chimney, accounting for the building artwork's vertical offset. Three puffs rise over a 4.5-second scene, staggered by 700 milliseconds, with a slightly stronger opacity for visibility against the terrain.
+
+The directional boats and wildlife were generated with the built-in ImageGen tool on 2026-10-03. Boat views change the physically painted heading under a fixed camera and light, so the north-facing boats show the nearer stern correctly. The pier follows its coastal edge's outward normal; a separate, upright 44-unit boat sprite selects the matching view. [catan-harbor.ts](../../lib/catan-harbor.ts) jointly places all boats in stable coastal order, protecting each full rocking sprite against every land hex, harbor label and other vessel, including independent motion phases. A sea mask additionally excludes all land pixels, and camera bounds include the full boat motion. Public ownership or reordered transport snapshots do not change a vessel's position. Harbor anchor and exchange rate use the accessing player's color, with a 50/50 split for two owners; specialized resource icons retain their terrain color. Separate flags are no longer drawn.
+
+Ore fields host doe deer, stags, foxes and wild boars; clay fields host fire salamanders, common toads and newts. Short walking or hopping routes protect each complete sprite rectangle, including movement, against the hex boundary and an 18-unit number clearance. A robber on the field prevents these scenes. The two wildlife groups share the existing scene budget and visibility/reduced-motion controls.
 
 Confirmed optional notification metadata drives roll highlights, robber travel, private card reveals and award handovers. Old saved games fall back to confirmed snapshot differences. Restore/reconnect baselines consume earlier effects. Resource receipts preserve separate gross +N and −N badges, while the total reflects the net change. The field numbers and play markers are drawn above the ambient layer.
 
@@ -40,9 +65,40 @@ Use case: stylized-concept. Create one transparent production sprite atlas match
 
 Use case: precise-object-edit. Use only the top-middle pasture of the v3 terrain atlas as the target. Preserve its grassland composition, olive/moss palette, gouache brushwork, flowers, shrubs, trees and lower-middle rocks. Remove every sheep and fill the removed areas with matching grass and flowers. Output one opaque square, edge-to-edge pasture tile, retaining the perspective and lighting. No animals, people, text, labels, fences, buildings, roads or borders.
 
+### Directional boats prompt
+
+Reference: `harbor-atlas-v3.png`; built-in ImageGen with transparent background.
+
+Use case: stylized-concept
+Asset type: transparent directional sprite atlas for a Catan-style board game, exactly 3 columns × 2 rows, six equal square cells.
+Primary request: Draw SIX newly rendered views of the SAME small weathered wooden rowing boat, matching the painterly realistic game-asset style of the boat in reference image 1. The reference is a style/identity guide; do not copy or rotate its pixels.
+Subject: empty old wooden rowboat with three cross benches and one oar resting inside, warm honey-brown planks, dark hull interior, readable clear outline.
+Composition: Camera stays fixed, elevated three-quarter board-game camera looking downward at approximately 55 degrees, consistent gravity and top-left lighting for ALL SIX views. Change the physical boat's heading in 3D between cells, so front/back/near/far hull sides are correctly redrawn. The cells' screen-facing bow headings, in row-major order, are: right (0 degrees), lower-right (60 degrees), lower-left (120 degrees), left (180 degrees), upper-left (240 degrees), upper-right (300 degrees). In the upper-facing cells the nearer stern rim must be visible and the bow recedes; the boat must never look like a sideways-rotated flat sticker. Each boat fits comfortably inside its square cell, centered at the exact cell center, same physical boat scale, maximum painted width or height about 76% of the cell, at least 12% clear transparent padding on every edge. Cell layout is a perfect uniform 3 by 2 grid, square cells, canvas aspect 3:2.
+Background: genuine alpha transparency across all empty space, no water, no shoreline, no pier, no rope, no drop shadow, no ground.
+Constraints: only the six boat sprites, no text, no captions, no labels, no borders, no grid lines, no logos, no extra objects or people. Maintain the same boat identity, wood color, bench arrangement, oar, camera elevation and global lighting across every cell.
+
+Layout correction (same tool, generated sheet as edit target):
+
+Use case: precise-object-edit
+Edit target: the generated six-view rowing-boat sprite sheet from the previous image. Preserve each boat's freshly rendered perspective, design, wood color, oar, and fixed upper-left lighting.
+Change ONLY layout and transparent margins: use an EXACT uniform 3-column by 2-row grid of six equal SQUARE cells on a 3:2 canvas. Center each of the six boat sprites at its own cell center. Reduce the boats so every sprite has its ENTIRE painted and alpha-visible content strictly inside its cell, no overlap with neighboring cells, minimum 15% completely clear padding on ALL four sides. Especially reduce the horizontal boats which currently cross their cell boundaries. The maximal width OR height of every sprite must be 70% of a cell, and all boats should represent equal physical scale. Row-major views remain right, lower-right, lower-left, left, upper-left, upper-right.
+Background: completely transparent alpha=0 outside the six isolated boats. No brown atmosphere, no shadow, no ground, no water, no cell borders, no text. All nonboat pixels must be fully clear.
+
+### Wildlife prompt
+
+Reference: `ambient-atlas-v1.png`; built-in ImageGen with transparent background.
+
+Use case: stylized-concept
+Asset type: transparent wildlife sprite atlas for a painterly Catan-style digital board game. EXACT 4 columns × 4 rows of sixteen equal SQUARE cells, square canvas.
+Primary request: Generate natural-looking little animal game sprites in the same matte gouache, warm earthy, softly modeled style as reference image 1. The reference is a style guide only; do not include its birds, sheep, dolphins, butterflies or people.
+Camera: fixed elevated three-quarter view looking down at every animal, heads pointing toward screen right, consistent upright gravity and soft upper-left lighting. Small crisp silhouettes readable at game scale, restrained natural colors, no black outline.
+Exact ROW-MAJOR grid contents: row1 cell1 doe deer standing/walking step A (no antlers), cell2 SAME doe step B, cell3 red deer stag with modest branched antlers walking step A, cell4 SAME stag step B. Row2 cell1 red fox walking step A, cell2 SAME fox step B, cell3 sturdy brown wild boar walking step A, cell4 SAME boar step B. Row3 cell1 black-and-yellow fire salamander walking step A, cell2 SAME salamander step B, cell3 earthy brown common toad crouched, cell4 SAME toad in a short lifted hopping pose. Row4 cell1 olive-brown smooth newt walking step A, cell2 SAME newt step B, cells3 and4 MUST BE COMPLETELY EMPTY TRANSPARENT.
+Layout: each animal is isolated and centered in its exact cell, including all antlers, feet and tail. Keep at least 15% completely transparent padding on ALL FOUR edges of every cell; no animal can touch a grid boundary or neighbor. Maximum painted width OR height 70% of a cell. Pair poses identical physical scale and identity with only legs/body motion changed.
+Backdrop: genuine transparent alpha, nothing except the fourteen animal cutouts. No rocks, grass, soil, scenery, water, shadow, atmospheric background, labels, cell lines, text, caption, logo or watermark.
+
 ## Continuous sea movement
 
-[sea-background.tsx](../../components/catan/sea-background.tsx) uploads the original sea image as one WebGL texture. A fragment shader applies smooth periodic offsets with a strength factor of **1.5**, bounded by **4.5 native pixels horizontally** and **3 vertically**. The wave phase repeats every **4.5 seconds**; `requestAnimationFrame` draws the intermediate movement at the display's animation cadence, preserving the painted details.
+[sea-background.tsx](../../components/catan/sea-background.tsx) uploads the original sea image as one WebGL texture. A fragment shader applies smooth periodic offsets with a strength factor of **1.8**, bounded by **5.4 native pixels horizontally** and **3.6 vertically**. This is a restrained 20% increase in wave displacement. The wave phase repeats every **4.5 seconds**; `requestAnimationFrame` draws the intermediate movement at the display's animation cadence, preserving the painted details.
 
 The shader shares its size and camera offsets with the CSS background. [catan-parallax.ts](../../lib/catan-parallax.ts) uses a 0.20 parallax factor based on the fitted board scale, constrains the offset to keep the viewport covered and expands image coverage during zoom. The drawing buffer accounts for device pixel density up to 2× and targets a 1.5-million-pixel budget, without dropping below the viewport's CSS resolution.
 

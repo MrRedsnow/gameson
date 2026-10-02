@@ -15,7 +15,7 @@ const cssDir = resolve(root, "dist/client/_next/static/css");
 const server = createServer(async (req, res) => {
   try {
     const path = new URL(req.url, "http://127.0.0.1").pathname;
-    if (["/catan/terrain-atlas-v3.jpg", "/catan/sea-v3.jpg", "/catan/buildings-v3.png", "/catan/harbor-atlas-v3.png", "/catan/robber-v2.png", "/catan/ambient-atlas-v1.png", "/catan/pasture-v1.png"].includes(path)) {
+    if (["/catan/terrain-atlas-v3.jpg", "/catan/sea-v3.jpg", "/catan/buildings-v3.png", "/catan/harbor-atlas-v3.png", "/catan/boats-directions-v1.png", "/catan/robber-v2.png", "/catan/ambient-atlas-v1.png", "/catan/wildlife-atlas-v1.png", "/catan/pasture-v1.png"].includes(path)) {
       res.setHeader("content-type", path.endsWith(".png") ? "image/png" : "image/jpeg");
       res.setHeader("cache-control", "no-store");
       res.end(await readFile(resolve(root, "public", path.slice(1))));

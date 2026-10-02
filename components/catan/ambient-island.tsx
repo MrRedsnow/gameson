@@ -2,22 +2,23 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import {
-  AMBIENT_DOLPHIN_SIZE, AmbientSchedule, ambientBounds, ambientPathPoint, ambientRandom, ambientSceneValid, ambientSheep, createAmbientScene, harborAmbientPoint,
-  type AmbientGame, type AmbientKind, type AmbientScene,
+  AMBIENT_DOLPHIN_SIZE, AMBIENT_WALK_REST, AMBIENT_WILDLIFE_BOB, AMBIENT_WILDLIFE_SPRITES, AmbientSchedule, ambientBounds, ambientHarborExclusions, ambientPathPoint, ambientRandom, ambientSceneValid, ambientSheep, createAmbientScene,
+  type AmbientGame, type AmbientKind, type AmbientScene, type WildlifeSpecies,
 } from "@/lib/catan-ambient";
 
 // A 4 × 3 atlas has 100-unit square cells irrespective of its pixel dimensions.
 const SPRITE_CELLS: Partial<Record<AmbientKind, readonly [number, number]>> = {
   gull: [0, 1], forest_bird: [2, 3], butterfly: [4, 5], dolphin: [6, 7], sheep: [8, 9], pedestrian: [10, 11],
 };
-const SPRITE_SIZES: Partial<Record<AmbientKind, number>> = { gull: 13, forest_bird: 11, butterfly: 9, dolphin: AMBIENT_DOLPHIN_SIZE, sheep: 14, pedestrian: 16 };
+const SPRITE_SIZES: Partial<Record<AmbientKind, number>> = { gull: 28, forest_bird: 24, butterfly: 12, dolphin: AMBIENT_DOLPHIN_SIZE, sheep: 18, pedestrian: 26 };
 
-function Sprite({ artId, kind, staticPose = false }: { artId: string; kind: AmbientKind; staticPose?: boolean }) {
-  const cells = SPRITE_CELLS[kind]; const size = SPRITE_SIZES[kind];
+function Sprite({ artId, kind, wildlifeSpecies, staticPose = false }: { artId: string; kind: AmbientKind; wildlifeSpecies?: WildlifeSpecies; staticPose?: boolean }) {
+  const wildlife = wildlifeSpecies && (kind === "ore_wildlife" || kind === "clay_wildlife") ? AMBIENT_WILDLIFE_SPRITES[wildlifeSpecies] : undefined;
+  const cells = wildlife?.cells ?? SPRITE_CELLS[kind]; const size = wildlife?.size ?? SPRITE_SIZES[kind];
   if (!cells || !size) return null;
-  return <g className={`catan-ambient-sprite catan-ambient-${kind}${staticPose ? " is-static" : ""}`}>
+  return <g className={`catan-ambient-sprite catan-ambient-${kind}${wildlife ? ` catan-ambient-wildlife catan-ambient-${wildlifeSpecies}` : ""}${staticPose ? " is-static" : ""}`}>
     {(staticPose ? cells.slice(0, 1) : cells).map((cell, index) => <svg key={cell} className={`catan-ambient-pose${index ? " is-secondary" : ""}`} x={-size / 2} y={-size * .72} width={size} height={size} viewBox={`${cell % 4 * 100} ${Math.floor(cell / 4) * 100} 100 100`} overflow="hidden">
-      <use href={`#${artId}-ambient-atlas`} />
+      <use href={`#${artId}-${wildlife ? "wildlife" : "ambient"}-atlas`} />
     </svg>)}
   </g>;
 }
@@ -35,26 +36,30 @@ function Wind({ game, artId, scene }: { game: AmbientGame; artId: string; scene:
 
 function Scene({ game, artId, scene }: { game: AmbientGame; artId: string; scene: AmbientScene }) {
   if (scene.kind === "wind") return <g className="catan-ambient-wind-scene" data-ambient-scene={scene.id}><Wind game={game} artId={artId} scene={scene} /></g>;
-  if (scene.kind === "smoke") return <g data-ambient-scene={scene.id} className="catan-ambient-smoke" transform={`translate(${scene.point!.x} ${scene.point!.y})`}>
-    {[0, 1, 2].map((index) => <ellipse key={index} className="catan-ambient-smoke-puff" cx={0} cy={0} rx={2.4 + index * .3} ry={1.7 + index * .2} style={{ animationDelay: `${index * 650}ms` }} />)}
+  if (scene.kind === "smoke") return <g data-ambient-scene={scene.id} data-ambient-kind="smoke" className="catan-ambient-smoke" transform={`translate(${scene.point!.x} ${scene.point!.y})`}>
+    {[0, 1, 2].map((index) => <ellipse key={index} className="catan-ambient-smoke-puff" cx={0} cy={0} rx={2.8 + index * .3} ry={1.9 + index * .2} style={{ animationDelay: `${index * 700}ms` }} />)}
   </g>;
-  const flip = scene.kind === "sheep" ? ((scene.sheepIndex ?? 0) % 2 ? -1 : 1) : scene.path && scene.path[scene.path.length - 1].x < scene.path[0].x ? -1 : 1;
   const start = scene.path?.[0] ?? scene.point!;
-  return <g data-ambient-scene={scene.id} transform={`translate(${start.x} ${start.y})`}>
-    <g className="catan-ambient-body" transform={`scale(${flip} 1)`}><Sprite artId={artId} kind={scene.kind} /></g>
+  const next = scene.path?.[1];
+  const groundDirection = next ? Math.abs(next.x - start.x) > .001 ? next.x - start.x : next.y - start.y : 1;
+  const flip = scene.kind === "sheep" ? ((scene.sheepIndex ?? 0) % 2 ? -1 : 1) : scene.wildlifeSpecies || scene.kind === "pedestrian" ? groundDirection < 0 ? -1 : 1 : scene.path && scene.path[scene.path.length - 1].x < start.x ? -1 : 1;
+  return <g data-ambient-scene={scene.id} data-ambient-kind={scene.kind} data-wildlife-species={scene.wildlifeSpecies} data-ambient-hex={scene.hexId} transform={`translate(${start.x} ${start.y})`} style={{ "--ambient-scene-duration": `${scene.duration}ms` } as CSSProperties}>
+    <g className="catan-ambient-body" transform={`scale(${flip} 1)`}><Sprite artId={artId} kind={scene.kind} wildlifeSpecies={scene.wildlifeSpecies} /></g>
   </g>;
 }
 
 /**
  * Mount inside the board SVG after landscapes and before all play markings.
+ * External pedestrian use instances sit above roads and below buildings;
+ * their animated source nodes remain here inside the single scheduler layer.
  * The parent SVG's data-catan-effect-active flag pauses new scenery events;
  * data-catan-ambient-active controls the separate harbor-boat CSS wrapper.
  * Clean pasture is opt-in after the replacement image successfully loads.
  * CSS is loaded by app/catan/layout.tsx so SSR/test bundles need no CSS loader.
  */
-export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, enabled, effectsBusy = false, cleanPasture = true, previewKind }: {
+export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, enabled, effectsBusy = false, cleanPasture = true, previewKind, externalPedestrians = false }: {
   game: AmbientGame; artId: string; viewBox: string; active: boolean; interacting: boolean; enabled: boolean;
-  effectsBusy?: boolean; cleanPasture?: boolean; previewKind?: AmbientKind;
+  effectsBusy?: boolean; cleanPasture?: boolean; previewKind?: AmbientKind; externalPedestrians?: boolean;
 }) {
   const layer = useRef<SVGGElement>(null);
   const latest = useRef({ game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind });
@@ -128,12 +133,39 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
         const node = nodes.get(scene.id); if (!node) continue;
         const progress = Math.max(0, Math.min(1, (now - scene.startedAt) / scene.duration));
         running ||= progress < 1;
-        const point = scene.path ? ambientPathPoint(scene.path, progress) : scene.point;
+        const elapsed = Math.max(0, now - scene.startedAt);
+        const walkDuration = Math.max(1, scene.duration - AMBIENT_WALK_REST);
+        const pathProgress = scene.kind === "pedestrian" ? Math.min(1, elapsed / walkDuration) : progress;
+        const resting = scene.kind === "pedestrian" && elapsed >= walkDuration;
+        node.classList.toggle("is-resting", resting);
+        const settling = scene.kind === "sheep" && scene.duration - elapsed <= 250;
+        node.classList.toggle("is-settling", settling);
+        const point = scene.path ? ambientPathPoint(scene.path, pathProgress, scene.pathKind) : scene.point;
         if (point) {
-          const lift = scene.kind === "dolphin" ? Math.sin(progress * Math.PI) * 10 : scene.kind === "pedestrian" ? Math.sin(progress * Math.PI * 32) * .4 : scene.kind === "sheep" ? Math.sin(progress * Math.PI * 2) * .25 : 0;
+          const settle = Math.max(0, Math.min(1, (scene.duration - elapsed) / 450));
+          const settleWalk = Math.max(0, Math.min(1, (walkDuration - elapsed) / 250));
+          const lift = scene.kind === "dolphin" ? Math.sin(progress * Math.PI) * 10 : scene.kind === "pedestrian" ? Math.sin(elapsed / 105) * .7 * settleWalk : scene.kind === "sheep" ? Math.abs(Math.sin(elapsed / 145)) * .85 * settle : scene.wildlifeSpecies ? Math.abs(Math.sin(elapsed / 210)) * AMBIENT_WILDLIFE_BOB : 0;
           node.setAttribute("transform", `translate(${point.x} ${point.y - lift})`);
+          if (scene.path && pathProgress < 1) {
+            const ahead = ambientPathPoint(scene.path, Math.min(1, pathProgress + .002), scene.pathKind);
+            const dx = ahead.x - point.x; const dy = ahead.y - point.y;
+            const body = node.querySelector<SVGGElement>(".catan-ambient-body");
+            // Ground figures turn on vertical roads and safe wildlife corridors
+            // without rotating their upright silhouettes.
+            const direction = (scene.wildlifeSpecies || scene.kind === "pedestrian") && Math.abs(dx) <= .001 ? dy : dx;
+            if (body && Math.abs(direction) > .001) {
+              const facing = settling ? ((scene.sheepIndex ?? 0) % 2 ? -1 : 1) : direction < 0 ? -1 : 1;
+              // Dolphins use an axis-aligned water clearance for their full sprite.
+              const airborne = ["gull", "forest_bird", "butterfly"].includes(scene.kind);
+              const angle = airborne ? Math.max(-25, Math.min(25, Math.atan2(dy, Math.abs(dx)) * 180 / Math.PI * facing)) : 0;
+              body.setAttribute("transform", `rotate(${angle}) scale(${facing} 1)`);
+            }
+          }
+          if (settling) node.querySelector<SVGGElement>(".catan-ambient-body")?.setAttribute("transform", `scale(${(scene.sheepIndex ?? 0) % 2 ? -1 : 1} 1)`);
         }
-        node.style.opacity = String(Math.max(0, Math.min(1, progress * 8, (1 - progress) * 8)));
+        // A long walk still becomes fully visible at its first road junction.
+        // Sheep replace an identical resting sprite and need no fading gap.
+        node.style.opacity = String(scene.kind === "sheep" ? 1 : Math.max(0, Math.min(1, elapsed / 400, (scene.duration - elapsed) / 400)));
       }
       if (running) frame = requestAnimationFrame(paint);
     };
@@ -148,6 +180,10 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
   return <g ref={layer} className="catan-ambient-island" aria-hidden="true" pointerEvents="none">
     <defs>
       <image id={`${artId}-ambient-atlas`} href="/catan/ambient-atlas-v1.png" width={400} height={300} preserveAspectRatio="none" />
+      <image id={`${artId}-wildlife-atlas`} href="/catan/wildlife-atlas-v1.png" width={400} height={400} preserveAspectRatio="none" />
+      <g id={`${artId}-ambient-pedestrians`}>
+        {scenes.filter((scene) => scene.kind === "pedestrian").map((scene) => <Scene key={scene.id} game={game} artId={artId} scene={scene} />)}
+      </g>
       <radialGradient id={`${artId}-ambient-wind-feather`}><stop offset="0" stopColor="white" /><stop offset=".55" stopColor="white" /><stop offset="1" stopColor="black" /></radialGradient>
       <mask id={`${artId}-ambient-wind-mask`} maskUnits="userSpaceOnUse" x={-54} y={-54} width={108} height={108}>
         <rect x={-54} y={-54} width={108} height={108} fill="black" />
@@ -158,15 +194,16 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
       {bounds && <mask id={`${artId}-ambient-sea-mask`} maskUnits="userSpaceOnUse" x={bounds.x} y={bounds.y} width={bounds.width} height={bounds.height}>
         <rect {...bounds} fill="white" />
         {game.board.hexes.map((hex) => <polygon key={hex.id} points={hex.vertices.map((id) => `${game.board.vertices[id].x},${game.board.vertices[id].y}`).join(" ")} fill="black" stroke="black" strokeWidth={22} strokeLinejoin="round" />)}
-        {game.board.harbors.map((harbor) => { const point = harborAmbientPoint(game.board, harbor.edge); return <circle key={harbor.edge} cx={point.x} cy={point.y} r={36} fill="black" />; })}
+        {ambientHarborExclusions(game.board).map(({ point, radius, kind, edgeId }) => <circle key={`${kind}-${edgeId}`} cx={point.x} cy={point.y} r={radius} fill="black" />)}
       </mask>}
     </defs>
     {cleanPasture && ambientSheep(game.board).filter((sheep) => !movingSheep.has(`${sheep.hexId}:${sheep.sheepIndex}`)).map((sheep) => <g key={`${sheep.hexId}:${sheep.sheepIndex}`} clipPath={`url(#${artId}-hex-${sheep.hexId})`} className={`catan-ambient-standing-sheep${sheep.hexId === game.robberHex ? " is-blocked" : ""}`}>
       <g transform={`translate(${sheep.point.x} ${sheep.point.y}) scale(${sheep.sheepIndex % 2 ? -1 : 1} 1)`}><Sprite artId={artId} kind="sheep" staticPose /></g>
     </g>)}
-    {scenes.map((scene) => <g key={scene.id} mask={scene.kind === "dolphin" ? `url(#${artId}-ambient-sea-mask)` : undefined} clipPath={scene.hexId !== undefined ? `url(#${artId}-hex-${scene.hexId})` : undefined}>
-      {scene.kind === "dolphin" && scene.path && [scene.path[0], scene.path[scene.path.length - 1]].map((point, index) => <ellipse key={index} className="catan-ambient-water-ring" cx={point.x} cy={point.y} rx={7} ry={2.8} style={{ animationDelay: `${index * 3900}ms`, transformOrigin: `${point.x}px ${point.y}px` }} />)}
+    {scenes.filter((scene) => scene.kind !== "pedestrian").map((scene) => <g key={scene.id} mask={scene.kind === "dolphin" ? `url(#${artId}-ambient-sea-mask)` : undefined} clipPath={scene.kind === "sheep" && scene.hexId !== undefined ? `url(#${artId}-hex-${scene.hexId})` : undefined}>
+      {scene.kind === "dolphin" && scene.path && [scene.path[0], scene.path[scene.path.length - 1]].map((point, index) => <ellipse key={index} className="catan-ambient-water-ring" cx={point.x} cy={point.y} rx={11} ry={4.4} style={{ animationDelay: `${index * Math.max(0, scene.duration - 1800)}ms`, transformOrigin: `${point.x}px ${point.y}px` }} />)}
       <Scene game={game} artId={artId} scene={scene} />
     </g>)}
+    {!externalPedestrians && <use className="catan-ambient-pedestrians" href={`#${artId}-ambient-pedestrians`} />}
   </g>;
 }

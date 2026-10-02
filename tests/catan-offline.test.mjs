@@ -4,6 +4,10 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 
 const artwork = await readFile(new URL("../public/catan/robber-v2.png", import.meta.url));
+const additionalArtwork = new Map(await Promise.all(["boats-directions-v1.png", "wildlife-atlas-v1.png"].map(async (name) => [
+  `/catan/${name}`, await readFile(new URL(`../public/catan/${name}`, import.meta.url)),
+])));
+const offlineArtwork = new Map([["/catan/robber-v2.png", artwork], ...additionalArtwork]);
 const worker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 
 test("die Räubergrafik ist eine quadratische PNG mit echtem Alphakanal", () => {
@@ -12,14 +16,14 @@ test("die Räubergrafik ist eine quadratische PNG mit echtem Alphakanal", () => 
   assert.ok([4, 6].includes(artwork[25]), "Der PNG-Farbtyp muss einen Alphakanal enthalten.");
 });
 
-test("der echte Service Worker liefert den vorab geladenen Räuber auch ohne Netzwerk", async () => {
+test("der echte Service Worker liefert Räuber, Bootsansichten und Wildtiere auch ohne Netzwerk", async () => {
   const origin = "https://gameson.test"; const handlers = new Map();
   const buckets = new Map([["gameson-shell-v21", new Map()]]);
   let online = true; let fetches = 0;
   const key = (request) => new URL(typeof request === "string" ? request : request.url, origin).href;
   const fetch = async (request) => {
     assert.ok(online, "Ein Offline-Asset muss aus dem Cache geliefert werden."); fetches++;
-    return new Response(new URL(key(request)).pathname === "/catan/robber-v2.png" ? artwork : "shell", { headers: { "content-type": "image/png" } });
+    return new Response(offlineArtwork.get(new URL(key(request)).pathname) ?? "shell", { headers: { "content-type": "image/png" } });
   };
   const caches = {
     async open(name) {
@@ -46,11 +50,14 @@ test("der echte Service Worker liefert den vorab geladenen Räuber auch ohne Net
   }
   await lifecycle("install"); await lifecycle("activate");
   assert.ok(skipped && claimed); assert.equal(buckets.has("gameson-shell-v21"), false);
-  assert.ok(await caches.match("/catan/robber-v2.png"), "Der Räuber muss im Installationscache liegen.");
-  online = false; const fetchedBefore = fetches; let response;
-  handlers.get("fetch")({ request: new Request(`${origin}/catan/robber-v2.png`), respondWith: (promise) => { response = promise; } });
-  const cached = await response;
-  assert.equal(cached.headers.get("content-type"), "image/png");
-  assert.deepEqual(Buffer.from(await cached.arrayBuffer()), artwork);
+  online = false; const fetchedBefore = fetches;
+  for (const [path, expected] of offlineArtwork) {
+    assert.ok(await caches.match(path), `${path} muss im Installationscache liegen.`);
+    let response;
+    handlers.get("fetch")({ request: new Request(`${origin}${path}`), respondWith: (promise) => { response = promise; } });
+    const cached = await response;
+    assert.equal(cached.headers.get("content-type"), "image/png");
+    assert.deepEqual(Buffer.from(await cached.arrayBuffer()), expected);
+  }
   assert.equal(fetches, fetchedBefore, "Das Bild benötigt offline keinen neuen Netzwerkzugriff.");
 });

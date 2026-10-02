@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Hex, type Resource } from "@/lib/catan";
 import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from "@/lib/catan-camera";
 import { seaParallax } from "@/lib/catan-parallax";
-import { BuildingPiece, HarborIllustration, Landscape, LandscapeDefinitions, RobberPiece } from "./landscape";
+import { BuildingPiece, HarborIllustration, HarborSeaMask, Landscape, LandscapeDefinitions, RobberPiece } from "./landscape";
+import { HARBOR_BOAT_CLEARANCE, harborLayout } from "@/lib/catan-harbor";
 import { ResourceIcon } from "./resource-icon";
 import { useBoardCamera } from "./use-board-camera";
 import { useConstructionPlayback } from "./use-construction-playback";
@@ -36,6 +37,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   const [inspect, setInspect] = useState<number | null>(null);
   const index = selected === null ? -1 : choices.indexOf(selected);
   const { board } = game;
+  const harborLayouts = board.harbors.map((harbor) => harborLayout(board, harbor.edge));
   const buildingPreview = !disabled && game.me && (mode === "settlement" || mode === "city") && selected !== null && choices.includes(selected) ? board.vertices[selected] : null;
   const robberHex = board.hexes[game.robberHex];
   // Shared edges form one continuous seam, so neighboring hexes never double its opacity.
@@ -49,9 +51,11 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     const edge = board.edges[h.edge]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
     const x = (a.x + b.x) / 2 * 1.29; const y = (a.y + b.y) / 2 * 1.29;
     return [{ x: x - 23, y: y - 20 }, { x: x + 23, y: y + 20 }];
-  })];
-  const left = Math.min(...bounds.map((p) => p.x)) - 12; const top = Math.min(...bounds.map((p) => p.y)) - 12;
-  const width = Math.max(...bounds.map((p) => p.x)) - left + 12; const height = Math.max(...bounds.map((p) => p.y)) - top + 12;
+  }), ...harborLayouts.flatMap((layout) => [{ x: layout.boat.x - HARBOR_BOAT_CLEARANCE, y: layout.boat.y - HARBOR_BOAT_CLEARANCE }, { x: layout.boat.x + HARBOR_BOAT_CLEARANCE, y: layout.boat.y + HARBOR_BOAT_CLEARANCE }])];
+  // Leave visible water on every coast for the larger swimming sprites.
+  const padding = 32;
+  const left = Math.min(...bounds.map((p) => p.x)) - padding; const top = Math.min(...bounds.map((p) => p.y)) - padding;
+  const width = Math.max(...bounds.map((p) => p.x)) - left + padding; const height = Math.max(...bounds.map((p) => p.y)) - top + padding;
   const boardBounds = { x: left, y: top, width, height };
   const { camera, viewBox, scale, reset, zoomBy, viewportProps, viewportRef, interactionActive } = useBoardCamera(boardBounds, size);
   const sea = seaParallax(boardBounds, size, camera);
@@ -99,6 +103,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
         <title>Catan – Spielbrett</title>
         <defs>
           <LandscapeDefinitions id={artId} cleanPasture={pastureReady} />
+          <HarborSeaMask id={artId} board={board} bounds={boardBounds} />
           {board.hexes.map((hex) => <clipPath key={hex.id} id={`${artId}-hex-${hex.id}`}><polygon points={hex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} /></clipPath>)}
         </defs>
         <g aria-hidden="true" className="catan-shoreline">{board.edges.filter((edge) => edge.hexes.length === 1).map((edge) => {
@@ -121,29 +126,34 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           <path className="catan-hex-seam-shadow" d={seamPath} fill="none" vectorEffect="non-scaling-stroke" />
           <path className="catan-hex-seam-light" d={seamPath} fill="none" vectorEffect="non-scaling-stroke" />
         </g>
-        <CatanAmbientIsland game={game} artId={artId} viewBox={viewBox} active={islandVisible} interacting={interactionActive} enabled={ambientEnabled} effectsBusy={effectsBusy} cleanPasture={pastureReady} />
+        <CatanAmbientIsland game={game} artId={artId} viewBox={viewBox} active={islandVisible} interacting={interactionActive} enabled={ambientEnabled} effectsBusy={effectsBusy} cleanPasture={pastureReady} externalPedestrians />
         {board.hexes.filter((hex) => hex.resource === "desert" && hex.id !== game.robberHex).map((hex) => <text key={`desert-${hex.id}`} x={hex.x} y={hex.y + 32} fill="#283132" fontSize="13" textAnchor="middle" pointerEvents="none" aria-hidden="true">Wüste</text>)}
         {board.hexes.filter((hex) => hex.id !== game.robberHex).map((hex) => <HexNumber key={hex.id} hex={hex} />)}
         {selectedHex && <polygon className="catan-hex-selection" points={selectedHex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} fill="none" stroke="#fff5c3" strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" pointerEvents="none" aria-hidden="true" />}
         <g ref={boardEffectsRef} className="catan-board-effects" pointerEvents="none" aria-hidden="true" />
-        {board.harbors.map((harbor) => {
+        {board.harbors.map((harbor, harborIndex) => {
           const edge = board.edges[harbor.edge]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
           const coastX = (a.x + b.x) / 2; const coastY = (a.y + b.y) / 2;
           const x = coastX * 1.29; const y = coastY * 1.29;
           const label = harbor.resource === "any" ? "3:1" : "2:1";
           const owners = harborOwners(board, harbor.edge);
+          const ownerColors = owners.map(color);
+          const ownerGradient = `${artId}-harbor-owners-${harbor.edge}`;
+          const anchorPaint = owners.length > 1 ? `url(#${ownerGradient}-anchor)` : ownerColors[0];
+          const coursePaint = owners.length > 1 ? `url(#${ownerGradient}-course)` : ownerColors[0];
           const harborTitle = `${harbor.resource === "any" ? "Hafen für alle Rohstoffe, 3 zu 1" : `${RESOURCE_INFO[harbor.resource].label}-Hafen, 2 zu 1`}${owners.length ? ` · erschlossen von ${owners.map((owner) => game.players.find((player) => player.id === owner)?.name).join(", ")}` : ""}`;
           return <g key={harbor.edge} className="catan-harbor" data-catan-harbor={harbor.edge}><title>{harborTitle}</title>
-            <HarborIllustration id={artId} x={coastX} y={coastY} angle={Math.atan2(coastY, coastX) * 180 / Math.PI} phase={harbor.edge} />
+            <HarborIllustration id={artId} layout={harborLayouts[harborIndex]} phase={harbor.edge} />
+            {owners.length > 1 && <defs>{[{ part: "anchor", left: 0, right: 24 }, { part: "course", left: x - 19, right: x + 19 }].map(({ part, left, right }) => <linearGradient key={part} id={`${ownerGradient}-${part}`} gradientUnits="userSpaceOnUse" x1={left} y1="0" x2={right} y2="0">
+              <stop offset="0%" stopColor={ownerColors[0]} /><stop offset="50%" stopColor={ownerColors[0]} />
+              <stop offset="50%" stopColor={ownerColors[1]} /><stop offset="100%" stopColor={ownerColors[1]} />
+            </linearGradient>)}</defs>}
             <g className="catan-harbor-label">
               <rect x={x - 19} y={y - 17} width="38" height="34" rx="4" fill="#132b32" fillOpacity=".78" />
-              {harbor.resource === "any" ? <Anchor x={x - 7} y={y - 14} width="14" height="14" color="#dfdac7" strokeWidth="1.5" /> : <ResourceIcon resource={harbor.resource} x={x - 8} y={y - 15} width="16" height="16" />}
-              <text x={x} y={y + 12} fill="#f2ecda" textAnchor="middle" fontSize="15" fontWeight="600">{label}</text>
+              <Anchor x={x - (harbor.resource === "any" ? 7 : 15)} y={y - 14} width="14" height="14" stroke={anchorPaint ?? "#dfdac7"} strokeWidth="1.5" />
+              {harbor.resource !== "any" && <ResourceIcon resource={harbor.resource} x={x + 1} y={y - 15} width="16" height="16" />}
+              <text x={x} y={y + 12} fill={coursePaint ?? "#f2ecda"} textAnchor="middle" fontSize="15" fontWeight="600">{label}</text>
             </g>
-            {owners.map((owner, ownerIndex) => <g key={owner} className="catan-harbor-flag" data-catan-harbor-owner={owner} transform={`translate(${x + 21 + ownerIndex * 10} ${y - 14})`} aria-hidden="true" pointerEvents="none">
-              <path className="catan-harbor-flag-pole" d="M0 17V-2" />
-              <path d="M.5-2L10 1.5 .5 5Z" fill={color(owner)} stroke="#24392d" strokeWidth=".6" />
-            </g>)}
           </g>;
         })}
         {board.edges.filter((e) => e.owner).map((edge) => {
@@ -153,6 +163,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
             <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color(edge.owner!)} strokeWidth="4" strokeLinecap="round" />
           </g>;
         })}
+        <use className="catan-ambient-pedestrians" href={`#${artId}-ambient-pedestrians`} pointerEvents="none" aria-hidden="true" />
         {board.vertices.filter((v) => v.owner && !(mode === "city" && buildingPreview?.id === v.id)).map((v) => <g key={v.id} data-catan-building={v.id}>
           <title>{`${game.players.find((p) => p.id === v.owner)!.name}: ${v.building === "city" ? "Stadt" : "Siedlung"} auf Kreuzung ${v.id + 1}`}</title>
           <BuildingPiece id={artId} building={v.building === "city" ? "city" : "settlement"} colorIndex={game.players.find((p) => p.id === v.owner)!.color} x={v.x} y={v.y} />
