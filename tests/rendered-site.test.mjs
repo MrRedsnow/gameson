@@ -250,11 +250,10 @@ test("fragt beim Start aus der Spielauswahl nach einer gespeicherten Online-Rund
     assert.match(source, /startup\.kind === "resume"/, theme);
     assert.match(source, new RegExp(`<ResumeSessionDialog theme="${theme}" lobby=\\{storedLobby\\} onResume=\\{resumeStoredSession\\} onDiscard=\\{discardStoredSession\\} />`), theme);
   }
-  assert.match(sessionSource, /export const RESUME_DISCARD_SECONDS = 5;/);
+  assert.match(sessionSource, /export const RESUME_DISCARD_SECONDS = 4;/);
   assert.match(entrySource, /onEscapeKeyDown=\{\(event\) => \{ event\.preventDefault\(\); setRemaining\(null\); \}\}/);
-  assert.match(entrySource, /if \(remaining <= 1\) discard\.current\(\); else setRemaining\(remaining - 1\);/);
   assert.match(css, /@keyframes resume-drain/);
-  assert.match(css, /\.resume-countdown-bar span \{[^}]*animation:resume-drain 5s linear forwards;/);
+  assert.match(css, /\.resume-countdown-bar span \{[^}]*animation:resume-drain 4s linear forwards;/);
 });
 
 test("macht Catan-Lobbys im selben Netzwerk auffindbar", async () => {

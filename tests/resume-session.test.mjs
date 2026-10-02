@@ -27,7 +27,7 @@ test("bietet die alte Runde und ein neues Spiel an, solange die Verbindung gepr�
   assert.match(html, /Zurück zu deiner Runde\?/);
   assert.match(html, /class="resume-lobby" role="status"><span>Verbindung wird geprüft …<\/span>/);
   assert.deepEqual(buttons(html), ["Zurück zur Runde", "Laufende Runde verlassen"]);
-  assert.match(html, new RegExp(`nach ${RESUME_DISCARD_SECONDS} Sekunden verworfen`));
+  assert.match(html, new RegExp(`nach ${RESUME_DISCARD_SECONDS} Sekunden noch einmal bestätigen`));
   // Rejoining is the confirming colour; only leaving the round is red.
   assert.match(html, /class="[^"]*game-accept-action[^"]*"[^>]*>Zurück zur Runde/);
   assert.match(html, /class="[^"]*game-danger-action[^"]*"[^>]*>.*?Laufende Runde verlassen/);
@@ -43,14 +43,22 @@ test("nennt die gefundene Lobby mit Namen und Stand", () => {
   assert.deepEqual(buttons(offline), ["Zurück zur Runde", "Laufende Runde verlassen"]);
 });
 
-test("zählt beim Verwerfen sichtbar herunter und lässt bis zuletzt abbrechen", () => {
+test("zählt vor der Bestätigung sichtbar herunter und lässt jederzeit abbrechen", () => {
   const html = render({ lobby: { name: "Wohnzimmer", detail: "3 Personen · Runde läuft" }, remaining: 3 });
-  assert.match(html, /Du verlässt die Runde/);
-  assert.match(html, /role="status" aria-live="polite" aria-atomic="true"><strong>3<\/strong><p>Noch 3 Sekunden, um es dir anders zu überlegen\./);
-  assert.match(html, /class="resume-countdown-bar" aria-hidden="true"><span style="animation-duration:5s"><\/span>/);
+  assert.match(html, /Lobby verlassen\?/);
+  assert.match(html, /role="status" aria-live="polite" aria-atomic="true"><strong>3<\/strong><p>Noch 3 Sekunden, bis du das Verlassen bestätigen kannst\./);
+  assert.match(html, /class="resume-countdown-bar" aria-hidden="true"><span style="animation-duration:4s"><\/span>/);
   assert.deepEqual(buttons(html), ["Abbrechen – in der Runde bleiben"]);
-  assert.match(render({ lobby: undefined, remaining: 1 }), /Noch 1 Sekunde, um/);
-  assert.equal(RESUME_DISCARD_SECONDS, 5);
+  assert.match(render({ lobby: undefined, remaining: 1 }), /Noch 1 Sekunde, bis/);
+  assert.equal(RESUME_DISCARD_SECONDS, 4);
+});
+
+test("zeigt nach dem Countdown einen zusätzlichen Button zum Verlassen", () => {
+  const html = render({ lobby: { name: "Wohnzimmer", detail: "3 Personen · Runde läuft" }, remaining: 0 });
+  assert.match(html, /role="status">Du kannst das Verlassen jetzt bestätigen\./);
+  assert.deepEqual(buttons(html), ["Abbrechen – in der Runde bleiben", "Lobby verlassen"]);
+  assert.match(html, /class="[^"]*game-danger-action[^"]*"[^>]*>.*?Lobby verlassen/);
+  assert.doesNotMatch(html, /resume-countdown/);
 });
 
 test("bietet ohne gültige Sitzung nur noch ein neues Spiel an", () => {

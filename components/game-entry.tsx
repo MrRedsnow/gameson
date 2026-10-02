@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, Copy, DoorOpen, Hourglass, LogOut, Plus, RotateCcw, Settings2, Share2, Smartphone, Undo2, Users, X } from "lucide-react";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
@@ -170,7 +170,7 @@ export function LobbyLeaveButton({ label = "Lobby verlassen", busy = false, onCl
   return <Button type="button" variant="ghost" className="lobby-leave" disabled={busy} onClick={onClick}><LogOut aria-hidden="true" />{label}</Button>;
 }
 
-/** The three states of the stored-round prompt: choose, count down before discarding, or acknowledge a round that is gone. */
+/** Choose a stored round, wait before confirming the leave, or acknowledge a round that is gone. */
 export function ResumeSessionPanel({ lobby, remaining, seconds = RESUME_DISCARD_SECONDS, onResume, onNewGame, onCancel }: {
   lobby: ResumeLobbyInfo | null | undefined; remaining: number | null; seconds?: number;
   onResume: () => void; onNewGame: () => void; onCancel: () => void;
@@ -182,15 +182,18 @@ export function ResumeSessionPanel({ lobby, remaining, seconds = RESUME_DISCARD_
     <div className="resume-actions"><Button type="button" className="game-accept-action" onClick={onNewGame}><Plus aria-hidden="true" />Neues Spiel starten</Button></div>
   </div>;
   if (remaining !== null) return <div className="resume-panel">
-    <span className="resume-kicker"><Hourglass aria-hidden="true" />Runde wird verlassen</span>
-    <DialogTitle>Du verlässt die Runde</DialogTitle>
-    <DialogDescription>Danach kannst du eine neue Lobby erstellen oder einer beitreten. Für die anderen läuft die Runde weiter.</DialogDescription>
-    <div className="resume-countdown" role="status" aria-live="polite" aria-atomic="true">
+    <span className="resume-kicker"><Hourglass aria-hidden="true" />Verlassen bestätigen</span>
+    <DialogTitle>Lobby verlassen?</DialogTitle>
+    <DialogDescription>Bestätige nach dem Countdown, dass du die Runde auf diesem Gerät verlassen möchtest. Für die anderen läuft sie weiter.</DialogDescription>
+    {remaining > 0 ? <div className="resume-countdown" role="status" aria-live="polite" aria-atomic="true">
       <strong>{remaining}</strong>
-      <p>Noch {remaining} {remaining === 1 ? "Sekunde" : "Sekunden"}, um es dir anders zu überlegen.</p>
+      <p>Noch {remaining} {remaining === 1 ? "Sekunde" : "Sekunden"}, bis du das Verlassen bestätigen kannst.</p>
       <div className="resume-countdown-bar" aria-hidden="true"><span style={{ animationDuration: `${seconds}s` }} /></div>
+    </div> : <p className="resume-hint" role="status">Du kannst das Verlassen jetzt bestätigen.</p>}
+    <div className="resume-actions">
+      <Button type="button" className="game-accept-action" onClick={onCancel}><Undo2 aria-hidden="true" />Abbrechen – in der Runde bleiben</Button>
+      {remaining === 0 && <Button type="button" className="game-danger-action" onClick={onNewGame}><LogOut aria-hidden="true" />Lobby verlassen</Button>}
     </div>
-    <div className="resume-actions"><Button type="button" className="game-accept-action" onClick={onCancel}><Undo2 aria-hidden="true" />Abbrechen – in der Runde bleiben</Button></div>
   </div>;
   return <div className="resume-panel">
     <span className="resume-kicker"><Hourglass aria-hidden="true" />Laufende Runde gefunden</span>
@@ -200,28 +203,26 @@ export function ResumeSessionPanel({ lobby, remaining, seconds = RESUME_DISCARD_
     <div className="resume-actions">
       <Button type="button" className="game-accept-action" onClick={onResume}>Zurück zur Runde<ArrowRight aria-hidden="true" /></Button>
       <Button type="button" className="game-danger-action" onClick={onNewGame}><RotateCcw aria-hidden="true" />Laufende Runde verlassen</Button>
-      <p className="resume-hint">Für die anderen läuft die Runde weiter. Auf diesem Gerät wird sie nach {seconds} Sekunden verworfen – bis dahin kannst du abbrechen.</p>
+      <p className="resume-hint">Für die anderen läuft die Runde weiter. Das Verlassen musst du nach {seconds} Sekunden noch einmal bestätigen.</p>
     </div>
   </div>;
 }
 
-/** Asks whether to rejoin a stored online round or start fresh; discarding waits out a short, cancelable countdown. */
+/** Asks whether to rejoin a stored online round or start fresh; leaving needs a click after a short countdown. */
 export function ResumeSessionDialog({ theme, lobby, seconds = RESUME_DISCARD_SECONDS, onResume, onDiscard }: {
   theme: GameTheme; lobby: ResumeLobbyInfo | null | undefined; seconds?: number; onResume: () => void; onDiscard: () => void;
 }) {
   const [remaining, setRemaining] = useState<number | null>(null);
-  const discard = useRef(onDiscard);
-  useEffect(() => { discard.current = onDiscard; }, [onDiscard]);
   const gone = lobby === null;
   useEffect(() => {
-    if (remaining === null || gone) return;
-    const timer = window.setTimeout(() => { if (remaining <= 1) discard.current(); else setRemaining(remaining - 1); }, 1000);
+    if (remaining === null || remaining <= 0 || gone) return;
+    const timer = window.setTimeout(() => setRemaining(remaining - 1), 1000);
     return () => window.clearTimeout(timer);
   }, [remaining, gone]);
   const keepOpen = (event: Event) => event.preventDefault();
   return <Dialog open onOpenChange={() => undefined}>
     <DialogContent className={gameDialogClass(theme, "resume-dialog")} showCloseButton={false} onEscapeKeyDown={(event) => { event.preventDefault(); setRemaining(null); }} onPointerDownOutside={keepOpen} onInteractOutside={keepOpen}>
-      <ResumeSessionPanel lobby={lobby} remaining={remaining} seconds={seconds} onResume={onResume} onNewGame={() => { if (gone) onDiscard(); else setRemaining(seconds); }} onCancel={() => setRemaining(null)} />
+      <ResumeSessionPanel lobby={lobby} remaining={remaining} seconds={seconds} onResume={onResume} onNewGame={() => { if (gone || remaining === 0) onDiscard(); else setRemaining(seconds); }} onCancel={() => setRemaining(null)} />
     </DialogContent>
   </Dialog>;
 }

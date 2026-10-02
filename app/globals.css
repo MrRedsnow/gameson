@@ -1896,7 +1896,7 @@ body, .gameson-home, .imposter-theme, .werewolf-theme {
   .game-dialog-actions { grid-template-columns:minmax(0,1fr); }
 }
 
-/* Returning to a stored online round: one clear choice, and a short grace period before the round is forgotten on this device. */
+/* Returning to a stored online round: one clear choice, and a short countdown before leaving can be confirmed. */
 .resume-panel { display:grid; gap:12px; }
 .resume-kicker { display:inline-flex; align-items:center; gap:8px; color:var(--ring); font-size:.75rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
 .resume-kicker svg { width:16px; height:16px; }
@@ -1913,7 +1913,7 @@ body, .gameson-home, .imposter-theme, .werewolf-theme {
 .resume-countdown strong { font-size:2.5rem; font-variant-numeric:tabular-nums; line-height:1; }
 .resume-countdown p { margin:0; font-size:.9375rem; line-height:1.5; }
 .resume-countdown-bar { grid-column:1/-1; height:8px; overflow:hidden; border-radius:999px; background:color-mix(in srgb,currentColor 12%,transparent); }
-.resume-countdown-bar span { display:block; width:100%; height:100%; border-radius:inherit; background:var(--destructive); animation:resume-drain 5s linear forwards; }
+.resume-countdown-bar span { display:block; width:100%; height:100%; border-radius:inherit; background:var(--destructive); animation:resume-drain 4s linear forwards; }
 @keyframes resume-drain { from { width:100%; } to { width:0; } }
 /* Stadt Land Fluss in the shared game library. */
 .slf-library-card { background:linear-gradient(145deg,#254f3c,#172f25); border-color:#456c48; }

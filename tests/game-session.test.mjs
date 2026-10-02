@@ -12,7 +12,7 @@ test("stellt eine gespeicherte Lobby nach einem Seitenreload ohne Rückfrage wie
 test("lässt beim Start aus der Spielauswahl zwischen alter Runde und neuem Spiel wählen", () => {
   assert.deepEqual(resolveOnlineGameStartup("", stored), { kind: "choose", session });
   assert.deepEqual(resolveOnlineGameStartup("", null), { kind: "home" });
-  assert.equal(RESUME_DISCARD_SECONDS, 5);
+  assert.equal(RESUME_DISCARD_SECONDS, 4);
 });
 
 test("behandelt einen Link zu einer anderen Lobby weiterhin als Einladung", () => {

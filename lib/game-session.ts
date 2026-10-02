@@ -7,8 +7,8 @@ export type OnlineGameStartup =
   | { kind: "local" }
   | { kind: "home" };
 
-/** Seconds a stored round stays recoverable after "Neues Spiel starten" was tapped. */
-export const RESUME_DISCARD_SECONDS = 5;
+/** Seconds to wait before explicitly confirming that a stored round should be left. */
+export const RESUME_DISCARD_SECONDS = 4;
 
 export function parseGameSession(rawSession: string | null): GameSession | null {
   if (!rawSession) return null;

@@ -82,9 +82,10 @@ const waitingLobby = {
 };
 const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 
-async function harness(t, { revokeOnRefresh = false } = {}) {
-  let nextId = 0;
+async function harness(t, { revokeOnRefresh = false, storedPrompt = false } = {}) {
+  let nextId = 0; let clock = 0;
   const frames = new Map(); const intervals = new Map(); const stored = new Map([[SESSION_KEY, JSON.stringify(session)]]);
+  const timeouts = new Map();
   const posts = []; const gets = []; const liveConnections = []; const history = [];
   const document = new HostNode(null, 9, "#document"); document.ownerDocument = document;
   document.hidden = false;
@@ -95,8 +96,10 @@ async function harness(t, { revokeOnRefresh = false } = {}) {
   document.appendChild(document.documentElement); document.documentElement.appendChild(document.body);
   const window = {
     document, HTMLElement: HostNode, HTMLIFrameElement: class {},
-    location: { origin: "https://gameson.test", search: `?lobby=${session.lobbyId}` },
+    location: { origin: "https://gameson.test", search: storedPrompt ? "" : `?lobby=${session.lobbyId}` },
     history: { replaceState(_state, _title, url) { history.push(url); } },
+    setTimeout(callback, delay) { const id = ++nextId; timeouts.set(id, { callback, at: clock + delay }); return id; },
+    clearTimeout(id) { timeouts.delete(id); },
   };
   document.defaultView = window;
   const boundary = {
@@ -125,6 +128,10 @@ async function harness(t, { revokeOnRefresh = false } = {}) {
     fetch(url, options = {}) {
       if (options.method === "POST") return new Promise((resolve, reject) => { posts.push({ url, options, body: JSON.parse(options.body), resolve, reject }); });
       gets.push(url);
+      if (storedPrompt && url === `/api/catan?lobby=${session.lobbyId}`) {
+        assert.equal(options.headers.Authorization, `Bearer ${session.token}`);
+        return Promise.resolve({ ok: true, status: 200, json: async () => waitingLobby });
+      }
       assert.equal(url, "/api/catan?nearby=1", "Session recovery uses the mounted live controller.");
       return Promise.resolve({ ok: true, status: 200, json: async () => ({ lobbies: [] }) });
     },
@@ -149,11 +156,26 @@ async function harness(t, { revokeOnRefresh = false } = {}) {
   }
   await act(async () => { reactRoot.render(createElement(CatanPage)); await flush(); });
   await act(async () => { const queued = [...frames.values()]; frames.clear(); queued.forEach((callback) => callback()); await flush(); });
-  assert.equal(liveConnections.length, 1, "The real startup effect resumes the stored session.");
-  await act(() => liveConnections[0].callbacks.onState(waitingLobby, { baseline: true }));
-  assert.match(container.textContent, /Eure Catan-Lobby/);
+  if (storedPrompt) {
+    assert.equal(liveConnections.length, 0, "The stored session waits for the player's choice.");
+    assert.match(container.textContent, /Zurück zu „Inselrunde“\?/);
+  } else {
+    assert.equal(liveConnections.length, 1, "The real startup effect resumes the stored session.");
+    await act(() => liveConnections[0].callbacks.onState(waitingLobby, { baseline: true }));
+    assert.match(container.textContent, /Eure Catan-Lobby/);
+  }
   return {
-    container, posts, gets, liveConnections, history, stored, find,
+    container, posts, gets, liveConnections, history, stored, find, click,
+    async advance(milliseconds) {
+      const until = clock + milliseconds;
+      while (true) {
+        const next = [...timeouts.entries()].filter(([, timer]) => timer.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
+        if (!next) break;
+        const [id, timer] = next; clock = timer.at; timeouts.delete(id);
+        await act(async () => { timer.callback(); await flush(); });
+      }
+      clock = until;
+    },
     async leave() {
       await click((button) => button.textContent === "Lobby verlassen" && !inDialog(button));
       await click((button) => button.textContent === "Lobby verlassen" && inDialog(button));
@@ -192,6 +214,50 @@ async function harness(t, { revokeOnRefresh = false } = {}) {
     },
   };
 }
+
+test("stored round waits four seconds and is only discarded after the extra click", async (t) => {
+  const env = await harness(t, { storedPrompt: true });
+  const leaveButton = () => env.find((node) => node.tagName === "BUTTON" && node.textContent === "Lobby verlassen");
+  await env.click((button) => button.textContent === "Laufende Runde verlassen");
+  assert.match(env.container.textContent, /Noch 4 Sekunden/);
+  assert.equal(leaveButton(), null);
+  await env.advance(3000);
+  assert.match(env.container.textContent, /Noch 1 Sekunde/);
+  await env.advance(999);
+  assert.equal(leaveButton(), null);
+  assert.equal(env.stored.has(SESSION_KEY), true);
+  await env.advance(1);
+  assert.ok(leaveButton());
+  assert.match(env.container.textContent, /Du kannst das Verlassen jetzt bestätigen/);
+  assert.equal(env.stored.has(SESSION_KEY), true, "The countdown must preserve the stored session.");
+  await env.advance(10000);
+  assert.ok(leaveButton());
+  assert.equal(env.stored.has(SESSION_KEY), true, "Waiting longer must never leave automatically.");
+  await env.click((button) => button.textContent === "Lobby verlassen");
+  assert.equal(env.stored.has(SESSION_KEY), false);
+  assert.doesNotMatch(env.container.textContent, /Laufende Runde gefunden|Verlassen bestätigen/);
+  assert.equal(env.posts.length, 0); assert.equal(env.liveConnections.length, 0);
+});
+
+test("stored round can be kept during and after the countdown, then rejoined", async (t) => {
+  const env = await harness(t, { storedPrompt: true });
+  await env.click((button) => button.textContent === "Laufende Runde verlassen");
+  await env.advance(2000);
+  await env.click((button) => button.textContent === "Abbrechen – in der Runde bleiben");
+  await env.advance(5000);
+  assert.match(env.container.textContent, /Zurück zu „Inselrunde“\?/);
+  assert.equal(env.stored.has(SESSION_KEY), true);
+  await env.click((button) => button.textContent === "Laufende Runde verlassen");
+  assert.match(env.container.textContent, /Noch 4 Sekunden/);
+  await env.advance(4000);
+  await env.click((button) => button.textContent === "Abbrechen – in der Runde bleiben");
+  assert.match(env.container.textContent, /Zurück zu „Inselrunde“\?/);
+  await env.click((button) => button.textContent === "Zurück zur Runde");
+  assert.equal(env.liveConnections.length, 1);
+  assert.deepEqual(env.liveConnections[0].session, session);
+  assert.equal(env.stored.has(SESSION_KEY), true);
+  assert.equal(env.posts.length, 0);
+});
 
 test("voluntary WebSocket revocation before HTTP success keeps the home screen free of errors", async (t) => {
   const env = await harness(t); await env.leave(); await env.revoke(); env.assertHome();
