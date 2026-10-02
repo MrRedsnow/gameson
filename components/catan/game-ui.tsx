@@ -224,7 +224,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
     uebersicht: activity.unread.length ? { text: String(activity.unread.length), tone: "", description: "Neue Meldungen" } : undefined,
   };
   const notice = <ActivityNotice scope={JSON.stringify([game.id, me.id])} unread={activity.unread} onOpen={() => showOverview("activity")} onRead={activity.read} />;
-  return <TabsPrimitive.Root className={`catan-play${voting ? " is-map-vote" : ""}${expanded ? " is-board-expanded" : ""}`} value={expanded ? "insel" : tab} onClickCapture={(event) => {
+  return <TabsPrimitive.Root data-catan-sequence={game.sequence} className={`catan-play${voting ? " is-map-vote" : ""}${expanded ? " is-board-expanded" : ""}`} value={expanded ? "insel" : tab} onClickCapture={(event) => {
     const control = event.target instanceof Element ? event.target.closest("button, [role='button']") : null;
     if (control?.getAttribute("data-catan-sound") === "cancel" && !control.hasAttribute("disabled") && control.getAttribute("aria-disabled") !== "true") sounds.cue("ui_cancel");
   }} onKeyDown={(event) => {

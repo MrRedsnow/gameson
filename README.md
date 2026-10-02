@@ -184,10 +184,65 @@ npx wrangler dev --config dist/server/wrangler.json --local --persist-to .wrangl
 | `npm run build` | Production client and Worker build in `dist/` |
 | `npm test` | Production build followed by automated tests |
 | `npm run lint` | Source checks |
+| `npm run test:catan:demo` | Visible, slow Playwright Catan match with real random map and audio |
 | `npm run db:generate` | Generate Drizzle migration SQL; does not apply it |
 
 The tests cover game rules, APIs, sessions, UI rendering, map controls, realtime
 updates and Ubuntu setup behavior.
+
+### Live Catan browser demo
+
+After the local database setup above, install Playwright's Chromium once and
+start the demo:
+
+```bash
+npx playwright install chromium
+npm run test:catan:demo
+```
+
+Playwright opens a visible browser with three independent players (Anna, Ben
+and Clara) in a fresh lobby on the local server. It starts the match through the
+real UI, so terrain, numbers, harbors, starting player, dice and cards use the
+normal random generator. No prepared board, fixed seed, injected resources or
+scripted dice are used. The bots vote for the map, complete snake-order setup
+and play legal moves until someone reaches **8 points**. They use bank trades
+and development cards; player-to-player offers are not part of the demo.
+
+Anna's reference view stays in the foreground with a small step label; Ben and
+Clara take their turns in background tabs. Real sound effects are enabled for
+Anna, other players are muted, and each action waits for
+the dice animation and all scheduled audio to finish before the next action.
+There is also a 1.5-second reading pause and a slower browser action speed.
+The final view stays open for 15 seconds. The demo starts a development server
+automatically if port 3000 is free, or reuses the running local server.
+
+For just one complete round after setup (three player turns), or longer pauses:
+
+```bash
+CATAN_DEMO_ROUNDS=1 npm run test:catan:demo
+CATAN_DEMO_STEP_MS=4000 CATAN_DEMO_TARGET=10 npm run test:catan:demo
+```
+
+Other options: `CATAN_DEMO_VIEWER=Ben` (or `Clara`) selects another fixed player
+perspective. `CATAN_DEMO_SLOW_MO_MS` changes browser action speed (default
+250), `CATAN_DEMO_HOLD_MS` changes the final viewing time, and
+`CATAN_DEMO_MAX_TURNS` bounds a full match (default 300; hitting it fails the
+test). `CATAN_DEMO_URL` selects an already-running development instance; the
+demo creates a real lobby there. Use a development instance for demos.
+
+For quick automated verification, explicitly opt into headless execution and
+skip the intentional audio wait:
+
+```bash
+CATAN_DEMO_HEADLESS=1 CATAN_DEMO_STEP_MS=0 CATAN_DEMO_SLOW_MO_MS=0 CATAN_DEMO_HOLD_MS=0 CATAN_DEMO_WAIT_FOR_AUDIO=0 npm run test:catan:demo
+```
+
+The normal demo checks successful moves, unchanged terrain after map acceptance,
+the victory condition, decoded/played audio, and uninterrupted sounds. Screenshots,
+the generated map and playback counters are saved under
+`.wrangler/playwright-results/`; failed runs include a Playwright trace. It uses
+isolated browser sessions and leaves your saved local games intact. This manual
+demo is separate from `npm test`.
 
 ### Catan UI preview
 
