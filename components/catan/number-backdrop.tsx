@@ -4,12 +4,43 @@ import type { Resource } from "@/lib/catan";
 type Terrain = Resource | "desert";
 type TerrainCells = Record<Terrain, readonly [number, number]>;
 type Backdrops = Partial<Record<Terrain, string>>;
-const RADIUS = 28;
+const RADIUS = 32;
 const SCALE = 2;
 const TERRAIN_SIZE = 108;
 const TINT = "#252727";
 const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
 const backdropCache = new Map<string, Promise<string | null>>();
+let featherMask: HTMLCanvasElement | null | undefined;
+
+function featherAlpha(radius: number) {
+  const t = Math.max(0, Math.min(1, (radius - .42) / .58));
+  const edge = Math.exp(-4);
+  return (Math.exp(-4 * t * t) - edge) / (1 - edge);
+}
+
+const featherStops = Array.from({ length: 21 }, (_, index) => {
+  const offset = index / 20;
+  return { offset, opacity: .64 * featherAlpha(offset) };
+});
+
+function getFeatherMask() {
+  if (featherMask !== undefined) return featherMask;
+  const mask = document.createElement("canvas");
+  const diameter = RADIUS * 2 * SCALE;
+  mask.width = mask.height = diameter;
+  const context = mask.getContext("2d");
+  if (!context) { featherMask = null; return null; }
+  const pixels = context.createImageData(diameter, diameter);
+  const center = diameter / 2;
+  for (let y = 0; y < diameter; y++) for (let x = 0; x < diameter; x++) {
+    const index = (y * diameter + x) * 4;
+    pixels.data[index] = pixels.data[index + 1] = pixels.data[index + 2] = 255;
+    pixels.data[index + 3] = Math.round(255 * featherAlpha(Math.hypot(x + .5 - center, y + .5 - center) / center));
+  }
+  context.putImageData(pixels, 0, 0);
+  featherMask = mask;
+  return mask;
+}
 
 function loadImage(src: string) {
   const saved = imageCache.get(src);
@@ -39,7 +70,7 @@ function rasterBackdrop(resource: Terrain, cell: readonly [number, number], clea
     terrain.width = terrain.height = TERRAIN_SIZE * SCALE;
     const context = terrain.getContext("2d");
     if (!context || !("filter" in context)) return null;
-    context.filter = `blur(${2.2 * SCALE}px)`;
+    context.filter = `blur(${2.8 * SCALE}px)`;
     if (!context.filter.startsWith("blur(")) return null;
     const image = await loadImage(src);
     if (!image) return null;
@@ -60,13 +91,11 @@ function rasterBackdrop(resource: Terrain, cell: readonly [number, number], clea
     if (!result) return null;
     const offset = (terrain.width - diameter) / 2;
     result.drawImage(terrain, offset, offset, diameter, diameter, 0, 0, diameter, diameter);
-    const center = diameter / 2;
-    const alpha = result.createRadialGradient(center, center, center * .5, center, center, center);
-    alpha.addColorStop(0, "#fff");
-    alpha.addColorStop(1, "#fff0");
+    // Every terrain shares the same once-prepared exponential alpha mask.
+    const alpha = getFeatherMask();
+    if (!alpha) return null;
     result.globalCompositeOperation = "destination-in";
-    result.fillStyle = alpha;
-    result.fillRect(0, 0, diameter, diameter);
+    result.drawImage(alpha, 0, 0);
     return output.toDataURL("image/png");
   })().catch(() => null);
   backdropCache.set(key, pending);
@@ -87,9 +116,7 @@ export function NumberBackdropDefinitions({ id, cleanPasture = false, cells }: {
   const gradient = `${id}-number-backdrop-fade`;
   return <>
     <radialGradient id={gradient}>
-      <stop offset="0" stopColor={TINT} stopOpacity=".64" />
-      <stop offset=".5" stopColor={TINT} stopOpacity=".64" />
-      <stop offset="1" stopColor={TINT} stopOpacity="0" />
+      {featherStops.map(({ offset, opacity }) => <stop key={offset} offset={offset} stopColor={TINT} stopOpacity={opacity} />)}
     </radialGradient>
     {Object.keys(cells).map((resource) => <g key={resource} id={`${id}-number-backdrop-${resource}`}>
       {images[resource as Terrain]

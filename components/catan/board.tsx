@@ -17,6 +17,7 @@ import { useBoardEffects } from "./use-board-effects";
 import { CatanAmbientIsland } from "./ambient-island";
 import { preloadAmbientArtwork } from "@/lib/catan-ambient";
 import { NumberBackdrop } from "./number-backdrop";
+import { NumberLabel } from "./number-label";
 
 export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
@@ -24,7 +25,7 @@ export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
 function HexNumber({ artId, hex, blocked = false }: { artId: string; hex: Hex; blocked?: boolean }) {
   return hex.number ? <>
     {!blocked && <NumberBackdrop id={artId} resource={hex.resource} x={hex.x} y={hex.y} mirrored={hex.id % 2 === 1} />}
-    <text className={`catan-number-label${blocked ? " is-blocked" : ""}`} data-catan-number={hex.id} data-resource={hex.resource} x={hex.x} y={hex.y + (blocked ? 36 : 10)} textAnchor="middle" aria-hidden="true">{hex.number}</text>
+    <NumberLabel number={hex.number} resource={hex.resource} hexId={hex.id} x={hex.x} y={hex.y} blocked={blocked} />
   </> : null;
 }
 

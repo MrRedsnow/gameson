@@ -7,6 +7,7 @@ import { CatanAmbientIsland } from "../../components/catan/ambient-island";
 import { CatanSeaBackground } from "../../components/catan/sea-background";
 import { BuildingPiece, HarborIllustration, HarborSeaClip, Landscape, LandscapeDefinitions } from "../../components/catan/landscape";
 import { NumberBackdrop } from "../../components/catan/number-backdrop";
+import { NumberLabel } from "../../components/catan/number-label";
 import { harborLayout } from "../../lib/catan-harbor";
 import { acceptMap } from "../catan-helpers.mjs";
 import { PLAYER_COLORS, RESOURCES, applyCatanAction, catanView, createCatanGame, legalRoads, legalSettlements, type CatanAction, type CatanView } from "../../lib/catan";
@@ -65,7 +66,7 @@ function IslandLab({ game, ambientKind, labKey }: { game: CatanView; ambientKind
       <defs><LandscapeDefinitions id="details-lab" cleanPasture /><HarborSeaClip id="details-lab" board={game.board} bounds={{ x: -420, y: -370, width: 840, height: 740 }} />{game.board.hexes.map((hex) => <clipPath key={hex.id} id={`details-lab-hex-${hex.id}`}><polygon points={hex.vertices.map((id) => `${game.board.vertices[id].x},${game.board.vertices[id].y}`).join(" ")} /></clipPath>)}</defs>
       {game.board.hexes.map((hex) => <g key={hex.id} clipPath={`url(#details-lab-hex-${hex.id})`}><Landscape id="details-lab" resource={hex.resource} x={hex.x} y={hex.y} /></g>)}
       <CatanAmbientIsland key={labKey} game={{ ...game, id: `${game.id}:lab-${labKey}` }} artId="details-lab" viewBox="-420 -370 840 740" active interacting={false} enabled previewKind={ambientKind} externalPedestrians />
-      {game.board.hexes.filter((hex) => hex.number).map((hex) => <g key={`number-${hex.id}`} pointerEvents="none"><NumberBackdrop id="details-lab" resource={hex.resource} x={hex.x} y={hex.y} /><text className="catan-number-label" data-resource={hex.resource} x={hex.x} y={hex.y + 10} textAnchor="middle">{hex.number}</text></g>)}
+      {game.board.hexes.filter((hex) => hex.number).map((hex) => <g key={`number-${hex.id}`} pointerEvents="none"><NumberBackdrop id="details-lab" resource={hex.resource} x={hex.x} y={hex.y} /><NumberLabel number={hex.number!} resource={hex.resource} x={hex.x} y={hex.y} /></g>)}
       {game.board.harbors.map((harbor) => <HarborIllustration key={harbor.edge} id="details-lab" layout={harborLayout(game.board, harbor.edge)} phase={harbor.edge} />)}
       {game.board.edges.filter((edge) => edge.owner).map((edge) => {
         const a = game.board.vertices[edge.a]; const b = game.board.vertices[edge.b];
