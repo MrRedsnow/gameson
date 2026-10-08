@@ -439,11 +439,11 @@
 .catan-hex-seam-shadow { stroke:#1d302c; stroke-width:2.15px; stroke-opacity:.66; }
 .catan-hex-seam-light { stroke:#dbc89b; stroke-width:.65px; stroke-opacity:.35; }
 .catan-number-label { font-family:Georgia,"Times New Roman",serif; font-size:29px; font-weight:700; fill:#fff1d7; stroke:#1c2922; stroke-width:1.2px; paint-order:stroke; stroke-linejoin:round; }
-.catan-number-label[data-resource=wood] { fill:#dfe9db; }
-.catan-number-label[data-resource=wool] { fill:#e4f0d2; }
-.catan-number-label[data-resource=grain] { fill:#fff0cf; }
-.catan-number-label[data-resource=brick] { fill:#f2dbc6; }
-.catan-number-label[data-resource=ore] { fill:#e4e9eb; }
+.catan-number-label[data-resource=wood] { fill:#c5ddb9; }
+.catan-number-label[data-resource=wool] { fill:#cce8aa; }
+.catan-number-label[data-resource=grain] { fill:#ffe1ab; }
+.catan-number-label[data-resource=brick] { fill:#f0c3a3; }
+.catan-number-label[data-resource=ore] { fill:#cddfe9; }
 .catan-number-label.is-blocked { stroke-width:2.5px; }
 .catan-blocked-desert-label { fill:#fff1d7; stroke:#1c2922; stroke-width:2.5px; paint-order:stroke; stroke-linejoin:round; }
 .catan-theme .catan-map-instruction { font-size:.875rem; line-height:1.3; color:#d5e1e2; }
