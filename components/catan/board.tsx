@@ -21,7 +21,7 @@ export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
 
 function HexNumber({ hex, blocked = false }: { hex: Hex; blocked?: boolean }) {
-  return hex.number ? <text className={`catan-number-label${[6, 8].includes(hex.number) ? " is-frequent" : ""}${hex.resource === "grain" && !blocked ? " on-grain" : ""}${blocked ? " is-blocked" : ""}`} data-catan-number={hex.id} x={hex.x} y={hex.y + (blocked ? 29 : 7)} textAnchor="middle" aria-hidden="true">{hex.number}</text> : null;
+  return hex.number ? <text className={`catan-number-label${[6, 8].includes(hex.number) ? " is-frequent" : ""}${hex.resource === "grain" && !blocked ? " on-grain" : ""}${blocked ? " is-blocked" : ""}`} data-catan-number={hex.id} x={hex.x} y={hex.y + (blocked ? 36 : 12)} textAnchor="middle" aria-hidden="true">{hex.number}</text> : null;
 }
 
 export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, expanded = false, islandVisible = true, animationBaseline = 0, ambientEnabled = true }: {

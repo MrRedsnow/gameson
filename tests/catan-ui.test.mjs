@@ -167,7 +167,7 @@ test("der gemalte Räuber bleibt auf allen 19 Feldern über Gebäuden und Baueff
       assert.match(html, /Räuber blockiert den Ertrag/);
       assert.doesNotMatch(html, />R<\/text>/);
       if (hex.number) {
-        assert.ok(layer.includes(`x="${hex.x}" y="${hex.y + 29}" text-anchor="middle" aria-hidden="true">${hex.number}</text>`));
+        assert.ok(layer.includes(`x="${hex.x}" y="${hex.y + 36}" text-anchor="middle" aria-hidden="true">${hex.number}</text>`));
         assert.match(layer, /class="catan-number-label[^"]* is-blocked"/);
         assert.doesNotMatch(layer, /on-grain/, "Auch auf ausgegrautem Acker muss die Zahl hell sein.");
       } else {

@@ -1,7 +1,7 @@
 .catan-roll-field { stroke:#ffedaa; stroke-width:3; stroke-linejoin:round; vector-effect:non-scaling-stroke; filter:drop-shadow(0 0 3px #ffe49a99); }
 .catan-roll-field.is-blocked { stroke:#e2af9b; stroke-dasharray:5 4; }
 .catan-roll-blocked { fill:#fff0cb; stroke:#342b2a; stroke-width:2.5; paint-order:stroke; font:700 10px Georgia,serif; }
-.catan-number-label.is-roll-hit { fill:#ffedb0; stroke:#3b3525; stroke-width:2; filter:drop-shadow(0 0 3px #f7cc65aa); }
+.catan-number-label.is-roll-hit { fill:#ffedb0; fill-opacity:1; stroke:#3b3525; stroke-width:2; stroke-opacity:1; filter:drop-shadow(0 0 3px #f7cc65aa); }
 .catan-building-preview { opacity:.5; pointer-events:none; }
 .catan-harbor.is-newly-opened .catan-harbor-label { filter:drop-shadow(0 0 4px #fff0a9); }
 .catan-road-award-glow { stroke:#fff0b7; stroke-width:7; stroke-linecap:round; filter:drop-shadow(0 0 3px #fff0b7); }

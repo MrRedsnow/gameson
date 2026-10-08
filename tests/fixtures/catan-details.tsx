@@ -64,7 +64,7 @@ function IslandLab({ game, ambientKind, labKey }: { game: CatanView; ambientKind
       <defs><LandscapeDefinitions id="details-lab" cleanPasture /><HarborSeaMask id="details-lab" board={game.board} bounds={{ x: -420, y: -370, width: 840, height: 740 }} />{game.board.hexes.map((hex) => <clipPath key={hex.id} id={`details-lab-hex-${hex.id}`}><polygon points={hex.vertices.map((id) => `${game.board.vertices[id].x},${game.board.vertices[id].y}`).join(" ")} /></clipPath>)}</defs>
       {game.board.hexes.map((hex) => <g key={hex.id} clipPath={`url(#details-lab-hex-${hex.id})`}><Landscape id="details-lab" resource={hex.resource} x={hex.x} y={hex.y} /></g>)}
       <CatanAmbientIsland key={labKey} game={{ ...game, id: `${game.id}:lab-${labKey}` }} artId="details-lab" viewBox="-420 -370 840 740" active interacting={false} enabled previewKind={ambientKind} externalPedestrians />
-      {game.board.hexes.filter((hex) => hex.number).map((hex) => <text key={`number-${hex.id}`} className="catan-number-label" x={hex.x} y={hex.y + 7} textAnchor="middle">{hex.number}</text>)}
+      {game.board.hexes.filter((hex) => hex.number).map((hex) => <text key={`number-${hex.id}`} className="catan-number-label" x={hex.x} y={hex.y + 12} textAnchor="middle">{hex.number}</text>)}
       {game.board.harbors.map((harbor) => <HarborIllustration key={harbor.edge} id="details-lab" layout={harborLayout(game.board, harbor.edge)} phase={harbor.edge} />)}
       {game.board.edges.filter((edge) => edge.owner).map((edge) => {
         const a = game.board.vertices[edge.a]; const b = game.board.vertices[edge.b];
