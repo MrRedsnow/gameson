@@ -15,3 +15,6 @@
   .catan-roll-field,.catan-number-label.is-roll-hit,.catan-road-award-glow { filter:none; }
   .catan-harbor-mooring { animation:none !important; transform:none !important; }
 }
+@media (hover:none) and (pointer:coarse) {
+  .catan-roll-field,.catan-number-label.is-roll-hit,.catan-road-award-glow,.catan-harbor.is-newly-opened .catan-harbor-label { filter:none; }
+}

@@ -19,7 +19,7 @@ const {
   ambientBounds, ambientRandom, ambientSeaPoint, ambientPathPoint, ambientPath, ambientPolylineLength, ambientSceneDuration, ambientRoadRoute, ambientSheep, ambientSceneValid, harborAmbientPoint, ambientHarborExclusions, harborLayout, HARBOR_BOAT_CLEARANCE, fitCamera, cameraMetrics, pointInPolygon,
   validDolphinPath, ambientDolphinPosition, createAmbientScene, AmbientSchedule, AMBIENT_INTERVALS, AMBIENT_FIRST_INTERVALS, AMBIENT_DURATIONS, AMBIENT_DOLPHIN_SIZE, AMBIENT_DOLPHIN_JUMP, AMBIENT_WILDLIFE_SPRITES, AMBIENT_WILDLIFE_BOB, preloadAmbientArtwork, CatanAmbientIsland, createBoard,
 } = require(output);
-const { createElement } = require("react"); const { renderToStaticMarkup } = require("react-dom/server");
+const React = require("react"); const { createElement } = React; const { renderToStaticMarkup } = require("react-dom/server");
 const bounds = { x: -420, y: -370, width: 840, height: 740 };
 const state = { available: true, blocked: false, mobile: false };
 const makeGame = (seed = "island") => {
@@ -500,6 +500,106 @@ test("fixture previews honor lifecycle and action priority", () => {
   assert.deepEqual(queue.preview("gull", 0, { ...state, blocked: true }, create), []);
   assert.equal(queue.preview("gull", 0, state, create)[0].kind, "gull");
   queue.dispose(); assert.deepEqual(queue.preview("gull", 0, state, create), []);
+});
+
+test("camera navigation leaves no scenery timer or SVG paint, resumes once and respects suspension and unmount", (t) => {
+  const slots = []; const timers = new Map(); const frames = new Map(); const listeners = new Map(); const attributes = new Map();
+  let cursor = 0; let dirty = false; let layouts = []; let effects = []; let sequence = 0; let now = 0; let writes = 0; let scenes = [];
+  const svg = { setAttribute: (name, value) => attributes.set(name, value), getAttribute: (name) => attributes.get(name), querySelector: () => null, closest: () => null };
+  const body = { setAttribute: () => { writes++; } };
+  const layer = { ownerSVGElement: svg, querySelectorAll: () => scenes.map((scene) => ({
+    getAttribute: () => scene.id, setAttribute: () => { writes++; }, querySelector: () => body,
+    classList: { toggle: () => { writes++; } }, style: {},
+  })) };
+  const media = new Map();
+  const matchMedia = (query) => {
+    if (!media.has(query)) media.set(query, {
+      matches: query.includes("max-width"), listeners: new Set(),
+      addEventListener(_name, callback) { this.listeners.add(callback); }, removeEventListener(_name, callback) { this.listeners.delete(callback); },
+    });
+    return media.get(query);
+  };
+  const document = {
+    hidden: false, documentElement: { classList: { contains: () => false } },
+    addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: (name) => listeners.delete(name),
+  };
+  const previous = Object.fromEntries(["window", "document", "requestAnimationFrame", "cancelAnimationFrame"].map((name) => [name, globalThis[name]]));
+  globalThis.window = { matchMedia }; globalThis.document = document;
+  globalThis.requestAnimationFrame = (callback) => { const id = ++sequence; frames.set(id, callback); return id; };
+  globalThis.cancelAnimationFrame = (id) => frames.delete(id);
+  t.mock.method(globalThis, "setTimeout", (callback) => { const id = ++sequence; timers.set(id, callback); return id; });
+  t.mock.method(globalThis, "clearTimeout", (id) => timers.delete(id));
+  t.mock.method(performance, "now", () => now);
+  t.after(() => { for (const [name, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[name]; else globalThis[name] = value; } });
+  t.mock.method(React, "useRef", (value) => { const id = cursor++; return slots[id] ??= { current: id === 0 ? layer : value }; });
+  t.mock.method(React, "useState", (value) => {
+    const id = cursor++; const slot = slots[id] ??= { value };
+    return [slot.value, (next) => { slot.value = next; scenes = next; dirty = true; }];
+  });
+  const queueEffect = (effect, deps, queue) => {
+    const id = cursor++; const slot = slots[id] ??= {};
+    if (!slot.deps || deps.some((value, index) => !Object.is(value, slot.deps[index]))) {
+      slot.deps = deps; queue.push(() => { slot.cleanup?.(); slot.cleanup = effect(); });
+    }
+  };
+  t.mock.method(React, "useLayoutEffect", (effect, deps) => queueEffect(effect, deps, layouts));
+  t.mock.method(React, "useEffect", (effect, deps) => queueEffect(effect, deps, effects));
+  let props = { game: makeGame("navigation"), artId: "navigation", viewBox: "-420 -370 840 740", active: true, interacting: false, enabled: true, previewKind: "gull" };
+  const render = (next = {}) => {
+    props = { ...props, ...next };
+    do {
+      dirty = false; cursor = 0; layouts = []; effects = [];
+      CatanAmbientIsland(props);
+      for (const effect of [...layouts, ...effects]) effect();
+    } while (dirty);
+  };
+  const flush = () => { if (dirty) render(); };
+  const paint = (time) => {
+    now = time; const [id, callback] = frames.entries().next().value;
+    frames.delete(id); callback(now);
+  };
+  render();
+  assert.equal(scenes.length, 1); const firstScene = scenes[0].id;
+  assert.equal(timers.size, 1); assert.equal(frames.size, 1);
+  paint(1000); assert.ok(writes > 0, "An available island really paints the active scene.");
+  const originalTimer = [...timers.keys()];
+  for (let offset = 1; offset <= 30; offset++) render({ viewBox: `${-420 + offset} -370 840 740` });
+  assert.deepEqual([...timers.keys()], originalTimer, "Camera bounds alone cannot continually clear and recreate the shared scheduler timer.");
+  const queuedPaint = frames.values().next().value;
+  render({ interacting: true });
+  assert.equal(timers.size, 0); assert.equal(frames.size, 0); assert.equal(attributes.get("data-catan-ambient-active"), "false");
+  const frozenWrites = writes;
+  now = 1500; queuedPaint(now);
+  for (let offset = 31; offset <= 90; offset++) render({ viewBox: `${-420 + offset} -370 840 740` });
+  assert.equal(writes, frozenWrites, "Even an already queued frame must not mutate SVG presentation during a gesture.");
+  assert.equal(timers.size, 0); assert.equal(frames.size, 0); assert.equal(scenes[0].id, firstScene);
+  render({ interacting: false });
+  assert.equal(timers.size, 1); assert.equal(frames.size, 1); assert.equal(scenes[0].id, firstScene, "Short navigation preserves the current scenery.");
+  paint(2000); assert.ok(writes > frozenWrites);
+
+  render({ interacting: true }); now = 30_000;
+  render({ interacting: false, viewBox: "-30 -30 60 60", previewKind: "dolphin" });
+  assert.equal(scenes.some((scene) => scene.id === firstScene), false, "Scenery that elapsed during a long gesture does not flash back on screen.");
+  assert.equal(scenes.some((scene) => scene.kind === "dolphin"), false, "A preview after navigation uses the final inland bounds.");
+  assert.equal(timers.size, 1);
+  document.hidden = true; listeners.get("visibilitychange")(); flush();
+  assert.deepEqual(scenes, []); assert.equal(timers.size, 0); assert.equal(frames.size, 0);
+  now = 1_000_000; document.hidden = false; listeners.get("visibilitychange")(); flush();
+  assert.deepEqual(scenes, [], "Returning from a hidden tab starts fresh without replaying the elapsed schedule.");
+  assert.equal(timers.size, 1);
+  const reduced = media.get("(prefers-reduced-motion: reduce)");
+  reduced.matches = true; for (const callback of reduced.listeners) callback(); flush();
+  assert.equal(timers.size, 0); assert.equal(frames.size, 0);
+  reduced.matches = false; for (const callback of reduced.listeners) callback(); flush();
+  render({ enabled: false, previewKind: undefined }); assert.equal(timers.size, 0); assert.equal(frames.size, 0);
+  render({ enabled: true, previewKind: "gull", viewBox: "-420 -370 840 740" });
+  assert.equal(timers.size, 1); assert.equal(frames.size, 1);
+  const lateTimer = timers.values().next().value; const latePaint = frames.values().next().value;
+  for (const slot of slots) slot.cleanup?.();
+  assert.equal(timers.size, 0); assert.equal(frames.size, 0); assert.equal(listeners.size, 0);
+  assert.ok([...media.values()].every((query) => query.listeners.size === 0));
+  const unmountedWrites = writes; lateTimer(); latePaint(1_000_100);
+  assert.equal(timers.size, 0); assert.equal(frames.size, 0); assert.equal(writes, unmountedWrites, "Callbacks retained by the browser cannot restart a disposed island.");
 });
 
 test("clean meadow requires both images, keeps the painted fallback on either failure and removes load handlers", () => {

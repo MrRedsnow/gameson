@@ -5,7 +5,7 @@ import { CatanGameUI } from "../../components/catan/game-ui";
 import { CatanDiceOverlay } from "../../components/catan/dice";
 import { CatanAmbientIsland } from "../../components/catan/ambient-island";
 import { CatanSeaBackground } from "../../components/catan/sea-background";
-import { BuildingPiece, HarborIllustration, HarborSeaMask, Landscape, LandscapeDefinitions } from "../../components/catan/landscape";
+import { BuildingPiece, HarborIllustration, HarborSeaClip, Landscape, LandscapeDefinitions } from "../../components/catan/landscape";
 import { harborLayout } from "../../lib/catan-harbor";
 import { acceptMap } from "../catan-helpers.mjs";
 import { PLAYER_COLORS, RESOURCES, applyCatanAction, catanView, createCatanGame, legalRoads, legalSettlements, type CatanAction, type CatanView } from "../../lib/catan";
@@ -61,7 +61,7 @@ function IslandLab({ game, ambientKind, labKey }: { game: CatanView; ambientKind
   return <div ref={viewportRef} className="catan-board-viewport" style={{ width: "100%", height: "85vh", flex: "none" }}>
     <CatanSeaBackground width={size.width} height={size.height} size={Math.max(size.width, size.height)} x={0} y={0} active ambientEnabled />
     <svg className="catan-board catan-ambient-lab" viewBox="-420 -370 840 740" style={{ width: "100%", height: "100%", display: "block" }}>
-      <defs><LandscapeDefinitions id="details-lab" cleanPasture /><HarborSeaMask id="details-lab" board={game.board} bounds={{ x: -420, y: -370, width: 840, height: 740 }} />{game.board.hexes.map((hex) => <clipPath key={hex.id} id={`details-lab-hex-${hex.id}`}><polygon points={hex.vertices.map((id) => `${game.board.vertices[id].x},${game.board.vertices[id].y}`).join(" ")} /></clipPath>)}</defs>
+      <defs><LandscapeDefinitions id="details-lab" cleanPasture /><HarborSeaClip id="details-lab" board={game.board} bounds={{ x: -420, y: -370, width: 840, height: 740 }} />{game.board.hexes.map((hex) => <clipPath key={hex.id} id={`details-lab-hex-${hex.id}`}><polygon points={hex.vertices.map((id) => `${game.board.vertices[id].x},${game.board.vertices[id].y}`).join(" ")} /></clipPath>)}</defs>
       {game.board.hexes.map((hex) => <g key={hex.id} clipPath={`url(#details-lab-hex-${hex.id})`}><Landscape id="details-lab" resource={hex.resource} x={hex.x} y={hex.y} /></g>)}
       <CatanAmbientIsland key={labKey} game={{ ...game, id: `${game.id}:lab-${labKey}` }} artId="details-lab" viewBox="-420 -370 840 740" active interacting={false} enabled previewKind={ambientKind} externalPedestrians />
       {game.board.hexes.filter((hex) => hex.number).map((hex) => <text key={`number-${hex.id}`} className="catan-number-label" x={hex.x} y={hex.y + 12} textAnchor="middle">{hex.number}</text>)}

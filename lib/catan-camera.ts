@@ -23,6 +23,38 @@ export function cameraMetrics(bounds: BoardBounds, size: ViewportSize, camera: B
   return { fitScale, scale, width, height, viewBox: `${camera.x - width / 2} ${camera.y - height / 2} ${width} ${height}` };
 }
 
+export type BoardCameraFrame = ReturnType<typeof cameraMetrics> & { camera: BoardCamera };
+
+/** Coalesce input bursts into one paint with the newest controller camera. */
+export class BoardCameraFrameScheduler {
+  private pending: number | null = null;
+
+  constructor(
+    private paint: () => void,
+    private requestFrame: (callback: () => void) => number,
+    private cancelFrame: (id: number) => void,
+  ) {}
+
+  request() {
+    if (this.pending !== null) return;
+    this.pending = this.requestFrame(() => {
+      this.pending = null;
+      this.paint();
+    });
+  }
+
+  flush() {
+    this.cancel();
+    this.paint();
+  }
+
+  cancel() {
+    if (this.pending === null) return;
+    this.cancelFrame(this.pending);
+    this.pending = null;
+  }
+}
+
 export function constrainCamera(camera: BoardCamera, bounds: BoardBounds, size: ViewportSize): BoardCamera {
   const center = fitCamera(bounds);
   const zoom = clamp(positive(camera.zoom), MIN_BOARD_ZOOM, MAX_BOARD_ZOOM);

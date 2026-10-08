@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Anchor, ChevronLeft, ChevronRight, LocateFixed, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Hex, type Resource } from "@/lib/catan";
-import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from "@/lib/catan-camera";
+import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM, type BoardCamera } from "@/lib/catan-camera";
 import { seaParallax } from "@/lib/catan-parallax";
-import { BuildingPiece, HarborIllustration, HarborSeaMask, Landscape, LandscapeDefinitions, RobberPiece } from "./landscape";
+import { BuildingPiece, HarborIllustration, HarborSeaClip, Landscape, LandscapeDefinitions, RobberPiece } from "./landscape";
 import { HARBOR_BOAT_CLEARANCE, harborLayout } from "@/lib/catan-harbor";
 import { ResourceIcon } from "./resource-icon";
 import { useBoardCamera } from "./use-board-camera";
 import { useConstructionPlayback } from "./use-construction-playback";
-import { CatanSeaBackground } from "./sea-background";
+import { CatanSeaBackground, type CatanSeaHandle } from "./sea-background";
 import { harborOwners } from "./board-effects";
 import { useBoardEffects } from "./use-board-effects";
 import { CatanAmbientIsland } from "./ambient-island";
@@ -35,6 +35,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   useEffect(() => preloadAmbientArtwork(setPastureReady), []);
   const [size, setSize] = useState({ width: 360, height: 300, measured: false });
   const [inspect, setInspect] = useState<number | null>(null);
+  const seaRef = useRef<CatanSeaHandle>(null);
   const index = selected === null ? -1 : choices.indexOf(selected);
   const { board } = game;
   const harborLayouts = board.harbors.map((harbor) => harborLayout(board, harbor.edge));
@@ -57,7 +58,16 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   const left = Math.min(...bounds.map((p) => p.x)) - padding; const top = Math.min(...bounds.map((p) => p.y)) - padding;
   const width = Math.max(...bounds.map((p) => p.x)) - left + padding; const height = Math.max(...bounds.map((p) => p.y)) - top + padding;
   const boardBounds = { x: left, y: top, width, height };
-  const { camera, viewBox, scale, reset, zoomBy, viewportProps, viewportRef, interactionActive } = useBoardCamera(boardBounds, size);
+  const paintCamera = useCallback(({ camera: nextCamera, viewBox: nextViewBox }: { camera: BoardCamera; viewBox: string }) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    if (svg.getAttribute("viewBox") !== nextViewBox) svg.setAttribute("viewBox", nextViewBox);
+    const nextZoom = String(nextCamera.zoom);
+    if (svg.getAttribute("data-zoom") !== nextZoom) svg.setAttribute("data-zoom", nextZoom);
+    const nextSea = seaParallax({ x: left, y: top, width, height }, size, nextCamera);
+    seaRef.current?.setCameraLayout(nextSea);
+  }, [svgRef, left, top, width, height, size]);
+  const { camera, viewBox, scale, reset, zoomBy, viewportProps, viewportRef, interactionActive } = useBoardCamera(boardBounds, size, { onFrame: paintCamera });
   const sea = seaParallax(boardBounds, size, camera);
   const seaStyle = size.measured ? { "--catan-sea-size": `${sea.size}px`, "--catan-sea-x": `${sea.x}px`, "--catan-sea-y": `${sea.y}px` } as CSSProperties : undefined;
   useLayoutEffect(() => {
@@ -98,12 +108,12 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   });
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
     <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" style={seaStyle} data-interacting={interactionActive} {...viewportProps}>
-      <CatanSeaBackground width={size.width} height={size.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && size.measured} ambientEnabled={ambientEnabled} />
+      <CatanSeaBackground ref={seaRef} width={size.width} height={size.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && size.measured} interacting={interactionActive} ambientEnabled={ambientEnabled} />
       <svg ref={svgRef} className="catan-board" viewBox={viewBox} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom} data-catan-ambient-active={ambientEnabled && islandVisible && !interactionActive && !effectsBusy}>
         <title>Catan – Spielbrett</title>
         <defs>
           <LandscapeDefinitions id={artId} cleanPasture={pastureReady} />
-          <HarborSeaMask id={artId} board={board} bounds={boardBounds} />
+          <HarborSeaClip id={artId} board={board} bounds={boardBounds} />
           {board.hexes.map((hex) => <clipPath key={hex.id} id={`${artId}-hex-${hex.id}`}><polygon points={hex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} /></clipPath>)}
         </defs>
         <g aria-hidden="true" className="catan-shoreline">{board.edges.filter((edge) => edge.hexes.length === 1).map((edge) => {

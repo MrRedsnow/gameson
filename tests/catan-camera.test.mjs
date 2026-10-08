@@ -17,7 +17,7 @@ await build({
 after(() => rm(output, { force: true }));
 const {
   fitCamera, cameraMetrics, constrainCamera, panCamera, zoomCamera, transformCamera,
-  BoardGestureController,
+  BoardCameraFrameScheduler, BoardGestureController,
 } = createRequire(import.meta.url)(output);
 const bounds = { x: -400, y: -300, width: 800, height: 600 };
 const size = { width: 400, height: 300 };
@@ -30,6 +30,91 @@ const samePoint = (actual, expected) => { near(actual.x, expected.x, "x"); near(
 const controller = () => new BoardGestureController(bounds, size);
 const down = (gesture, id, x, y) => gesture.pointerDown({ id, x, y });
 const move = (gesture, id, x, y) => gesture.pointerMove({ id, x, y });
+
+const frameQueue = () => {
+  let id = 0;
+  const callbacks = new Map();
+  return {
+    request: (callback) => { callbacks.set(++id, callback); return id; },
+    cancel: (frame) => callbacks.delete(frame),
+    get pending() { return callbacks.size; },
+    paint: () => {
+      const frame = [...callbacks.values()];
+      callbacks.clear();
+      for (const callback of frame) callback();
+    },
+  };
+};
+
+test("Schnelle Pan-Ereignisse zeichnen je Frame nur die letzte Kamera ohne Bewegungen zu verlieren", () => {
+  const gesture = controller();
+  gesture.setCamera({ x: 0, y: 0, zoom: 3 });
+  const frames = frameQueue();
+  const painted = [];
+  const scheduler = new BoardCameraFrameScheduler(() => painted.push({ ...gesture.camera }), frames.request, frames.cancel);
+  down(gesture, 1, 200, 150);
+  for (let x = 201; x <= 270; x++) {
+    move(gesture, 1, x, 150);
+    scheduler.request();
+  }
+  assert.equal(frames.pending, 1, "70 Pointer-Ereignisse dürfen nur einen Frame planen.");
+  assert.equal(painted.length, 0, "Der Pointer-Handler selbst baut das Board nicht neu auf.");
+  frames.paint();
+  assert.deepEqual(painted, [gesture.camera]);
+  samePoint(worldAt(painted[0], { x: 270, y: 150 }), { x: 0, y: 0 });
+  for (let x = 271; x <= 285; x++) {
+    move(gesture, 1, x, 160);
+    scheduler.request();
+  }
+  frames.paint();
+  assert.equal(painted.length, 2);
+  assert.deepEqual(painted[1], gesture.camera);
+});
+
+test("Ein zusammengefasster Pinch nutzt beide neuesten Fingerpositionen und bleibt nach dem Loslassen stabil", () => {
+  const gesture = controller();
+  const frames = frameQueue();
+  const painted = [];
+  const scheduler = new BoardCameraFrameScheduler(() => painted.push({ ...gesture.camera }), frames.request, frames.cancel);
+  down(gesture, 1, 150, 150);
+  down(gesture, 2, 250, 150);
+  for (let step = 1; step <= 30; step++) {
+    move(gesture, 1, 150 - step, 150 + step);
+    scheduler.request();
+    move(gesture, 2, 250 + step, 150 + step);
+    scheduler.request();
+  }
+  frames.paint();
+  assert.equal(painted.length, 1);
+  near(painted[0].zoom, 1.6);
+  samePoint(worldAt(painted[0], { x: 200, y: 180 }), { x: 0, y: 0 });
+  // The last position may arrive on pointerup before the next scheduled paint.
+  move(gesture, 2, 290, 190);
+  scheduler.request();
+  gesture.pointerUp(1);
+  gesture.pointerUp(2);
+  scheduler.flush();
+  assert.equal(frames.pending, 0);
+  assert.deepEqual(painted[1], gesture.camera);
+  frames.paint();
+  assert.equal(painted.length, 2, "Nach dem Flush darf kein veralteter Frame die Endposition überschreiben.");
+  assert.equal(gesture.interactionActive, false);
+  assert.equal(gesture.suppressClick(), true);
+});
+
+test("Abmelden des Boards entfernt einen geplanten Frame, eine erneute Nutzung kann wieder zeichnen", () => {
+  const frames = frameQueue();
+  let paints = 0;
+  const scheduler = new BoardCameraFrameScheduler(() => { paints++; }, frames.request, frames.cancel);
+  scheduler.request();
+  scheduler.cancel();
+  frames.paint();
+  assert.equal(paints, 0);
+  assert.equal(frames.pending, 0);
+  scheduler.request();
+  frames.paint();
+  assert.equal(paints, 1);
+});
 
 test("Ganze Insel zentriert auch versetzte Grenzen und zeigt sie in jedem Bildschirmformat vollständig", () => {
   const board = { x: -320, y: -230, width: 760, height: 640 };

@@ -5,13 +5,15 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after } from "node:test";
 import { build } from "esbuild";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const output = resolve(root, `.wrangler/test-artifacts/catan-harbor-${process.pid}.cjs`);
 await mkdir(dirname(output), { recursive: true });
-await build({ stdin: { contents: 'export { createBoard } from "./lib/catan"; export * from "./lib/catan-harbor";', resolveDir: root, loader: "ts" }, absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", outfile: output, logLevel: "silent" });
+await build({ stdin: { contents: 'export { createBoard } from "./lib/catan"; export * from "./lib/catan-harbor"; export { LandscapeDefinitions, HarborIllustration, HarborSeaClip } from "./components/catan/landscape";', resolveDir: root, loader: "tsx" }, absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", jsx: "automatic", outfile: output, logLevel: "silent" });
 after(() => rm(output, { force: true }));
-const { createBoard, harborLayout, harborLayouts, harborBoatClearsLand, harborMooringPath, HARBOR_BOAT_SIZE } = createRequire(import.meta.url)(output);
+const { createBoard, harborLayout, harborLayouts, harborBoatClearsLand, harborMooringPath, HARBOR_BOAT_SIZE, LandscapeDefinitions, HarborIllustration, HarborSeaClip } = createRequire(import.meta.url)(output);
 
 /** Independent separating-axis check for the full rotated image and convex hex. */
 function polygonsIntersect(first, second) {
@@ -108,4 +110,24 @@ test("board bounds and single-edge consumers share stable layouts through polls,
   for (const harbor of polled.harbors) assert.deepEqual(harborLayout(polled, harbor.edge), expected.get(harbor.edge));
   const externallyChanged = harborLayout(board, board.harbors[0].edge); externallyChanged.boat.x = 1000;
   assert.deepEqual(harborLayout(board, board.harbors[0].edge), expected.get(board.harbors[0].edge), "A consumer cannot poison the shared cached position.");
+});
+
+test("zooming harbors use small local sprite crops and protect only their ropes with a vector sea clip", () => {
+  const board = createBoard(() => 0);
+  const definitions = renderToStaticMarkup(createElement("svg", null, createElement("defs", null, createElement(LandscapeDefinitions, { id: "harbor-test" }))));
+  assert.match(definitions, /id="harbor-test-boat-sprite-clip" clipPathUnits="userSpaceOnUse"><rect x="-22" y="-22" width="44" height="44"/);
+  const seaClip = renderToStaticMarkup(createElement("svg", null, createElement("defs", null, createElement(HarborSeaClip, { id: "harbor-test", board, bounds: { x: -420, y: -370, width: 840, height: 740 } }))));
+  assert.match(seaClip, /<clipPath[^>]*id="harbor-test-harbor-sea-clip"[^>]*><path[^>]*clip-rule="evenodd"/);
+  assert.doesNotMatch(seaClip, /<mask/);
+  const headings = new Set();
+  for (const edge of board.edges.filter((edge) => edge.hexes.length === 1)) {
+    const layout = harborLayout(board, edge.id); headings.add(layout.heading);
+    const html = renderToStaticMarkup(createElement(HarborIllustration, { id: "harbor-test", layout }));
+    const boat = html.slice(html.indexOf('data-catan-boat-heading='), html.indexOf('class="catan-harbor-mooring"'));
+    assert.doesNotMatch(boat, /<svg|<use|mask=/, "A boat cannot regain a nested viewport or island-sized alpha mask at high zoom.");
+    assert.match(boat, /clip-path="url\(#harbor-test-boat-sprite-clip\)"/);
+    assert.match(boat, new RegExp(`x="${-(layout.heading % 3 + .5) * 44}" y="${-(Math.floor(layout.heading / 3) + .5) * 44}" width="132" height="88"`));
+    assert.match(html, /class="catan-harbor-mooring"[^>]*clip-path="url\(#harbor-test-harbor-sea-clip\)"/);
+  }
+  assert.equal(headings.size, 6);
 });

@@ -64,12 +64,18 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
   const layer = useRef<SVGGElement>(null);
   const latest = useRef({ game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind });
   const tickRef = useRef<(() => void) | null>(null);
+  const playbackRef = useRef<((running: boolean) => void) | null>(null);
+  const playbackAllowed = useRef(active && enabled && !interacting);
   const [scenes, setScenes] = useState<AmbientScene[]>([]);
   const sceneKey = scenes.map((scene) => scene.id).join(":");
   useLayoutEffect(() => {
     latest.current = { game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind };
-    tickRef.current?.();
   }, [game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind]);
+  useLayoutEffect(() => {
+    tickRef.current?.();
+  // Camera frames only update the latest bounds. They must not restart the
+  // scheduler, validate routes or publish scenes while a gesture is moving.
+  }, [game, cleanPasture, active, interacting, enabled, effectsBusy, previewKind]);
 
   useEffect(() => {
     const svg = layer.current?.ownerSVGElement;
@@ -79,6 +85,7 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
     const schedule = new AmbientSchedule(random);
     let timer: ReturnType<typeof setTimeout> | undefined;
     let previousIds = ""; let previewed: AmbientKind | undefined; let disposed = false;
+    let validatedGame: AmbientGame | undefined; let validatedPasture: boolean | undefined;
     const publish = (next: AmbientScene[]) => {
       const ids = next.map((scene) => scene.id).join(":");
       if (ids !== previousIds) { previousIds = ids; setScenes(next); }
@@ -88,6 +95,15 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
       if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
       const current = latest.current;
       const available = current.active && current.enabled && !document.hidden && !motion.matches;
+      playbackAllowed.current = available && !current.interacting;
+      playbackRef.current?.(playbackAllowed.current);
+      // Preserve current scenery during navigation, but leave no timer or SVG
+      // animation frame competing with the camera. The end-of-gesture tick
+      // expires old scenes and reads the final visible bounds in one pass.
+      if (available && current.interacting) {
+        svg?.setAttribute("data-catan-ambient-active", "false");
+        return;
+      }
       const blocked = current.interacting || current.effectsBusy || document.documentElement.classList.contains("catan-dice-rolling") ||
         svg?.getAttribute("data-catan-effect-active") === "true" || Boolean(svg?.querySelector(".catan-construction-effect")) ||
         Boolean(svg?.closest(".catan-play")?.querySelector(".catan-event-notice:not([hidden])"));
@@ -98,7 +114,10 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
         if (!bounds || (kind === "sheep" && !current.cleanPasture)) return null;
         return createAmbientScene(kind, current.game, bounds, random);
       };
-      schedule.prune((scene) => ambientSceneValid(scene, current.game, current.cleanPasture));
+      if (current.game !== validatedGame || current.cleanPasture !== validatedPasture) {
+        schedule.prune((scene) => ambientSceneValid(scene, current.game, current.cleanPasture));
+        validatedGame = current.game; validatedPasture = current.cleanPasture;
+      }
       let next = schedule.tick(now, state, create);
       if (!current.previewKind) previewed = undefined;
       if (current.previewKind && current.previewKind !== previewed && available && !blocked) {
@@ -114,6 +133,7 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
     motion.addEventListener("change", tick); compact.addEventListener("change", tick);
     return () => {
       disposed = true; schedule.dispose(); if (timer !== undefined) clearTimeout(timer);
+      playbackAllowed.current = false; playbackRef.current?.(false);
       tickRef.current = null;
       svg?.setAttribute("data-catan-ambient-active", "false");
       document.removeEventListener("visibilitychange", tick);
@@ -124,13 +144,15 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
 
   useLayoutEffect(() => {
     if (!layer.current || !scenes.length) return;
-    const nodes = new Map([...layer.current.querySelectorAll<SVGGElement>("[data-ambient-scene]")].map((node) => [node.getAttribute("data-ambient-scene"), node]));
-    let frame = 0; let disposed = false;
+    const nodes = new Map([...layer.current.querySelectorAll<SVGGElement>("[data-ambient-scene]")].map((node) => [node.getAttribute("data-ambient-scene"), { node, body: node.querySelector<SVGGElement>(".catan-ambient-body") }]));
+    let frame = 0; let disposed = false; let finished = false;
     const paint = (now: number) => {
-      if (disposed) return;
+      frame = 0;
+      if (disposed || !playbackAllowed.current || latest.current.interacting) return;
       let running = false;
       for (const scene of scenes) {
-        const node = nodes.get(scene.id); if (!node) continue;
+        const entry = nodes.get(scene.id); if (!entry) continue;
+        const { node, body } = entry;
         const progress = Math.max(0, Math.min(1, (now - scene.startedAt) / scene.duration));
         running ||= progress < 1;
         const elapsed = Math.max(0, now - scene.startedAt);
@@ -149,7 +171,6 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
           if (scene.path && pathProgress < 1) {
             const ahead = ambientPathPoint(scene.path, Math.min(1, pathProgress + .002), scene.pathKind);
             const dx = ahead.x - point.x; const dy = ahead.y - point.y;
-            const body = node.querySelector<SVGGElement>(".catan-ambient-body");
             // Ground figures turn on vertical roads and safe wildlife corridors
             // without rotating their upright silhouettes.
             const direction = (scene.wildlifeSpecies || scene.kind === "pedestrian") && Math.abs(dx) <= .001 ? dy : dx;
@@ -161,16 +182,25 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
               body.setAttribute("transform", `rotate(${angle}) scale(${facing} 1)`);
             }
           }
-          if (settling) node.querySelector<SVGGElement>(".catan-ambient-body")?.setAttribute("transform", `scale(${(scene.sheepIndex ?? 0) % 2 ? -1 : 1} 1)`);
+          if (settling) body?.setAttribute("transform", `scale(${(scene.sheepIndex ?? 0) % 2 ? -1 : 1} 1)`);
         }
         // A long walk still becomes fully visible at its first road junction.
         // Sheep replace an identical resting sprite and need no fading gap.
         node.style.opacity = String(scene.kind === "sheep" ? 1 : Math.max(0, Math.min(1, elapsed / 400, (scene.duration - elapsed) / 400)));
       }
       if (running) frame = requestAnimationFrame(paint);
+      else finished = true;
     };
-    frame = requestAnimationFrame(paint);
-    return () => { disposed = true; cancelAnimationFrame(frame); };
+    const playback = (running: boolean) => {
+      if (!running) { cancelAnimationFrame(frame); frame = 0; }
+      else if (!disposed && !finished && !frame) frame = requestAnimationFrame(paint);
+    };
+    playbackRef.current = playback;
+    playback(playbackAllowed.current);
+    return () => {
+      disposed = true; cancelAnimationFrame(frame);
+      if (playbackRef.current === playback) playbackRef.current = null;
+    };
   // Frames mutate only SVG presentation; IDs, rather than game polls, own playback.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sceneKey]);
