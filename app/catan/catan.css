@@ -432,19 +432,20 @@
 .catan-screen-heading>.catan-island-tools { flex:0 0 auto; }
 .catan-island-tools [data-slot=button] { padding:8px; }
 .catan-theme .catan-sound-toggle[aria-pressed=true] { color:#efd18a; background:#efd18a18; }
-.catan-number-label,.catan-building-piece,.catan-robber-layer,.catan-robber-piece,.catan-shoreline,.catan-harbor-illustration { pointer-events:none; }
+.catan-number-backdrop,.catan-number-label,.catan-building-piece,.catan-robber-layer,.catan-robber-piece,.catan-shoreline,.catan-harbor-illustration { pointer-events:none; }
 .catan-landscape.is-blocked { filter:grayscale(1) brightness(.74); }
 .catan-hex-seams { pointer-events:none; }
 .catan-hex-seams path { stroke-linecap:round; stroke-linejoin:round; }
 .catan-hex-seam-shadow { stroke:#1d302c; stroke-width:2.15px; stroke-opacity:.66; }
 .catan-hex-seam-light { stroke:#dbc89b; stroke-width:.65px; stroke-opacity:.35; }
-.catan-number-label { font-family:Georgia,"Times New Roman",serif; font-size:36px; font-weight:700; fill:#f2e9d4; fill-opacity:.78; stroke:#28312b; stroke-width:1px; stroke-opacity:.45; paint-order:stroke; stroke-linejoin:round; }
-.catan-number-label.is-frequent { fill:#edc19d; }
-.catan-number-label.on-grain { fill:#302c24; stroke:#d9c28d; }
-.catan-number-label.on-grain.is-frequent { fill:#823c2b; }
-.catan-number-label.is-blocked,.catan-blocked-desert-label { fill:#fff1c9; stroke:#252726; stroke-width:2.5px; paint-order:stroke; stroke-linejoin:round; }
-.catan-number-label.is-blocked { fill-opacity:.92; stroke-width:1.3px; stroke-opacity:.7; }
-.catan-number-label.is-blocked.is-frequent { fill:#ffd591; }
+.catan-number-label { font-family:Georgia,"Times New Roman",serif; font-size:29px; font-weight:700; fill:#fff1d7; stroke:#1c2922; stroke-width:1.2px; paint-order:stroke; stroke-linejoin:round; }
+.catan-number-label[data-resource=wood] { fill:#dfe9db; }
+.catan-number-label[data-resource=wool] { fill:#e4f0d2; }
+.catan-number-label[data-resource=grain] { fill:#fff0cf; }
+.catan-number-label[data-resource=brick] { fill:#f2dbc6; }
+.catan-number-label[data-resource=ore] { fill:#e4e9eb; }
+.catan-number-label.is-blocked { stroke-width:2.5px; }
+.catan-blocked-desert-label { fill:#fff1d7; stroke:#1c2922; stroke-width:2.5px; paint-order:stroke; stroke-linejoin:round; }
 .catan-theme .catan-map-instruction { font-size:.875rem; line-height:1.3; color:#d5e1e2; }
 .catan-board-panel { flex:1 0 auto; min-height:12rem; flex-direction:column; border-radius:10px; }
 .catan-board-map { position:relative; display:flex; flex-direction:column; flex:1 0 156px; min-width:0; min-height:156px; }

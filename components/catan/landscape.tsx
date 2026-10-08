@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Board, Resource } from "@/lib/catan";
 import { HARBOR_BOAT_SIZE, harborMooringPath, type HarborLayout } from "@/lib/catan-harbor";
+import { NumberBackdropDefinitions } from "./number-backdrop";
 
 const TERRAIN_CELLS: Record<Resource | "desert", readonly [number, number]> = {
   wood: [0, 0], wool: [1, 0], grain: [2, 0],
@@ -12,6 +13,7 @@ const TERRAIN_FALLBACKS = { wood: "#3d5431", wool: "#78904e", grain: "#c6a264", 
 // the board's hexagonal clip paths trim them without stretching the terrain.
 export function LandscapeDefinitions({ id, cleanPasture = false }: { id: string; cleanPasture?: boolean }) {
   return <>
+    <NumberBackdropDefinitions id={id} cleanPasture={cleanPasture} cells={TERRAIN_CELLS} />
     <image id={`${id}-terrain-atlas`} href="/catan/terrain-atlas-v3.jpg" width="324" height="216" preserveAspectRatio="none" />
     <image id={`${id}-buildings-atlas`} href="/catan/buildings-v3.png" width="400" height="200" preserveAspectRatio="none" />
     <image id={`${id}-harbor-atlas`} href="/catan/harbor-atlas-v3.png" width="200" height="100" preserveAspectRatio="none" />

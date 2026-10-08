@@ -16,12 +16,16 @@ import { harborOwners } from "./board-effects";
 import { useBoardEffects } from "./use-board-effects";
 import { CatanAmbientIsland } from "./ambient-island";
 import { preloadAmbientArtwork } from "@/lib/catan-ambient";
+import { NumberBackdrop } from "./number-backdrop";
 
 export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
 
-function HexNumber({ hex, blocked = false }: { hex: Hex; blocked?: boolean }) {
-  return hex.number ? <text className={`catan-number-label${[6, 8].includes(hex.number) ? " is-frequent" : ""}${hex.resource === "grain" && !blocked ? " on-grain" : ""}${blocked ? " is-blocked" : ""}`} data-catan-number={hex.id} x={hex.x} y={hex.y + (blocked ? 36 : 12)} textAnchor="middle" aria-hidden="true">{hex.number}</text> : null;
+function HexNumber({ artId, hex, blocked = false }: { artId: string; hex: Hex; blocked?: boolean }) {
+  return hex.number ? <>
+    {!blocked && <NumberBackdrop id={artId} resource={hex.resource} x={hex.x} y={hex.y} mirrored={hex.id % 2 === 1} />}
+    <text className={`catan-number-label${blocked ? " is-blocked" : ""}`} data-catan-number={hex.id} data-resource={hex.resource} x={hex.x} y={hex.y + (blocked ? 36 : 10)} textAnchor="middle" aria-hidden="true">{hex.number}</text>
+  </> : null;
 }
 
 export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, expanded = false, islandVisible = true, animationBaseline = 0, ambientEnabled = true }: {
@@ -138,7 +142,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
         </g>
         <CatanAmbientIsland game={game} artId={artId} viewBox={viewBox} active={islandVisible} interacting={interactionActive} enabled={ambientEnabled} effectsBusy={effectsBusy} cleanPasture={pastureReady} externalPedestrians />
         {board.hexes.filter((hex) => hex.resource === "desert" && hex.id !== game.robberHex).map((hex) => <text key={`desert-${hex.id}`} x={hex.x} y={hex.y + 32} fill="#283132" fontSize="13" textAnchor="middle" pointerEvents="none" aria-hidden="true">Wüste</text>)}
-        {board.hexes.filter((hex) => hex.id !== game.robberHex).map((hex) => <HexNumber key={hex.id} hex={hex} />)}
+        {board.hexes.filter((hex) => hex.id !== game.robberHex).map((hex) => <HexNumber key={hex.id} artId={artId} hex={hex} />)}
         {selectedHex && <polygon className="catan-hex-selection" points={selectedHex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} fill="none" stroke="#fff5c3" strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" pointerEvents="none" aria-hidden="true" />}
         <g ref={boardEffectsRef} className="catan-board-effects" pointerEvents="none" aria-hidden="true" />
         {board.harbors.map((harbor, harborIndex) => {
@@ -202,7 +206,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
         <g ref={effectsRef} className="catan-construction-effects" pointerEvents="none" aria-hidden="true" />
         <g className="catan-robber-layer" data-catan-robber={robberHex.id} role="img" aria-label={`Räuber auf Feld ${robberHex.id + 1} – blockiert den Ertrag`} pointerEvents="none">
           <RobberPiece id={artId} x={robberHex.x} y={robberHex.y} />
-          <HexNumber hex={robberHex} blocked />
+          <HexNumber artId={artId} hex={robberHex} blocked />
           {robberHex.resource === "desert" && <text className="catan-blocked-desert-label" x={robberHex.x} y={robberHex.y + 29} fontSize="13" textAnchor="middle" aria-hidden="true">Wüste</text>}
         </g>
       </svg>
