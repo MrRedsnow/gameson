@@ -255,7 +255,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
     if (control?.getAttribute("data-catan-sound") === "cancel" && !control.hasAttribute("disabled") && control.getAttribute("aria-disabled") !== "true") sounds.cue("ui_cancel");
   }}>
     <div className={`catan-status ${own ? "is-yours" : ""}`} style={{ "--player-color": PLAYER_COLORS[active.color] } as React.CSSProperties}>
-      <div className="catan-status-main" aria-live="polite" aria-atomic="true"><IslandMark sunset /><span className="catan-status-copy"><span><i className="catan-player-dot" aria-hidden="true" /><strong>{statusTitle}</strong></span></span></div>
+      <div className="catan-status-main" aria-live="polite" aria-atomic="true"><span className="catan-status-copy"><span><i className="catan-player-dot" aria-hidden="true" /><strong>{statusTitle}</strong></span></span></div>
       {offline && <span className="catan-status-offline" role="status" aria-label="Verbindung unterbrochen"><WifiOff /></span>}
       {!voting && <div className="catan-status-roll">{game.dice ? <CatanDice dice={game.dice} /> : <Dices aria-hidden="true" />}</div>}
       {(expanded || activeMenu) && (!mode || activeMenu) && turnActions && <div className="catan-status-actions">{turnActions}</div>}
