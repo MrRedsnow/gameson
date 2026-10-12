@@ -7,7 +7,6 @@ import { CatanBoard, ResourceIcon, boardAction, type BoardMode } from "./board";
 import { CatanDice } from "./dice";
 import { CatanResourceHand } from "./resource-hand";
 import { useCatanActivity } from "./activity";
-import { ActivityNotice } from "./activity-notice";
 import { useCatanSounds } from "./sound";
 import { useAmbientPreference } from "./use-ambient-preference";
 import { CatanEventNotice } from "./event-notice";
@@ -240,7 +239,6 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
     insel: mode || (own && game.phase === "steal") ? { tone: "is-dot", description: "Die Insel wartet auf deine Auswahl" } : undefined,
     uebersicht: activity.unread.length ? { text: String(activity.unread.length), tone: "", description: "Neue Meldungen" } : undefined,
   };
-  const notice = <ActivityNotice scope={JSON.stringify([game.id, me.id])} unread={activity.unread} onOpen={() => showOverview("activity")} onRead={activity.read} />;
   useEffect(() => {
     if (!expanded && !activeMenu) return;
     const escape = (event: KeyboardEvent) => {
@@ -268,7 +266,6 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
     </div>
     {!voting && <CatanResourceHand game={game} islandVisible animationBaseline={animationBaseline} />}
     {!voting && <CatanEventNotice game={game} animationBaseline={animationBaseline} />}
-    {notice}
 
     <div ref={menuBoardRef} className="catan-menu-stage">
     <div data-state="active" className="catan-tab-panel catan-tab-insel">

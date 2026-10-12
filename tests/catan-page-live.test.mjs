@@ -33,7 +33,7 @@ await build({
 after(() => rm(output, { force: true }));
 const { default: CatanPage } = createRequire(import.meta.url)(output);
 
-/** Minimal host from the activity-notice tests: real React state, effects and delegated clicks. */
+/** Minimal React DOM host: real React state, effects and delegated clicks. */
 class HostNode {
   constructor(ownerDocument, nodeType, nodeName, namespaceURI = "http://www.w3.org/1999/xhtml") {
     Object.assign(this, { ownerDocument, nodeType, nodeName, tagName: nodeName, namespaceURI, parentNode: null, childNodes: [], nodeValue: "", style: {}, value: "", checked: false, attributes: new Map(), listeners: new Map() });
