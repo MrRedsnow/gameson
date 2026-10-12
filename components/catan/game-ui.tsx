@@ -286,7 +286,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
     <div className="catan-tab-panel is-game-menu" {...panelProps("bauen")}>{panelClose}<Screen title="Bauen" subtitle="Wähle, was du errichten möchtest" headingIcon={<Hammer />} actions={<Button className="catan-primary" disabled={busy || chosenBuild === null} onClick={() => { if (chosenBuild) void startBuild(chosenBuild); }}><Hammer />Auswählen</Button>}>
       <BuildChoices game={game} busy={busy} selected={chosenBuild} onBuild={(kind) => setBuildChoice({ context: buildContext, kind })} />
     </Screen></div>
-    <div className="catan-tab-panel is-game-menu" {...panelProps("handel")}>{panelClose}<TradePanel game={game} send={send} busy={busy} onClose={() => closeMenu(true)} /></div>
+    <div className="catan-tab-panel is-game-menu" {...panelProps("handel")}>{panelClose}<TradePanel game={game} send={send} busy={busy} /></div>
     <div className="catan-tab-panel is-game-menu" {...panelProps("uebersicht")}>{panelClose}<OverviewPanel game={game} page={overviewPage} setPage={setOverviewPage} activity={activity.all} unreadActivity={activity.unread} unread={activity.unread.length} onRead={activity.read} local={local} onHide={onHide ? hideHand : undefined} onRematch={onRematch} busy={busy} ambientEnabled={ambient.enabled} onAmbientChange={ambient.setEnabled} /></div>
     </div>
     <nav ref={menuNavRef} className="catan-nav" aria-label={expanded ? "Vollbild-Spielmenü" : "Spielmenü"} onPointerEnter={enterMenu} onPointerLeave={leaveMenu}><div className="catan-nav-list">{CATAN_TABS.map(({ id, label, Icon }) => {
