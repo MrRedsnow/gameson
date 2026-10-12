@@ -419,7 +419,7 @@ test("das Baumenü erklärt allgemeine Einschränkungen einmal und behält jede 
   assert.equal((build.match(/aria-pressed="false"/g) ?? []).length, 4);
   assert.match(build, /<h2>Bauen<\/h2>/);
   assert.match(build, /disabled=""[^>]*>[\s\S]*?Auswählen<\/button>/);
-  assert.doesNotMatch(build, /Fehlende Rohstoffe ertauschen/);
+  assert.doesNotMatch(build, /Dir fehlen|Fehlende Rohstoffe ertauschen/);
   const island = html.slice(html.indexOf('class="catan-tab-panel catan-tab-insel"'), html.indexOf('data-catan-menu-panel="karten"'));
   assert.match(island, /class="catan-screen-actions"[\s\S]*?Würfeln/);
   const local = ui(game, active, { local: true, onHide() {} });
@@ -437,8 +437,7 @@ test("Baukosten markieren nur unzureichende Rohstoffe und zeigen benötigte Gesa
   assert.deepEqual(costNumber(road, "brick"), { count: 1, missing: true });
   assert.deepEqual(costNumber(city, "grain"), { count: 2, missing: true });
   assert.deepEqual(costNumber(city, "ore"), { count: 3, missing: true });
-  assert.match(road, /<small class="is-unavailable">Dir fehlen 1 Lehm\.<\/small>/);
-  assert.match(city, /<small class="is-unavailable">Dir fehlen 1 Getreide, 1 Erz\.<\/small>/);
+  assert.doesNotMatch(menu(html, "bauen"), /Dir fehlen/);
   assert.doesNotMatch(development, /Dir fehlen|class="is-unavailable"/);
   assert.match(road, /aria-disabled="true"/);
   assert.match(city, /aria-disabled="true"/);

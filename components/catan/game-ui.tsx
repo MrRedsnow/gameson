@@ -98,7 +98,6 @@ function BuildChoices({ game, busy, selected, onBuild }: { game: CatanView; busy
       return <button type="button" className="catan-build-choice" key={kind} aria-pressed={selected === kind} aria-disabled={busy || Boolean(reason)} onClick={() => { if (!busy && !reason) onBuild(kind); }}>
         <Icon /><span><strong>{BUILDING_NAMES[kind]}{kind === "development" ? " kaufen" : ""}</strong><Cost cost={COSTS[kind]} available={game.me!.resources} />
           <small>{BUILDING_DESCRIPTIONS[kind]}</small>
-          {missing && <small className="is-unavailable">{missing}</small>}
           {reason && !restriction && reason !== missing && <small className="is-unavailable">{reason}</small>}
           {kind === "development" && <small>{game.deckCount} im Stapel</small>}
         </span>{selected === kind ? <Check aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
