@@ -45,7 +45,10 @@ try {
         await nav(page, id).click();
         const panel = menu(page, id);
         await expect(panel).toBeVisible();
-        await expect(endTurn).toHaveCount(0);
+        await expect(endTurn).toBeHidden();
+        await expect(page.locator(".catan-island-dock")).toHaveAttribute("data-menu-hidden", "true");
+        await expect(page.locator(".catan-island-dock")).toHaveAttribute("inert", "");
+        await expect(page.locator(".catan-island-dock")).toHaveAttribute("aria-hidden", "true");
         await expect(page.locator(".catan-board")).toBeVisible();
         await expect(panel.locator(".catan-screen-heading .catan-menu-close")).toBeVisible();
         assert.ok(await page.evaluate(() => window.qaBoard === document.querySelector(".catan-board") && window.qaHand === document.querySelector(".catan-hand-bar")), "Map and resource hand must retain their instances");
@@ -126,7 +129,9 @@ try {
   await nav(page, "karten").click();
   await nav(page, "bauen").click();
   await expect(road).toHaveAttribute("aria-pressed", "true");
+  await nav(page, "insel").click();
   await page.getByRole("button", { name: "Insel im Vollbild öffnen", exact: true }).click();
+  await nav(page, "bauen").click();
   await expect(road).toHaveAttribute("aria-pressed", "true");
   await build.getByRole("button", { name: "Auswählen", exact: true }).click();
   await expect(build).toBeHidden();
@@ -207,6 +212,7 @@ try {
   await expect(build.getByRole("button", { name: "Auswählen", exact: true })).toBeDisabled();
   await scenario(page, "rich");
   const board = page.locator(".catan-board");
+  await page.getByRole("button", { name: "Insel vergrößern", exact: true }).click();
   const beforePan = await board.getAttribute("viewBox");
   const viewport = await page.locator(".catan-board-viewport").boundingBox();
   await page.mouse.move(viewport.x + viewport.width * .6, viewport.y + viewport.height * .45);

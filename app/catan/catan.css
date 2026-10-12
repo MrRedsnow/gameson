@@ -609,23 +609,66 @@
 .catan-shell-play { min-height:0; }
 .catan-play { position:relative; display:flex; flex-direction:column; min-height:0; gap:8px; padding:0; }
 .catan-play>.catan-status, .catan-play>.catan-hand-bar, .catan-play>.catan-nav { flex:0 0 auto; }
+/* Only the shared world owns the glass material; status and navigation keep their existing palette. */
+.catan-world {
+  --catan-glass-tint:rgba(12,48,63,.46);
+  --catan-glass-background:rgba(12,48,63,.86);
+  --catan-glass-opal:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.04) 62%);
+  --catan-glass-filter:blur(20px) saturate(118%);
+  --catan-glass-edge:rgba(219,247,245,.36);
+  --catan-glass-inner-edge:rgba(219,247,245,.22);
+  --catan-glass-inner:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.025)),rgba(9,43,58,.16);
+  --catan-glass-selected:linear-gradient(135deg,rgba(242,211,139,.19),rgba(255,255,255,.04)),rgba(12,48,63,.24);
+  --catan-glass-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -1px 0 rgba(15,42,52,.16),0 10px 32px rgba(4,32,43,.22);
+  --catan-glass-text:#f4f6ef;
+  --catan-glass-muted:#cddfe3;
+  --catan-glass-menu-radius:28px;
+  --catan-glass-inner-radius:20px;
+  --catan-glass-button-radius:18px;
+  --catan-glass-space:16px;
+  position:relative; flex:1 1 0; display:flex; flex-direction:column; gap:8px; min-width:0; min-height:0;
+}
+.catan-world-sea { position:absolute; inset:0; z-index:0; overflow:hidden; background:#254650 url("/catan/sea-v3.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); pointer-events:none; }
+.catan-world-sea>.catan-sea-surface { z-index:0; }
+.catan-world>.catan-hand-bar { position:relative; z-index:1; }
+.catan-world :is(button,summary,[role=button]) { min-height:44px; }
+.catan-world button:disabled { opacity:1; color:#c1d0d5; }
+.catan-world :is(button,a,summary,input,[role=button]):focus-visible { outline:3px solid #ffe2a0; outline-offset:3px; }
+.catan-world .is-game-menu .catan-screen-body :is(button,a,summary,input,[role=button]):focus-visible { outline-offset:-3px; }
+.catan-world :is(button,[role=button]) { transition:background-color .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease; }
+.catan-world .catan-hand-resource[data-catan-resource=wood] { --resource-bg:rgba(71,55,33,.48); --resource-border:rgba(206,167,101,.6); }
+.catan-world .catan-hand-resource[data-catan-resource=brick] { --resource-bg:rgba(100,53,45,.48); --resource-border:rgba(231,144,116,.6); }
+.catan-world .catan-hand-resource[data-catan-resource=wool] { --resource-bg:rgba(43,77,54,.48); --resource-border:rgba(179,213,157,.58); }
+.catan-world .catan-hand-resource[data-catan-resource=grain] { --resource-bg:rgba(100,83,27,.45); --resource-border:rgba(240,208,111,.6); }
+.catan-world .catan-hand-resource[data-catan-resource=ore] { --resource-bg:rgba(34,66,88,.48); --resource-border:rgba(177,212,230,.58); }
+.catan-world .catan-hand-strip>.catan-hand-resource { background:var(--catan-glass-opal),var(--resource-bg); box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 3px 12px rgba(4,32,43,.12); }
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+  .catan-world { --catan-glass-background:var(--catan-glass-tint); }
+  .catan-world :is(.is-game-menu,.catan-island-dock) { -webkit-backdrop-filter:var(--catan-glass-filter); backdrop-filter:var(--catan-glass-filter); }
+}
+@media(prefers-reduced-motion:reduce) { .catan-world-sea { background-size:cover; background-position:center; } }
 .catan-menu-stage { position:relative; flex:1 1 0; min-width:0; min-height:0; }
 .catan-menu-stage>.catan-tab-insel { display:block; width:100%; height:100%; min-height:0; overflow:hidden; }
-.catan-menu-stage .catan-island-screen { display:flex; flex-direction:column; width:100%; height:100%; min-height:0; padding:0; gap:0; border-radius:16px; }
+.catan-world .catan-menu-stage .catan-island-screen { display:flex; flex-direction:column; width:100%; height:100%; min-height:0; padding:0; gap:0; border:0; border-radius:0; background:transparent; }
 .catan-island-canvas { position:relative; flex:1 1 0; min-height:64px; overflow:hidden; }
 .catan-menu-stage .catan-island-canvas .catan-board-panel { display:flex; flex-direction:column; height:100%; min-height:0; border:0; border-radius:0; }
 .catan-menu-stage .catan-board-map { flex:1 1 0; min-height:0; }
 .catan-menu-stage .catan-board-viewport { height:100%; min-height:0; }
+.catan-world :is(.catan-board-panel,.catan-board-map,.catan-board-viewport,.catan-board) { background:transparent; }
 .catan-menu-stage .catan-board-controls { left:8px; bottom:8px; z-index:3; flex-direction:row; align-items:center; gap:8px; }
 .catan-menu-stage .catan-board-zoom { flex-direction:row; }
-.catan-menu-stage .catan-island-tools { position:absolute; bottom:8px; right:8px; z-index:3; flex-direction:row; gap:4px; padding:0; border:0; border-radius:12px; background:#092d3ef2; }
-.catan-theme .catan-menu-stage :is(.catan-board-controls,.catan-island-tools) [data-slot=button] { width:44px; min-width:44px; height:44px; min-height:44px; padding:8px; border:1px solid #50788a; border-radius:10px; background:#0b2e40f2; color:#edf5f5; box-shadow:0 2px 8px #0003; }
+.catan-world .catan-menu-stage .catan-island-tools { position:absolute; bottom:8px; right:8px; z-index:3; flex-direction:row; gap:4px; padding:0; border:0; border-radius:var(--catan-glass-button-radius); background:transparent; }
+.catan-theme .catan-world .catan-menu-stage :is(.catan-board-controls,.catan-island-tools) [data-slot=button] { width:44px; min-width:44px; height:44px; min-height:44px; padding:8px; border:1px solid var(--catan-glass-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-opal),rgba(12,48,63,.68); color:var(--catan-glass-text); box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 3px 12px rgba(4,32,43,.16); }
+.catan-world .catan-board-zoom { border:0; border-radius:var(--catan-glass-button-radius); gap:4px; background:transparent; box-shadow:none; }
+.catan-theme .catan-world .catan-board-zoom [data-slot=button]+[data-slot=button] { border:1px solid var(--catan-glass-edge); }
+.catan-theme .catan-world .catan-board-field-info { border-color:var(--catan-glass-inner-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-opal),rgba(12,48,63,.72); color:var(--catan-glass-text); }
 .catan-theme .catan-menu-stage :is(.catan-board-controls,.catan-island-tools) [data-slot=button]>svg { width:22px; height:22px; }
 .catan-theme .catan-menu-stage .catan-board-field-info { top:8px; max-width:min(360px,calc(100% - 16px)); }
 .catan-play.is-menu-open :is(.catan-island-tools,.catan-board-controls,.catan-board-field-info) { visibility:hidden; pointer-events:none; }
 
 /* A bounded dock keeps required choices above navigation, without covering the map. */
-.catan-island-dock { flex:0 1 auto; display:grid; grid-template-rows:minmax(0,1fr) auto; min-width:0; min-height:0; max-height:min(44dvh,max(64px,calc(var(--catan-stage-height,500px) - 96px))); border-top:1px solid #436678; background:#102e3d; }
+.catan-world .catan-island-dock { flex:0 1 auto; display:grid; grid-template-rows:minmax(0,1fr) auto; min-width:0; min-height:0; max-height:min(44dvh,max(64px,calc(var(--catan-stage-height,500px) - 96px))); border:1px solid var(--catan-glass-edge); border-radius:var(--catan-glass-menu-radius); background:var(--catan-glass-opal),var(--catan-glass-background); box-shadow:var(--catan-glass-shadow); overflow:hidden; }
+.catan-world .catan-island-dock[data-menu-hidden=true] { visibility:hidden; pointer-events:none; }
 .catan-menu-stage .catan-island-context { position:static; display:grid; gap:12px; width:100%; max-height:none; min-height:0; padding:12px; overflow:auto; overscroll-behavior:contain; background:transparent; pointer-events:auto; scrollbar-width:thin; scrollbar-color:#5e8291 transparent; }
 .catan-island-context:empty { display:none; }
 .catan-placement-controls,.catan-steal-panel { display:grid; gap:12px; min-width:0; }
@@ -634,46 +677,49 @@
 .catan-theme .catan-placement-heading h2 { font-size:1rem; color:#f4eddc; overflow-wrap:anywhere; }
 .catan-theme .catan-placement-heading p { margin-top:4px; font-size:.8125rem; line-height:1.4; color:#bdd0d8; overflow-wrap:anywhere; }
 .catan-robber-preview>strong { display:flex; align-items:center; gap:8px; font-size:.875rem; }
-.catan-robber-preview { display:grid; gap:8px; padding:12px; border:1px solid #65725e; border-radius:12px; background:#263c3d; }
+.catan-world .catan-robber-preview { display:grid; gap:8px; padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-robber-preview p { font-size:.8125rem; line-height:1.4; color:#c8d5ce; }
 .catan-robber-preview>strong>svg { width:22px; height:22px; flex-shrink:0; }
-.catan-island-dock>.catan-screen-actions { flex-wrap:wrap; gap:8px; margin:0; padding:8px 12px; border-top:1px solid #3f6172; background:#0d2938; }
-.catan-theme .catan-island-dock>.catan-screen-actions [data-slot=button] { min-height:44px; margin:0; padding:8px 12px; border-radius:12px; font-size:.875rem; }
+.catan-world .catan-island-dock>.catan-screen-actions { flex-wrap:wrap; gap:8px; margin:0; padding:8px 12px; border:0; background:transparent; }
+.catan-theme .catan-world .catan-island-dock>.catan-screen-actions [data-slot=button] { min-height:44px; margin:0; padding:8px 12px; border-radius:var(--catan-glass-button-radius); font-size:.875rem; }
 .catan-theme .catan-island-dock>.catan-screen-actions .catan-end-turn { flex:1; }
 .catan-island-dock>.catan-screen-actions { justify-content:center; }
 .catan-island-dock>.catan-screen-actions:has(>button:only-child)>button { max-width:560px; }
 .catan-menu-stage .catan-victim-choices { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; padding:0; border:0; background:transparent; }
-.catan-victim-choice { display:flex; align-items:center; gap:12px; width:100%; min-width:0; min-height:64px; padding:12px; text-align:left; color:#f3eee0; border:1px solid #4b6b7e; border-radius:14px; background:#193a4c; }
+.catan-world .catan-victim-choice { display:flex; align-items:center; gap:12px; width:100%; min-width:0; min-height:64px; padding:12px; text-align:left; color:var(--catan-glass-text); border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-victim-avatar { display:grid; place-items:center; flex:0 0 36px; width:36px; height:36px; border-radius:12px; background:var(--player-color); color:#0c2532; font-size:1rem; font-weight:800; }
 .catan-victim-copy { flex:1; display:grid; gap:4px; min-width:0; }
 .catan-victim-copy strong { font-size:.875rem; line-height:1.3; overflow-wrap:anywhere; }
 .catan-victim-copy small { font-size:.75rem; color:#bbcfda; overflow-wrap:anywhere; }
 .catan-choice-check { flex:0 0 20px; width:20px; height:20px; opacity:0; color:#f6d589; }
-.catan-victim-choice[aria-pressed=true] { border-color:#f0cd7c; background:#29494d; box-shadow:inset 0 0 0 1px #efcc7b66; }
+.catan-world .catan-victim-choice[aria-pressed=true] { border-color:#f0cd7c; background:var(--catan-glass-selected); box-shadow:inset 0 0 0 1px #efcc7b66; }
 .catan-victim-choice[aria-pressed=true] .catan-choice-check { opacity:1; }
-.catan-theme .catan-victim-choice:disabled { opacity:.65; }
+.catan-theme .catan-world .catan-victim-choice:disabled { opacity:1; color:#c1d0d5; border-color:#bed4da26; }
 @media(min-width:600px) { .catan-menu-stage .catan-victim-choices { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 
 /* Every menu uses the same header, scrollable content and action footer. */
-.catan-menu-stage>.is-game-menu { position:absolute; bottom:0; left:50%; z-index:110; width:min(560px,100%); height:min(72dvh,var(--catan-menu-height,100%)); max-height:100%; min-height:0; transform:translateX(-50%); overflow:hidden; border:1px solid #b69b64; border-radius:20px 20px 12px 12px; background:linear-gradient(145deg,#123748fa,#0b2939fc 70%); box-shadow:0 -8px 32px #0005; }
+.catan-world .catan-menu-stage>.is-game-menu { position:absolute; bottom:12px; left:50%; z-index:110; width:min(560px,calc(100% - 24px)); height:min(72dvh,var(--catan-menu-height,calc(100% - 24px))); max-height:calc(100% - 24px); min-height:0; transform:translateX(-50%); overflow:hidden; border:1px solid var(--catan-glass-edge); border-radius:var(--catan-glass-menu-radius); background:var(--catan-glass-opal),var(--catan-glass-background); box-shadow:var(--catan-glass-shadow); color:var(--catan-glass-text); }
 .catan-menu-stage>.is-game-menu[data-state=active] { display:block; }
+.catan-world .catan-menu-stage>.is-game-menu[data-state=active] { animation:catan-glass-open 200ms ease-out; }
+@keyframes catan-glass-open { from { transform:translateX(-50%) translateY(-2px); } to { transform:translateX(-50%); } }
 .catan-menu-stage>.is-game-menu[data-state=inactive] { display:none; }
-.is-game-menu>.catan-screen { display:flex; flex-direction:column; height:100%; min-height:0; gap:12px; padding:16px; background:transparent; }
+.catan-world .is-game-menu>.catan-screen { display:flex; flex-direction:column; height:100%; min-height:0; gap:12px; padding:var(--catan-glass-space); background:transparent; }
 .is-game-menu>.catan-screen>.catan-screen-heading { flex:0 0 auto; display:flex; align-items:flex-start; min-height:44px; gap:12px; padding:0; }
 .catan-screen-title { flex:1; min-width:0; }
 .catan-screen-title :is(h2,p) { overflow-wrap:anywhere; }
 .is-game-menu .catan-screen-heading h2 { font-size:1.125rem; line-height:1.3; color:#faf4e8; }
 .is-game-menu .catan-screen-heading>svg { flex:0 0 28px; width:28px; height:28px; margin-top:8px; color:#f1ce81; }
 .is-game-menu .catan-screen-heading:has(>button[aria-label="Einen Schritt zurück"])>svg { display:none; }
-.is-game-menu .catan-screen-subtitle { margin-top:4px; color:#bccfd9; font-size:.8125rem; line-height:1.4; }
-.catan-theme .is-game-menu .catan-screen-heading [data-slot=button] { flex:0 0 44px; width:44px; min-width:44px; height:44px; min-height:44px; padding:8px; border:1px solid #466577; border-radius:12px; }
-.catan-theme .catan-menu-close { position:static; margin:0; background:#0a253480; color:#e4eff0; }
+.catan-world .is-game-menu .catan-screen-subtitle { margin-top:4px; color:var(--catan-glass-muted); font-size:.8125rem; line-height:1.4; }
+.catan-theme .catan-world .is-game-menu .catan-screen-heading [data-slot=button] { flex:0 0 44px; width:44px; min-width:44px; height:44px; min-height:44px; padding:8px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-inner); }
+.catan-theme .catan-world .catan-menu-close { position:static; margin:0; color:var(--catan-glass-text); }
 .catan-menu-close>svg { width:20px; height:20px; }
 .is-game-menu>.catan-screen>.catan-screen-body { flex:1 1 0; min-height:0; gap:12px; padding:2px; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#5e8291 transparent; }
-.is-game-menu>.catan-screen>.catan-screen-actions { flex:0 0 auto; flex-wrap:wrap; gap:8px; padding-top:12px; border-color:#3f6172; background:transparent; }
-.catan-theme :is(.is-game-menu,.catan-island-dock) .catan-screen-actions .catan-primary { border:1px solid #efcf8c; background:#efd18a; color:#102c3a; box-shadow:inset 0 1px 0 #fff5; }
-.catan-theme :is(.is-game-menu,.catan-island-dock) .catan-screen-actions .catan-primary:disabled { opacity:1; border-color:#527180; color:#acbdc6; background:#2a4655; box-shadow:none; }
-.catan-theme .is-game-menu .catan-screen-actions [data-slot=button] { min-width:0; min-height:44px; margin:0; padding:8px 12px; border-radius:12px; }
+.catan-world .is-game-menu>.catan-screen>.catan-screen-actions { flex:0 0 auto; flex-wrap:wrap; gap:8px; padding-top:8px; border:0; background:transparent; }
+.catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions [data-slot=button] { border:1px solid var(--catan-glass-edge); background:var(--catan-glass-opal),rgba(27,92,108,.38); color:var(--catan-glass-text); box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 3px 12px rgba(4,32,43,.12); }
+.catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions .catan-primary { border-color:rgba(239,207,140,.8); background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(238,211,151,.06)),rgba(98,111,93,.44); color:#fff3d6; }
+.catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions [data-slot=button]:disabled { opacity:1; border-color:var(--catan-glass-inner-edge); color:#c1d0d5; background:var(--catan-glass-inner); box-shadow:inset 0 1px 0 rgba(255,255,255,.08); }
+.catan-theme .catan-world .is-game-menu .catan-screen-actions [data-slot=button] { min-width:0; min-height:44px; margin:0; padding:8px 12px; border-radius:var(--catan-glass-button-radius); }
 
 .catan-play>.catan-status { gap:8px; min-height:60px; padding:8px 12px; border-radius:16px; }
 .catan-theme .catan-status-main { gap:8px; }
@@ -685,7 +731,7 @@
 .catan-theme .catan-status-points { font-size:1.125rem; }
 .catan-status-points .catan-status-points-label { font-size:.625rem; }
 .catan-play .catan-hand-strip { grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
-.catan-play .catan-hand-strip>.catan-hand-resource { min-height:60px; padding:12px 4px 8px; gap:4px 8px; border-radius:12px; }
+.catan-world .catan-hand-strip>.catan-hand-resource { min-height:60px; padding:12px 4px 8px; gap:4px 8px; border-radius:18px; }
 .catan-play .catan-hand-resource>svg { width:24px; height:24px; }
 .catan-play .catan-hand-resource b { font-size:1.25rem; }
 .catan-play .catan-hand-strip small { font-size:.6875rem; }
@@ -702,8 +748,8 @@
 .catan-theme .catan-status-actions [data-slot=button] { width:auto; min-height:44px; margin:0; padding:8px 12px; font-size:.8125rem; line-height:1.3; }
 @media(max-width:600px) { .catan-play>.catan-status { flex-wrap:wrap; } .catan-status-actions { order:1; flex-basis:100%; } }
 
-.is-game-menu .catan-build-list { gap:12px; }
-.is-game-menu .catan-build-choice { align-items:center; min-height:82px; gap:12px; padding:12px; border:1px solid #537588; border-radius:14px; background:linear-gradient(120deg,#224959a8,#11354694); box-shadow:inset 0 1px 0 #ffffff05; transition:border-color .15s ease,background .15s ease; }
+.catan-world .is-game-menu .catan-build-list { gap:10px; }
+.catan-world .is-game-menu .catan-build-choice { align-items:center; min-height:82px; gap:12px; padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); box-shadow:inset 0 1px 0 rgba(255,255,255,.1); }
 .is-game-menu .catan-build-choice>svg { width:32px; height:32px; flex:0 0 32px; margin:0; color:#f1ca72; }
 .is-game-menu .catan-build-choice>svg:last-child { width:18px; height:18px; flex-basis:18px; }
 .is-game-menu .catan-build-choice>span { grid-template-columns:minmax(0,1fr); gap:4px; }
@@ -711,29 +757,30 @@
 .is-game-menu .catan-build-choice .catan-cost { justify-content:flex-start; gap:8px; max-width:none; }
 .is-game-menu .catan-build-choice .catan-cost svg { width:19px; height:19px; }
 .is-game-menu .catan-build-choice .catan-cost b { font-size:.8125rem; font-weight:500; color:#f2ece0; }
-.is-game-menu .catan-build-choice small { font-size:.75rem; line-height:1.4; color:#c5d7df; }
-.is-game-menu .catan-build-choice[aria-disabled=true] { border-color:#395565; color:#8fabb9; background:#173442c4; }
-.is-game-menu .catan-build-choice[aria-disabled=true]>svg { color:#7b9299; }
-.is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost>span { color:#8fa5ae; }
-.is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost svg { opacity:.5; filter:saturate(.35); }
-.is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost b { color:#aab9bf; }
-.is-game-menu .catan-build-choice[aria-disabled=true] small { color:#91a8b2; }
-.is-game-menu .catan-build-choice .catan-cost b.is-missing { color:#ff8c80; font-weight:750; }
-.is-game-menu .catan-build-choice[aria-pressed=true] { border-color:#f4ce7a; background:linear-gradient(120deg,#66513780,#224556); box-shadow:inset 0 0 0 1px #efc86f55; }
-.is-game-menu .catan-build-choice .is-unavailable { font-size:.6875rem; }
+.catan-world .is-game-menu .catan-build-choice small { font-size:.75rem; line-height:1.4; color:var(--catan-glass-muted); }
+.catan-world .is-game-menu .catan-build-choice[aria-disabled=true] { border-color:rgba(219,247,245,.16); color:#c1d0d5; background:linear-gradient(135deg,rgba(255,255,255,.035),transparent),rgba(12,48,63,.18); }
+.catan-world .is-game-menu .catan-build-choice[aria-disabled=true]>svg { color:#a8bcc2; }
+.catan-world .is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost>span { color:#c1d0d5; }
+.catan-world .is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost svg { opacity:1; filter:saturate(.75); }
+.catan-world .is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost b { color:#d6e0e1; }
+.catan-world .is-game-menu .catan-build-choice[aria-disabled=true] small { color:var(--catan-glass-muted); }
+.catan-world .is-game-menu .catan-build-choice .catan-cost b.is-missing { color:#ffb39d; font-weight:750; }
+.catan-world .is-game-menu .catan-build-choice[aria-pressed=true] { border-color:#f4ce7a; background:var(--catan-glass-selected); box-shadow:inset 0 0 0 1px #efc86f55; }
+.catan-world .is-game-menu .catan-build-choice .is-unavailable { font-size:.75rem; color:#ffd0ad; }
+.catan-world .is-game-menu .catan-build-choice[aria-disabled=true] .is-unavailable { color:#ffd0ad; }
 .catan-trade-filters { display:flex; flex-wrap:wrap; gap:5px; }
-.catan-theme .catan-trade-filters button { flex:1 1 auto; min-width:0; min-height:44px; padding:8px 12px; border:1px solid #42677a; border-radius:14px; background:#0b2e3f; color:#d3e3e8; font-size:.6875rem; font-weight:500; }
-.catan-theme .catan-trade-filters button[aria-pressed=true] { border-color:#f1ce7a; background:linear-gradient(120deg,#f9da94,#edc169); color:#123240; font-weight:650; }
-.is-game-menu .catan-development-list { gap:12px; }
-.catan-theme .catan-menu-choice { display:flex; align-items:center; justify-content:flex-start; gap:12px; width:100%; min-height:92px; padding:12px; border:1px solid #537588; border-radius:14px; color:#f3eee0; background:linear-gradient(120deg,#224959bd,#113546a8); text-align:left; }
+.catan-theme .catan-world .catan-trade-filters button { flex:1 1 auto; min-width:0; min-height:44px; padding:8px 12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-inner); color:var(--catan-glass-muted); font-size:.75rem; font-weight:500; }
+.catan-theme .catan-world .catan-trade-filters button[aria-pressed=true] { border-color:#f1ce7a; background:var(--catan-glass-selected); color:#fff0cb; font-weight:650; }
+.catan-world .is-game-menu .catan-development-list { gap:10px; }
+.catan-theme .catan-world .catan-menu-choice { display:flex; align-items:center; justify-content:flex-start; gap:12px; width:100%; min-height:92px; padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); color:var(--catan-glass-text); background:var(--catan-glass-inner); text-align:left; }
 .catan-theme .catan-menu-choice>svg:first-child { width:35px; height:35px; flex:0 0 35px; color:#f1cd79; }
 .catan-menu-choice>svg:last-child { width:18px; height:18px; flex-basis:18px; }
 .catan-menu-choice>span { display:grid; gap:4px; flex:1; min-width:0; }
 .catan-menu-choice strong { font-size:.9375rem; }
-.catan-menu-choice small { color:#c9d9df; font-size:.8125rem; font-weight:400; line-height:1.45; }
-.catan-theme .catan-menu-choice:is(:disabled,.is-unavailable) { opacity:1; color:#95acb6; border-color:#395565; background:#173442c4; }
-.catan-theme .catan-menu-choice:is(:disabled,.is-unavailable)>svg:first-child { color:#869a9d; }
-.catan-menu-choice:is(:disabled,.is-unavailable) small { color:#95acb6; }
+.catan-world .catan-menu-choice small { color:var(--catan-glass-muted); font-size:.8125rem; font-weight:400; line-height:1.45; }
+.catan-theme .catan-world .catan-menu-choice:is(:disabled,.is-unavailable) { opacity:1; color:#c1d0d5; border-color:rgba(219,247,245,.16); background:linear-gradient(135deg,rgba(255,255,255,.035),transparent),rgba(12,48,63,.18); }
+.catan-theme .catan-world .catan-menu-choice:is(:disabled,.is-unavailable)>svg:first-child { color:#a8bcc2; }
+.catan-world .catan-menu-choice:is(:disabled,.is-unavailable) small { color:var(--catan-glass-muted); }
 .is-game-menu .catan-empty-state { min-height:100%; padding:12px 16px; gap:12px; }
 .catan-card-illustration { position:relative; display:grid; place-items:center; flex:0 0 auto; width:160px; height:160px; margin:6px auto 8px; color:#e7c572; background:radial-gradient(circle,#8db8bf1c 0,transparent 65%); }
 .catan-card-illustration::before { content:""; position:absolute; inset:4px; border:1px solid #a1b5bb20; border-radius:50%; box-shadow:0 0 0 12px #a1b5bb06,0 0 0 24px #a1b5bb04; }
@@ -743,19 +790,33 @@
 .is-game-menu .catan-empty-state p { max-width:260px; font-size:.875rem; color:#bdced5; }
 @media(hover:hover) {
   .catan-theme .catan-nav-tab:hover { color:#ffe0a0; background:#efd18a0c; }
-  .is-game-menu .catan-build-choice:not([aria-disabled=true]):hover, .catan-theme .catan-menu-choice:not(:disabled):hover { border-color:#c5aa6e; background:#285262; }
+  .catan-world .is-game-menu .catan-build-choice:not([aria-disabled=true]):hover, .catan-theme .catan-world .catan-menu-choice:not(:disabled):hover { border-color:#ddc185; background:var(--catan-glass-selected); }
 }
 
 /* Public inventories and exchange sides use the same quiet card surfaces. */
-.is-game-menu :is(.catan-person-choice,.catan-player-card,.catan-rule-section,.catan-activity-item,.catan-development-card) { min-width:0; border-radius:14px; border-color:#486779; background:#173747; }
+.catan-world .is-game-menu :is(.catan-score-list,.catan-rule-list,.catan-activity-list,.catan-overview-links,.catan-resource-amounts) { gap:10px; }
+.catan-world .is-game-menu :is(.catan-person-choice,.catan-player-card,.catan-rule-section,.catan-activity-item,.catan-development-card,.catan-ambient-preference) { min-width:0; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .is-game-menu :is(.catan-person-choice,.catan-player-card,.catan-menu-choice) strong { overflow-wrap:anywhere; }
 .catan-theme .is-game-menu .catan-person-choice { padding:12px; gap:12px; min-height:64px; }
 .is-game-menu .catan-exchange { grid-template-columns:minmax(0,1fr); gap:12px; }
-.is-game-menu .catan-exchange p { min-width:0; padding:12px; border-radius:14px; background:#173a4a; border:1px solid #466577; }
-.is-game-menu .catan-exchange p:last-child { border-color:#607966; background:#193d3d; }
+.catan-world .is-game-menu .catan-exchange p { min-width:0; padding:12px; border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); border:1px solid var(--catan-glass-inner-edge); }
+.catan-world .is-game-menu .catan-exchange p:last-child { border-color:rgba(192,239,199,.35); background:linear-gradient(135deg,rgba(192,239,199,.07),transparent),rgba(12,48,63,.16); }
 .is-game-menu .catan-exchange :is(span,strong) { overflow-wrap:anywhere; }
 .is-game-menu .catan-player-card summary { gap:8px; padding:12px; }
-.is-game-menu .catan-amount-controls { padding:12px 0; gap:8px; }
+.catan-world .is-game-menu :is(.catan-overview-link,.catan-log-entry,.catan-trade-bag,.catan-activity-entry,.catan-setup-guide,.catan-map-vote,.catan-section,.catan-trade-preview) { padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
+.catan-world .is-game-menu .catan-player-card>div { border-top:0; }
+.catan-world .is-game-menu .catan-amount-controls { padding:12px; gap:8px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
+.catan-theme .catan-world .is-game-menu :is(.catan-stepper,.catan-pager,.catan-card-links,.catan-overview-exit) [data-slot=button] { min-height:44px; min-width:44px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-inner); color:var(--catan-glass-text); }
+.catan-world .is-game-menu .catan-resource-choices>div { gap:8px; }
+.catan-world .is-game-menu .catan-resource-choices button { border-color:var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); color:var(--catan-glass-text); }
+.catan-world .is-game-menu .catan-resource-choices button>span { max-width:100%; overflow-wrap:anywhere; }
+.catan-world .is-game-menu .catan-resource-choices button[aria-pressed=true] { border-color:#efcb7d; background:var(--catan-glass-selected); color:#fff1ce; box-shadow:inset 0 0 0 1px #efcb7d55; }
+.catan-world .is-game-menu .catan-trade-result>div>span { border-radius:12px; border:1px solid rgba(219,247,245,.14); }
+.catan-world .is-game-menu .catan-trade-result .is-gain { background:rgba(58,113,80,.24); }
+.catan-world .is-game-menu .catan-trade-result .is-loss { background:rgba(137,86,53,.24); }
+.catan-world .is-game-menu .catan-inline-hint { color:var(--catan-glass-muted); }
+.catan-world .catan-island-context :is(.catan-setup-guide,.catan-map-vote,.catan-section) { border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
+.catan-theme .catan-world .catan-guide-actions [data-slot=button] { border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-inner); color:var(--catan-glass-text); }
 .catan-theme .catan-resource-choices button[aria-pressed=true]::after { content:"✓"; position:absolute; top:4px; right:6px; color:#f6d589; font-size:.875rem; }
 .catan-resource-choices button { position:relative; }
 @media(min-width:600px) { .is-game-menu .catan-exchange { grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -785,23 +846,21 @@ body:has(.catan-play.is-board-expanded) { overflow:hidden; }
   .catan-play .catan-hand-strip small { font-size:.625rem; }
   .catan-theme .catan-nav-tab { min-height:48px; padding-block:4px; }
   .is-game-menu>.catan-screen { gap:8px; padding:12px; }
-  .is-game-menu .catan-screen-subtitle { display:none; }
   .catan-card-illustration { width:110px; height:110px; margin:0 auto; }
   .catan-card-illustration-stack { width:100px; height:100px; }
   .catan-card-illustration-compass { top:56px; left:52px; width:27px; height:27px; }
   .catan-island-dock.is-steal { max-height:min(60dvh,max(64px,calc(var(--catan-stage-height,500px) - 64px))); }
   .catan-island-dock.is-steal .catan-island-context { padding:8px; }
   .catan-steal-panel { gap:4px; }
-  .catan-steal-panel .catan-placement-heading p { display:none; }
   .catan-theme .catan-steal-panel .catan-placement-heading h2 { font-size:.875rem; }
   .catan-victim-choice { padding:8px; gap:8px; }
   .catan-island-dock.is-steal>.catan-screen-actions { padding:4px 8px; }
 }
 .catan-menu-stage[data-catan-short-stage=true]>.is-game-menu { height:var(--catan-menu-height,100%); }
-.catan-menu-stage[data-catan-short-stage=true] .is-game-menu .catan-screen-subtitle { display:none; }
 /* With enlarged text and little height, scroll the entire panel instead of clipping its header/footer. */
 .catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen { overflow:auto; overscroll-behavior:contain; }
 .catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen>.catan-screen-body { flex:1 0 auto; min-height:44px; overflow:visible; }
+.catan-world .catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen { scroll-padding-block:8px; }
 .catan-menu-stage[data-catan-tiny-stage=true] .catan-island-dock { display:block; overflow:auto; }
 .catan-menu-stage[data-catan-tiny-stage=true] .catan-island-context { overflow:visible; }
 .catan-menu-stage[data-catan-tiny-stage=true] .catan-island-canvas { min-height:52px; }

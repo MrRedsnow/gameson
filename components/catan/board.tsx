@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Anchor, LocateFixed, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Hex, type Resource } from "@/lib/catan";
@@ -29,9 +30,9 @@ function HexNumber({ artId, hex, blocked = false }: { artId: string; hex: Hex; b
   </> : null;
 }
 
-export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, islandVisible = true, animationBaseline = 0, ambientEnabled = true }: {
+export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, islandVisible = true, animationBaseline = 0, ambientEnabled = true, seaTarget }: {
   game: CatanView; mode: BoardMode; choices: number[]; selected: number | null;
-  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number; ambientEnabled?: boolean;
+  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number; ambientEnabled?: boolean; seaTarget?: HTMLElement | null;
 }) {
   const artId = `catan-${useId().replace(/:/g, "")}`;
   const { svgRef, effectsRef } = useConstructionPlayback(game, islandVisible, animationBaseline);
@@ -39,6 +40,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   const [pastureReady, setPastureReady] = useState(false);
   useEffect(() => preloadAmbientArtwork(setPastureReady), []);
   const [size, setSize] = useState({ width: 360, height: 300, measured: false });
+  const [worldSize, setWorldSize] = useState({ width: 360, height: 300, measured: false });
   const [inspect, setInspect] = useState<number | null>(null);
   const seaRef = useRef<CatanSeaHandle>(null);
   const { board } = game;
@@ -62,28 +64,35 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   const left = Math.min(...bounds.map((p) => p.x)) - padding; const top = Math.min(...bounds.map((p) => p.y)) - padding;
   const width = Math.max(...bounds.map((p) => p.x)) - left + padding; const height = Math.max(...bounds.map((p) => p.y)) - top + padding;
   const boardBounds = { x: left, y: top, width, height };
+  // The painted sea covers the shared world; the SVG keeps its own input viewport.
+  const seaViewport = seaTarget ? worldSize : size;
   const paintCamera = useCallback(({ camera: nextCamera, viewBox: nextViewBox }: { camera: BoardCamera; viewBox: string }) => {
     const svg = svgRef.current;
     if (!svg) return;
     if (svg.getAttribute("viewBox") !== nextViewBox) svg.setAttribute("viewBox", nextViewBox);
     const nextZoom = String(nextCamera.zoom);
     if (svg.getAttribute("data-zoom") !== nextZoom) svg.setAttribute("data-zoom", nextZoom);
-    const nextSea = seaParallax({ x: left, y: top, width, height }, size, nextCamera);
+    const nextSea = seaParallax({ x: left, y: top, width, height }, seaViewport, nextCamera);
     seaRef.current?.setCameraLayout(nextSea);
-  }, [svgRef, left, top, width, height, size]);
+  }, [svgRef, left, top, width, height, seaViewport]);
   const { camera, viewBox, scale, reset, zoomBy, viewportProps, viewportRef, interactionActive } = useBoardCamera(boardBounds, size, { onFrame: paintCamera });
-  const sea = seaParallax(boardBounds, size, camera);
+  const sea = seaParallax(boardBounds, seaViewport, camera);
   const seaStyle = size.measured ? { "--catan-sea-size": `${sea.size}px`, "--catan-sea-x": `${sea.x}px`, "--catan-sea-y": `${sea.y}px` } as CSSProperties : undefined;
   useLayoutEffect(() => {
     const node = viewportRef.current;
     if (!node) return;
     const measure = () => {
       const { width, height } = node.getBoundingClientRect();
-      if (width && height) setSize({ width, height, measured: true });
+      if (width && height) setSize((previous) => previous.measured && previous.width === width && previous.height === height ? previous : { width, height, measured: true });
+      if (seaTarget) {
+        const { width: worldWidth, height: worldHeight } = seaTarget.getBoundingClientRect();
+        if (worldWidth && worldHeight) setWorldSize((previous) => previous.measured && previous.width === worldWidth && previous.height === worldHeight ? previous : { width: worldWidth, height: worldHeight, measured: true });
+      }
     };
     measure(); const observer = new ResizeObserver(measure); observer.observe(node);
+    if (seaTarget) observer.observe(seaTarget);
     return () => observer.disconnect();
-  }, [viewportRef]);
+  }, [viewportRef, seaTarget]);
   const color = (id: string) => PLAYER_COLORS[game.players.find((p) => p.id === id)!.color];
   const activate = (id: number) => { if (!disabled) onSelect(id); };
   const hitRadius = 24 / scale;
@@ -110,9 +119,10 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     onClick: (event: React.MouseEvent<SVGGElement>) => { if (!disabled) { if (run) run(); else activateFromTap(id, event); } },
     onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!disabled) { if (run) run(); else activate(id); } } },
   });
+  const seaSurface = <CatanSeaBackground ref={seaRef} width={seaViewport.width} height={seaViewport.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && seaViewport.measured} interacting={interactionActive} ambientEnabled={ambientEnabled} />;
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
     <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" style={seaStyle} data-interacting={interactionActive} {...viewportProps}>
-      <CatanSeaBackground ref={seaRef} width={size.width} height={size.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && size.measured} interacting={interactionActive} ambientEnabled={ambientEnabled} />
+      {seaTarget ? createPortal(seaSurface, seaTarget) : seaTarget === undefined ? seaSurface : null}
       <svg ref={svgRef} className="catan-board" viewBox={viewBox} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom} data-catan-ambient-active={ambientEnabled && islandVisible && !interactionActive && !effectsBusy}>
         <title>Catan – Spielbrett</title>
         <defs>

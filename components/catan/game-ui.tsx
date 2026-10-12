@@ -94,10 +94,12 @@ function BuildChoices({ game, busy, selected, onBuild }: { game: CatanView; busy
     {restriction && <p className="catan-inline-hint" role="status">{restriction}</p>}
     <div className="catan-build-list">{(Object.keys(COSTS) as BuildKind[]).map((kind) => {
       const Icon = BuildIcon[kind]; const reason = buildUnavailable(game, kind);
+      const missing = missingResources(game.me!.resources, COSTS[kind]);
       return <button type="button" className="catan-build-choice" key={kind} aria-pressed={selected === kind} aria-disabled={busy || Boolean(reason)} onClick={() => { if (!busy && !reason) onBuild(kind); }}>
         <Icon /><span><strong>{BUILDING_NAMES[kind]}{kind === "development" ? " kaufen" : ""}</strong><Cost cost={COSTS[kind]} available={game.me!.resources} />
           <small>{BUILDING_DESCRIPTIONS[kind]}</small>
-          {reason && !restriction && reason !== missingResources(game.me!.resources, COSTS[kind]) && <small className="is-unavailable">{reason}</small>}
+          {missing && <small className="is-unavailable">{missing}</small>}
+          {reason && !restriction && reason !== missing && <small className="is-unavailable">{reason}</small>}
           {kind === "development" && <small>{game.deckCount} im Stapel</small>}
         </span>{selected === kind ? <Check aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
       </button>;
@@ -130,6 +132,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
   const [victimChoice, setVictimChoice] = useState<{ id: string; context: string } | null>(null);
   const [choice, setChoice] = useState(() => ({ task: navigationTask(game)?.key ?? null, tab: suggestedTab(game) }));
   const menuId = useId();
+  const [seaTarget, setSeaTarget] = useState<HTMLDivElement | null>(null);
   const [overviewChoice, setOverviewChoice] = useState<{ finished: boolean; page: OverviewPage }>({ finished: game.phase === "finished", page: "menu" });
   const overviewPage = overviewChoice.finished === (game.phase === "finished") ? overviewChoice.page : "menu";
   const setOverviewPage = (page: OverviewPage) => setOverviewChoice({ finished: game.phase === "finished", page });
@@ -264,6 +267,8 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
       {!voting && <button type="button" className="catan-status-points" aria-label={`Punktestand öffnen: Du hast ${victoryPoints(game, me)} von ${game.targetPoints} Siegpunkten`} onClick={() => showOverview("scores")}><span>{victoryPoints(game, me)}<small> / {game.targetPoints}</small></span><span className="catan-status-points-label">Punkte</span></button>}
       {local && onHide && !finished && <Button variant="ghost" size="icon" className="catan-hide-button" data-catan-sound="cancel" onClick={hideHand} aria-label={voting ? "Gerät weitergeben" : "Handkarten verdecken"}><LockKeyhole /></Button>}
     </div>
+    <div className="catan-world">
+    <div ref={setSeaTarget} className="catan-world-sea" aria-hidden="true" />
     {!voting && <CatanResourceHand game={game} islandVisible animationBaseline={animationBaseline} />}
     {!voting && <CatanEventNotice game={game} animationBaseline={animationBaseline} />}
 
@@ -271,13 +276,13 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
     <div data-state="active" className="catan-tab-panel catan-tab-insel">
       <section className="catan-screen catan-island-screen" inert={activeMenu !== null}>
         <div className="catan-island-canvas">
-          <CatanBoard key={game.mapVote?.id ?? "accepted"} game={game} mode={mode} choices={choices} selected={selected} onSelect={selectPlace} disabled={busy} onInspect={sounds.preview} islandVisible animationBaseline={animationBaseline} ambientEnabled={ambient.enabled} />
+          <CatanBoard key={game.mapVote?.id ?? "accepted"} game={game} mode={mode} choices={choices} selected={selected} onSelect={selectPlace} disabled={busy} onInspect={sounds.preview} islandVisible animationBaseline={animationBaseline} ambientEnabled={ambient.enabled} seaTarget={seaTarget} />
           <div className="catan-island-tools">
             <Button variant="ghost" size="icon" className="catan-sound-toggle" aria-label={sounds.enabled ? "Soundeffekte ausschalten" : "Soundeffekte einschalten"} aria-pressed={sounds.enabled} title="Soundeffekte für Rohstoffe, Würfeln, Bauen, Handel und Spielaktionen" onClick={() => void sounds.toggle()}>{sounds.enabled ? <Volume2 /> : <VolumeX />}</Button>
             <Button variant="outline" size="icon" aria-label={expanded ? "Vollbild der Insel schließen" : "Insel im Vollbild öffnen"} aria-pressed={expanded} title={expanded ? "Zurück zur Spielansicht (Esc)" : "Insel maximieren"} onClick={() => { if (!expanded) closeGuide(); fullscreen.toggle(); }}>{expanded ? <Minimize2 /> : <Maximize2 />}</Button>
           </div>
         </div>
-        {!activeMenu && (islandActions || mode || voting || (game.phase === "discard" && !needsDiscard)) && <section className={`catan-island-dock${own && game.phase === "steal" ? " is-steal" : ""}`} aria-label={islandTitle}>
+        {(islandActions || mode || voting || (game.phase === "discard" && !needsDiscard)) && <section className={`catan-island-dock${own && game.phase === "steal" ? " is-steal" : ""}`} aria-label={islandTitle} data-menu-hidden={activeMenu ? "true" : undefined} aria-hidden={activeMenu ? true : undefined} inert={activeMenu !== null}>
           <div className="catan-island-context">
             {voting && <MapVotePanel game={game} />}
             {mode && <div className="catan-placement-controls">
@@ -307,6 +312,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
     </Screen></div>
     <div className="catan-tab-panel is-game-menu" {...panelProps("handel")}><TradePanel onClose={() => closeMenu(true)} game={game} send={send} busy={busy} /></div>
     <div className="catan-tab-panel is-game-menu" {...panelProps("uebersicht")}><OverviewPanel onClose={() => closeMenu(true)} game={game} page={overviewPage} setPage={setOverviewPage} activity={activity.all} unreadActivity={activity.unread} unread={activity.unread.length} onRead={activity.read} local={local} onHide={onHide ? hideHand : undefined} onRematch={onRematch} busy={busy} ambientEnabled={ambient.enabled} onAmbientChange={ambient.setEnabled} /></div>
+    </div>
     </div>
     <nav ref={menuNavRef} className="catan-nav" aria-label={expanded ? "Vollbild-Spielmenü" : "Spielmenü"}><div className="catan-nav-list">{CATAN_TABS.map(({ id, label, Icon }) => {
       const badge = badges[id]; const unavailable = voting && ["karten", "bauen", "handel"].includes(id);

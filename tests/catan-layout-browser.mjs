@@ -35,7 +35,7 @@ async function auditFrame(page) {
       }
       return r.right > r.left && r.bottom > r.top ? r : null;
     };
-    const selector = '.catan-nav button, .is-game-menu[data-state="active"] button, .catan-island-dock button, .catan-board-controls button, .catan-island-tools button';
+    const selector = '.catan-nav button, .is-game-menu[data-state="active"] button, .is-game-menu[data-state="active"] summary, .catan-island-dock button, .catan-board-controls button, .catan-island-tools button';
     const controls = [...play.querySelectorAll(selector)].filter((element) => {
       if (element.closest("[inert]")) return false;
       const style = getComputedStyle(element);
@@ -49,12 +49,17 @@ async function auditFrame(page) {
       .filter((element) => element.scrollWidth > element.clientWidth + 1).map((element) => element.className || element.tagName);
     const panel = play.querySelector('.is-game-menu[data-state="active"]');
     const dock = play.querySelector(".catan-island-dock");
-    return { controls, overflow, width:innerWidth, height:innerHeight, nav:box(play.querySelector(".catan-nav")), panel:panel && box(panel), dock:dock && box(dock), canvas:box(play.querySelector(".catan-island-canvas")) };
+    return { controls, overflow, width:innerWidth, height:innerHeight, nav:box(play.querySelector(".catan-nav")), hand:box(play.querySelector(".catan-hand-bar")), stage:box(play.querySelector(".catan-menu-stage")), panel:panel && box(panel), dock:dock && box(dock), canvas:box(play.querySelector(".catan-island-canvas")) };
   });
   const context = `${result.width}×${result.height}`;
   assert.equal(result.overflow.length, 0, `Horizontal overflow: ${context}: ${result.overflow.join(", ")}`);
   assert.ok(result.nav.top >= 0 && result.nav.bottom <= result.height + 1, `Navigation clipped: ${context}`);
-  if (result.panel) assert.ok(result.panel.bottom <= result.nav.top + 1, `Menu overlaps navigation: ${context}`);
+  if (result.panel) {
+    assert.ok(result.panel.top >= result.hand.bottom + 11, `Menu needs resource clearance: ${context}`);
+    assert.ok(result.panel.bottom <= result.nav.top - 11, `Menu needs navigation clearance: ${context}`);
+    assert.ok(result.panel.left >= result.stage.left + 11 && result.panel.right <= result.stage.right - 11, `Menu needs 12px side clearance: ${context}`);
+    assert.ok(result.panel.width <= 561, `Menu exceeds 560px: ${context}`);
+  }
   if (result.dock) {
     assert.ok(result.canvas.bottom <= result.dock.top + 1, `Map overlaps dock: ${context}`);
     assert.ok(result.dock.bottom <= result.nav.top + 1, `Dock overlaps navigation: ${context}`);
@@ -98,7 +103,9 @@ export async function checkRobber(page, { expanded, largeText, failureCases = fa
   const before = await page.locator(".catan-robber-layer").getAttribute("data-catan-robber");
   const sequence = await page.locator(".catan-play").getAttribute("data-catan-sequence");
   const field = page.getByRole("button", { name:/^Räuber auf Feld 5:/ });
-  await field.locator(".catan-hex-border").click();
+  // Larger building hit areas can overlap this hex; the real pointer tap is
+  // intentionally routed through the board's shared selection handler.
+  await field.locator(".catan-hex-border").click({ force:true });
   await observe?.();
   assert.equal(await field.getAttribute("aria-pressed"), "true");
   assert.equal(await commit.isEnabled(), true);

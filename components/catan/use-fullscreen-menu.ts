@@ -54,7 +54,7 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
       const container = play.getBoundingClientRect();
       const handHeight = hand?.getBoundingClientRect().height ?? 0;
       const floatingHand = expanded && hand && getComputedStyle(hand).position === "absolute";
-      const menuHeight = Math.max(0, bounds.height - (floatingHand ? handHeight + 20 : 0));
+      const menuHeight = Math.max(0, bounds.height - 24 - (floatingHand ? handHeight + 20 : 0));
       play.style.setProperty("--catan-stage-height", `${bounds.height}px`);
       play.style.setProperty("--catan-hand-top", `${bounds.top - container.top + 8}px`);
       play.style.setProperty("--catan-hand-height", `${handHeight}px`);
