@@ -1,18 +1,18 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RESOURCES, RESOURCE_INFO, type Resource, type Resources } from "@/lib/catan";
 import { ResourceIcon } from "./board";
 
 export type Send = (action: import("@/lib/catan").CatanAction) => Promise<boolean>;
 
-export function Screen({ title, eyebrow, subtitle, headingIcon, back, children, actions, headingAction, className = "" }: {
-  title: string; eyebrow?: string; subtitle?: string; headingIcon?: ReactNode; back?: () => void; children: ReactNode; actions?: ReactNode; headingAction?: ReactNode; className?: string;
+export function Screen({ title, eyebrow, subtitle, headingIcon, back, children, actions, headingAction, onClose, className = "" }: {
+  title: string; eyebrow?: string; subtitle?: string; headingIcon?: ReactNode; back?: () => void; children: ReactNode; actions?: ReactNode; headingAction?: ReactNode; onClose?: () => void; className?: string;
 }) {
   return <section className={`catan-screen ${className}`}>
-    <header className="catan-screen-heading">{back && <Button variant="ghost" size="icon" aria-label="Einen Schritt zurück" onClick={back}><ArrowLeft /></Button>}{headingIcon}<div>{eyebrow && <span className="catan-eyebrow">{eyebrow}</span>}<h2>{title}</h2>{subtitle && <p className="catan-screen-subtitle">{subtitle}</p>}</div>{headingAction}</header>
+    <header className="catan-screen-heading">{back && <Button variant="ghost" size="icon" aria-label="Einen Schritt zurück" onClick={back}><ArrowLeft /></Button>}{headingIcon}<div className="catan-screen-title">{eyebrow && <span className="catan-eyebrow">{eyebrow}</span>}<h2>{title}</h2>{subtitle && <p className="catan-screen-subtitle">{subtitle}</p>}</div>{headingAction}{onClose && <Button type="button" variant="ghost" size="icon" className="catan-menu-close" data-catan-sound="cancel" aria-label="Menü schließen" onClick={onClose}><X /></Button>}</header>
     <div className="catan-screen-body">{children}</div>
     {actions && <footer className="catan-screen-actions">{actions}</footer>}
   </section>;

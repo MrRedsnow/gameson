@@ -39,14 +39,15 @@ try {
       await visibleInViewport(endTurn, width, height);
       await expect(page.locator(".catan-status .catan-end-turn")).toHaveCount(0);
       const endTurnBox = await endTurn.boundingBox();
-      const mapBox = await page.locator(".catan-board-viewport").boundingBox();
-      assert.ok(Math.abs(endTurnBox.x + endTurnBox.width / 2 - mapBox.x - mapBox.width / 2) < 1, "End turn must be centered on the map");
+      const dockBox = await page.locator(".catan-island-dock").boundingBox();
+      assert.ok(Math.abs(endTurnBox.x + endTurnBox.width / 2 - dockBox.x - dockBox.width / 2) < 1, "End turn must be centered in its action dock");
       for (const id of ["bauen", "handel", "karten", "uebersicht"]) {
         await nav(page, id).click();
         const panel = menu(page, id);
         await expect(panel).toBeVisible();
         await expect(endTurn).toHaveCount(0);
         await expect(page.locator(".catan-board")).toBeVisible();
+        await expect(panel.locator(".catan-screen-heading .catan-menu-close")).toBeVisible();
         assert.ok(await page.evaluate(() => window.qaBoard === document.querySelector(".catan-board") && window.qaHand === document.querySelector(".catan-hand-bar")), "Map and resource hand must retain their instances");
         await visibleInViewport(page.locator(".catan-nav"), width, height);
         await visibleInViewport(panel.locator(".catan-menu-close"), width, height);
@@ -62,9 +63,8 @@ try {
         }, expanded), "Resource flights must stay below the menu");
         if (expanded) {
           const hand = await page.locator(".catan-hand-bar").boundingBox();
-          const viewport = await page.locator(".catan-board-viewport").boundingBox();
           const sheet = await panel.boundingBox();
-          assert.ok(hand.y >= viewport.y - 1 && hand.y + hand.height < sheet.y + 1, "Fullscreen resources must float above the map and clear the menu");
+          assert.ok(hand.y + hand.height <= sheet.y + 1, "Fullscreen resources must clear the menu");
         }
         await page.screenshot({ path: `${output}${width}x${height}-${expanded ? "expanded" : "normal"}-${id}.png` });
         await panel.getByRole("button", { name: "Menü schließen", exact: true }).click();
@@ -216,9 +216,8 @@ try {
   await expect(board).not.toHaveAttribute("viewBox", beforePan);
   await page.getByRole("button", { name: "Insel im Vollbild öffnen", exact: true }).click();
   await nav(page, "bauen").hover();
-  await expect(build).toBeVisible();
-  await page.mouse.move(1, 1);
   await expect(build).toBeHidden();
+  await page.mouse.move(1, 1);
   await nav(page, "bauen").click();
   await page.mouse.move(1, 1);
   await expect(build).toBeVisible();

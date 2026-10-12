@@ -24,23 +24,23 @@ const RULES = [
 const BUILDING_NAMES: Record<keyof typeof COSTS, string> = { road: "Straße", settlement: "Siedlung", city: "Stadt", development: "Entwicklungskarte" };
 export type OverviewPage = "menu" | "scores" | "log" | "rules" | "activity";
 
-export function OverviewPanel({ game, page, setPage, activity, unreadActivity, unread, onRead, onRematch, busy, turnActions, ambientEnabled = true, onAmbientChange }: {
+export function OverviewPanel({ game, page, setPage, activity, unreadActivity, unread, onRead, onRematch, busy, turnActions, ambientEnabled = true, onAmbientChange, onClose }: {
   game: CatanView; page: OverviewPage; setPage: (page: OverviewPage) => void; activity: CatanActivity[]; unreadActivity?: CatanActivity[]; unread: number; onRead: () => void;
   local: boolean; onHide?: () => void; onRematch?: () => void; busy: boolean; turnActions?: ReactNode;
-  ambientEnabled?: boolean; onAmbientChange?: (enabled: boolean) => void;
+  ambientEnabled?: boolean; onAmbientChange?: (enabled: boolean) => void; onClose?: () => void;
 }) {
   const me = game.me!; const back = () => setPage("menu");
   const ambientId = useId();
-  if (page === "rules") return <Screen title="Spielregeln & Baukosten" headingIcon={<BookOpen />} back={back} actions={turnActions}>
+  if (page === "rules") return <Screen onClose={onClose} title="Spielregeln & Baukosten" headingIcon={<BookOpen />} back={back} actions={turnActions}>
     <div className="catan-rule-list">
       <details className="catan-rule-section" open><summary>Baukosten</summary><div className="catan-rule-costs">{(Object.keys(COSTS) as (keyof typeof COSTS)[]).map((kind) => <div key={kind}><strong>{BUILDING_NAMES[kind]}</strong><span className="catan-cost">{RESOURCES.filter((resource) => COSTS[kind][resource]).map((resource) => <span key={resource} title={RESOURCE_INFO[resource].label}><ResourceIcon resource={resource} />{COSTS[kind][resource]}<span className="sr-only"> {RESOURCE_INFO[resource].label}</span></span>)}</span></div>)}</div></details>
       {RULES.map((rule) => <details className="catan-rule-section" key={rule.title}><summary>{rule.title}</summary><div><p>{rule.text}</p>{rule.title === "Ziel des Spiels" && <p>Euer Ziel: {game.targetPoints} Punkte.</p>}</div></details>)}
     </div>
   </Screen>;
-  if (page === "log") return <Screen title="Spielverlauf" headingIcon={<ScrollText />} back={back} actions={turnActions}>{[...game.log].reverse().map((entry) => <p className="catan-log-entry" key={entry.id}>{entry.text}</p>)}</Screen>;
+  if (page === "log") return <Screen onClose={onClose} title="Spielverlauf" headingIcon={<ScrollText />} back={back} actions={turnActions}>{[...game.log].reverse().map((entry) => <p className="catan-log-entry" key={entry.id}>{entry.text}</p>)}</Screen>;
   if (page === "activity") {
     const entries = [...activity].reverse(); const unreadIds = new Set((unreadActivity ?? entries.slice(0, unread)).map((entry) => entry.id));
-    return <Screen title="Deine Meldungen" headingIcon={<Bell />} back={back} actions={turnActions} headingAction={unread ? <Button variant="outline" size="icon" aria-label="Alle Meldungen als gelesen markieren" title="Alle als gelesen markieren" onClick={onRead}><CheckCheck /></Button> : undefined}>
+    return <Screen onClose={onClose} title="Deine Meldungen" headingIcon={<Bell />} back={back} actions={turnActions} headingAction={unread ? <Button variant="outline" size="icon" aria-label="Alle Meldungen als gelesen markieren" title="Alle als gelesen markieren" onClick={onRead}><CheckCheck /></Button> : undefined}>
       {entries.length ? <div className="catan-activity-list">{entries.map((entry) => <details className={`catan-activity-item${unreadIds.has(entry.id) ? " is-unread" : ""}`} key={entry.id}>
         <summary><span><strong>{entry.title}</strong><small>{activitySummary(entry)}</small></span>{unreadIds.has(entry.id) && <span className="catan-activity-unread">Neu</span>}</summary>
         <div><p>{entry.message}</p>{resourceCount(entry.losses) > 0 && <p className="is-loss"><strong>Abgegeben:</strong> <BagText bag={entry.losses} /></p>}{resourceCount(entry.gains) > 0 && <p className="is-gain"><strong>Erhalten:</strong> <BagText bag={entry.gains} /></p>}</div>
@@ -48,7 +48,7 @@ export function OverviewPanel({ game, page, setPage, activity, unreadActivity, u
     </Screen>;
   }
   const finished = game.phase === "finished"; const winner = game.players.find((p) => p.id === game.winner);
-  return <Screen title={finished ? `${winner?.name} gewinnt!` : "Übersicht"} headingIcon={finished ? <Trophy /> : <Users />} subtitle={finished ? "Die Partie ist beendet" : "Punkte, Meldungen und Spielregeln"} actions={finished && onRematch ? <Button className="catan-primary" disabled={busy} onClick={onRematch}>Neue Partie vorbereiten</Button> : turnActions}>
+  return <Screen onClose={onClose} title={finished ? `${winner?.name} gewinnt!` : "Übersicht"} headingIcon={finished ? <Trophy /> : <Users />} subtitle={finished ? "Die Partie ist beendet" : "Punkte, Meldungen und Spielregeln"} actions={finished && onRematch ? <Button className="catan-primary" disabled={busy} onClick={onRematch}>Neue Partie vorbereiten</Button> : turnActions}>
     {finished && <p className="catan-inline-hint"><Trophy /> {game.targetPoints} Punkte erreicht.</p>}
     <div className="catan-score-list">{game.players.map((p) => <details className="catan-player-card" key={p.id} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties}>
       <summary><i className="catan-player-dot" aria-hidden="true" /><strong>{p.name}{p.id === me.id ? " (du)" : ""}<span className="sr-only"> · {PLAYER_COLOR_NAMES[p.color]}</span></strong><b>{p.id === me.id ? victoryPoints(game, me) : p.points} / {game.targetPoints}</b><small>{p.resourceCount} Rohstoffkarten · {p.knights} Ritter · Straße {p.roadLength}</small></summary>

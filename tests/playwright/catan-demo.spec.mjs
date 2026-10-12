@@ -116,7 +116,8 @@ async function perform(page, game, action) {
       break;
     case "steal":
       await tab(page, "Insel");
-      await button(page, `${game.players.find((p) => p.id === action.victimId).name} bestehlen`).click();
+      await button(page, `${game.players.find((p) => p.id === action.victimId).name} zum Bestehlen auswählen`).click();
+      await button(page, "Karte stehlen").click();
       break;
     case "play_development": {
       await tab(page, "Karten");

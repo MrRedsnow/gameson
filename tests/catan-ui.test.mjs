@@ -767,3 +767,56 @@ test("Meldungen sind neueste zuerst aufklappbar und markieren tatsächlich ungel
 });
 
 function acceptedCatanGame(...args) { return acceptMap(createCatanGame(...args), applyCatanAction); }
+
+test("Räuber werden ausschließlich über Kartenfelder ausgewählt und unter der Karte bestätigt", () => {
+  const game = foundedGame(); game.phase = "robber";
+  const viewer = game.players[game.currentPlayer].id;
+  const view = catanView(game, viewer);
+  const choices = game.board.hexes.filter((hex) => hex.id !== game.robberHex).map((hex) => hex.id);
+  for (const expanded of [false, true]) {
+    const board = render(CatanBoard, { game: view, mode: "robber", choices, selected: null, onSelect() {}, disabled: false, expanded });
+    assert.doesNotMatch(board, /catan-board-selection|Bauplatz|mögliche Plätze/);
+    assert.equal((board.match(/<g\b[^>]*role="button"[^>]*aria-label="Räuber auf Feld /g) ?? []).length, 18);
+    assert.doesNotMatch(board, new RegExp(`aria-label="Räuber auf Feld ${game.robberHex + 1}:`));
+  }
+  const html = ui(game, viewer);
+  assert.match(html, /class="catan-island-dock"/);
+  assert.match(html, /Tippe ein anderes Feld auf der Karte an/);
+  assert.match(html, /<button[^>]*disabled=""[^>]*>Räuber versetzen<\/button>/);
+  assert.doesNotMatch(html, /Vorheriger Bauplatz|Nächster Bauplatz|catan-board-selection/);
+  assert.ok(html.indexOf('class="catan-island-canvas"') < html.indexOf('class="catan-island-dock"'));
+});
+
+test("die Opferauswahl zeigt öffentliche Spielerkarten und verlangt auch bei einer Person eine Bestätigung", () => {
+  const game = foundedGame(); game.phase = "steal";
+  const viewer = game.players[game.currentPlayer].id;
+  const victims = game.players.filter((player) => player.id !== viewer);
+  game.victims = victims.map((player) => player.id);
+  for (const ids of [game.victims, game.victims.slice(0, 1)]) for (const busy of [false, true]) {
+    const html = ui({ ...game, victims: ids }, viewer, { busy });
+    const choices = (html.match(/<button\b[^>]*>/g) ?? []).filter((tag) => /class="catan-victim-choice"/.test(tag));
+    assert.equal(choices.length, ids.length);
+    for (const tag of choices) {
+      assert.match(tag, /aria-pressed="false"/);
+      assert.match(tag, /--player-color:/);
+      assert.equal(/disabled=""/.test(tag), busy);
+    }
+    assert.equal((html.match(/class="catan-victim-avatar"/g) ?? []).length, ids.length);
+    assert.match(html, /zufällige Rohstoffkarte/);
+    assert.match(html, /<button[^>]*disabled=""[^>]*>Karte stehlen<\/button>/);
+    assert.doesNotMatch(html, /<button[^>]*>[^<]*bestehlen<\/button>/);
+  }
+  const observer = ui(game, victims[0].id);
+  assert.doesNotMatch(observer, /catan-victim-choice|>Karte stehlen<\/button>/);
+});
+
+test("Menüschließen gehört auf allen Hauptseiten zum jeweiligen Header", () => {
+  const html = ui(foundedGame(), "a");
+  for (const id of ["karten", "bauen", "handel", "uebersicht"]) {
+    const panel = menu(html, id);
+    const header = panel.match(/<header class="catan-screen-heading">[\s\S]*?<\/header>/)?.[0];
+    assert.ok(header, `Header fehlt: ${id}`);
+    assert.match(header, /aria-label="Menü schließen"/);
+    assert.equal((panel.match(/aria-label="Menü schließen"/g) ?? []).length, 1);
+  }
+});

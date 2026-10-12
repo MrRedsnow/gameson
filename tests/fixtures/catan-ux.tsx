@@ -6,6 +6,8 @@ import { CatanGameUI } from "../../components/catan/game-ui";
 import { RESOURCES, applyCatanAction, catanView, createCatanGame, legalRoads, legalSettlements, type CatanAction } from "../../lib/catan";
 
 const seats = ["Anna", "Benjamin Alexander", "Clara", "Dominik Maximilian"].map((name, i) => ({ id: `qa-${i}`, name }));
+// Exercise the expanded layout without native fullscreen changing the QA viewport.
+Object.defineProperty(document, "fullscreenEnabled", { value: false });
 function fixture(name: string) {
   let game = createCatanGame(seats, 12, () => 0);
   if (name.startsWith("map-")) {
@@ -36,7 +38,20 @@ function fixture(name: string) {
   if (name === "empty-bank") for (const r of RESOURCES) { game.players[1].resources[r] += game.bank[r]; game.bank[r] = 0; }
   if (name === "discard") { game.phase = "discard"; game.discards = { [viewer]: 12 }; game.dice = [3, 4]; }
   if (name === "robber") game.phase = "robber";
+  if (name === "robber-after-seven") {
+    for (const player of game.players) for (const resource of RESOURCES) {
+      game.bank[resource] += player.resources[resource] - 1; player.resources[resource] = 1;
+    }
+    let face = 2;
+    game = applyCatanAction({ ...game, phase: "roll" }, viewer, { type: "roll" }, () => face++);
+  }
+  if (name === "robber-after-knight") {
+    game.phase = "roll";
+    game.players[0].development.push({ id: "qa-knight", type: "knight", boughtOnTurn: 1 });
+    game = applyCatanAction(game, viewer, { type: "play_development", cardId: "qa-knight" });
+  }
   if (name === "steal") { game.phase = "steal"; game.victims = game.players.slice(1).map((p) => p.id); }
+  if (name === "steal-single") { game.phase = "steal"; game.victims = [game.players[1].id]; }
   if (name === "free-roads") { game.phase = "free_roads"; game.freeRoads = 2; }
   if (["incoming", "outgoing"].includes(name)) {
     game = applyCatanAction(game, viewer, { type: "offer_trade", toId: game.players[1].id, give: { wood: 1, brick: 1 }, receive: { wool: 1, grain: 1, ore: 1 } });
@@ -61,11 +76,12 @@ function Preview() {
     catch (e) { setError((e as Error).message); return false; }
   }
   return <><style>{`html { font-size:${largeText ? 32 : 16}px; }`}</style><details className="qa-controls"><summary>QA</summary>
-    <label>Prüfsituation<select value={scenario} onChange={(e) => { setScenario(e.target.value); setState(fixture(e.target.value)); setError(""); }}>{["map-vote", "map-waiting", "map-tie", "map-tie-guest", "rich", "poor", "setup", "roll", "discard", "robber", "steal", "free-roads", "cards", "empty-bank", "incoming", "outgoing", "waiting", "finished", "history"].map((name) => <option key={name}>{name}</option>)}</select></label>
+    <label>Prüfsituation<select value={scenario} onChange={(e) => { setScenario(e.target.value); setState(fixture(e.target.value)); setError(""); }}>{["map-vote", "map-waiting", "map-tie", "map-tie-guest", "rich", "poor", "setup", "roll", "discard", "robber", "robber-after-seven", "robber-after-knight", "steal", "steal-single", "free-roads", "cards", "empty-bank", "incoming", "outgoing", "waiting", "finished", "history"].map((name) => <option key={name}>{name}</option>)}</select></label>
     <label>Perspektive<select value={state.viewer} onChange={(e) => { setState({ ...state, viewer: e.target.value }); setError(""); }}>{state.game.players.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select></label>
     <label><input type="checkbox" checked={largeText} onChange={(e) => setLargeText(e.target.checked)} />Text 200%</label>
     <label><input type="checkbox" checked={rejectAction} onChange={(e) => setRejectAction(e.target.checked)} />Aktion ablehnen</label>
     <label><input type="checkbox" checked={busy} onChange={(e) => setBusy(e.target.checked)} />Aktion blockieren</label>
+    <button type="button" onClick={() => setState((current) => ({ ...current, game: { ...current.game, victims: current.game.victims.slice(1) } }))}>Erste Opferauswahl entfernen</button>
     <button type="button" onClick={() => setState((current) => {
       const next = structuredClone(current.game); const player = next.players.find((entry) => entry.id === current.viewer)!;
       for (const resource of RESOURCES) { next.bank[resource] += player.resources[resource]; player.resources[resource] = 0; }

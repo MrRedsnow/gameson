@@ -37,8 +37,8 @@ test("fullscreen map voting keeps ballots reachable above the map and blocks gam
   const html = ui(game, "a");
   assert.match(html, /is-map-vote is-board-expanded/);
   assert.equal((html.match(/class="catan-board-panel"/g) ?? []).length, 1);
-  const status = html.slice(html.indexOf('class="catan-status '), html.indexOf('class="catan-menu-stage'));
-  assert.match(status, /Karte akzeptieren/); assert.match(status, /Karte ablehnen/);
+  const dock = html.slice(html.indexOf('class="catan-island-dock"'), html.indexOf('data-catan-menu-panel="karten"'));
+  assert.match(dock, /Karte akzeptieren/); assert.match(dock, /Karte ablehnen/);
   assert.match(html, /class="catan-map-vote"/); assert.doesNotMatch(html, /Starthilfe zur Gründung|Siedlung auf Kreuzung/);
   for (const name of ["karten", "bauen", "handel"]) {
     const trigger = (html.match(/<button\b[^>]*>/g) ?? []).find((tag) => attribute(tag, "data-catan-fullscreen-trigger") === name);
