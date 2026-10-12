@@ -213,7 +213,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
   let turnActions: ReactNode;
   if (voting) turnActions = !Object.hasOwn(game.mapVote!.votes, me.id) || (mapVoteProgress(game).tied && me.id === game.mapVote!.hostPlayerId) ? <MapVoteActions game={game} send={send} busy={busy} /> : undefined;
   else if (needsDiscard) turnActions = go("karten", `${game.discards[me.id]} Karten abgeben`);
-  else if (mode) turnActions = go("insel", `${mode === "robber" ? "Räuber" : BUILDING_NAMES[mode]} auf der Insel setzen`);
+  else if (mode && mode !== "robber") turnActions = go("insel", `${BUILDING_NAMES[mode]} auf der Insel setzen`);
   else if (own && game.phase === "steal") turnActions = go("insel", "Person zum Bestehlen wählen");
   else if (own && game.phase === "roll") turnActions = <Button className="catan-primary catan-roll-button" disabled={busy} onClick={() => void send({ type: "roll" })}><Dices />Würfeln</Button>;
   else if (own && game.phase === "main" && game.trade) turnActions = go("handel", "Offenen Handel ansehen");
