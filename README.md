@@ -71,11 +71,17 @@ explained in the [audio archive](assets/audio/werwolf-unused/README.md).
 
 ### Die Siedler von Catan
 
-The base game includes randomized terrain with nonadjacent red numbers,
-snake-order setup, resource production, limited bank and pieces, player and
-harbor trading, the robber, discards, stealing, all 25 development cards and
-both special awards. The victory target is selectable from 8 to 15, default 12;
-choose 10 for the original target.
+The base game freely randomizes terrain, number tokens and coastal harbor
+positions with cryptographic randomness. The usual 19-hex shape and terrain,
+number and harbor inventories stay fixed; larger resource clusters and adjacent
+6/8 tokens are allowed. All nonoverlapping harbor placements have the same
+chance. Every rejected map is drawn independently, without balancing filters,
+templates or forced differences from the previous map.
+
+The base game includes snake-order setup, resource production, limited bank and
+pieces, player and harbor trading, the robber, discards, stealing, all 25
+development cards and both special awards. The victory target is selectable
+from 8 to 15, default 12; choose 10 for the original target.
 
 Every new online or local match starts with a map vote. Each player accepts or
 rejects the terrain, numbers and harbors; the result is evaluated after everyone

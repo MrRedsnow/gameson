@@ -24,7 +24,7 @@ export function MapVotePanel({ game }: { game: CatanView }) {
   return <section className="catan-map-vote" aria-label="Kartenabstimmung">
     <div role="status" aria-live="polite" aria-atomic="true">
       <strong>{accepted} Ja · {rejected} Nein · {pending.length} offen</strong>
-      <p>{tied ? `Gleichstand: ${host.name} entscheidet als Spielleitung.` : voted ? `Du hast die Karte ${vote.votes[game.me!.id] ? "akzeptiert" : "abgelehnt"}. Wir warten auf ${pending.map((p) => p.name).join(", ")}.` : "Prüfe Felder, Zahlen und Häfen. Wir werten aus, sobald alle abgestimmt haben."}</p>
+      <p>{tied ? `Gleichstand: ${host.name} entscheidet als Spielleitung.` : voted ? `Du hast die Karte ${vote.votes[game.me!.id] ? "akzeptiert" : "abgelehnt"}. Wir warten auf ${pending.map((p) => p.name).join(", ")}.` : "Felder, Zahlen und Häfen sind frei zufällig verteilt. Prüfe die Insel; wir werten aus, sobald alle abgestimmt haben."}</p>
     </div>
     <details><summary>Stimmen ansehen</summary><ul>{[...game.players].sort((a, b) => a.color - b.color).map((p) => <li key={p.id}><span>{p.name}{p.id === vote.hostPlayerId ? " · Spielleitung" : ""}</span><strong>{Object.hasOwn(vote.votes, p.id) ? vote.votes[p.id] ? "Ja" : "Nein" : "Offen"}</strong></li>)}</ul></details>
   </section>;

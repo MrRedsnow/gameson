@@ -99,6 +99,32 @@ test("the shared layout remains collision-free with alternate normal nine-harbor
   }
 });
 
+test("freely randomized harbor positions keep tightly spaced boats and labels clear", () => {
+  let seed = 918273; const random = (length) => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return Math.floor(seed / 4294967296 * length); };
+  let closeHarbors = false;
+  for (let sample = 0; sample < 32; sample++) {
+    const board = createBoard(random); const layouts = harborLayouts(board);
+    const harborEdges = new Set(board.harbors.map((harbor) => harbor.edge));
+    const harborVertices = new Set(board.harbors.flatMap((harbor) => [board.edges[harbor.edge].a, board.edges[harbor.edge].b]));
+    closeHarbors ||= board.edges.some((edge) => edge.hexes.length === 1 && !harborEdges.has(edge.id) && harborVertices.has(edge.a) && harborVertices.has(edge.b));
+    const labels = board.harbors.map((harbor) => {
+      const edge = board.edges[harbor.edge]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
+      const x = (a.x + b.x) / 2 * 1.29; const y = (a.y + b.y) / 2 * 1.29;
+      return [{ x: x - 19, y: y - 17 }, { x: x + 19, y: y - 17 }, { x: x + 19, y: y + 17 }, { x: x - 19, y: y + 17 }];
+    });
+    for (const layout of layouts) {
+      assert.equal(harborBoatClearsLand(board, layout.boat), true);
+      for (const phase of [0, .25, .5, .75, 1]) for (const label of labels) assert.equal(polygonsIntersect(corners(layout, phase), label), false);
+    }
+    for (let first = 0; first < layouts.length; first++) for (let second = first + 1; second < layouts.length; second++) {
+      for (const firstPhase of [0, .25, .5, .75, 1]) for (const secondPhase of [0, .25, .5, .75, 1]) {
+        assert.equal(polygonsIntersect(corners(layouts[first], firstPhase), corners(layouts[second], secondPhase)), false, `Random map ${sample}, boats ${first}/${second}.`);
+      }
+    }
+  }
+  assert.equal(closeHarbors, true, "The regression includes harbors separated by only one free coastal edge.");
+});
+
 test("board bounds and single-edge consumers share stable layouts through polls, array order and ownership", () => {
   const board = createBoard(() => 0);
   const expected = new Map(board.harbors.map((harbor) => [harbor.edge, harborLayout(board, harbor.edge)]));

@@ -244,9 +244,8 @@ test("sichtbare Catan-Partie mit echter Zufallskarte und hörbaren Sounds", asyn
     expect(game.board.hexes).toHaveLength(19);
     expect(game.board.harbors).toHaveLength(9);
     expect(game.targetPoints).toBe(target);
-    for (const edge of game.board.edges.filter((edge) => edge.hexes.length === 2)) {
-      expect(edge.hexes.every((id) => [6, 8].includes(game.board.hexes[id].number)), "Rote Zahlen dürfen nicht aneinandergrenzen.").toBeFalsy();
-    }
+    expect(game.board.hexes.map((hex) => hex.number).filter((number) => number !== null).sort((a, b) => a - b))
+      .toEqual([2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12]);
     await testInfo.attach("zufaellig-generierte-karte", { body: JSON.stringify(initialBoard, null, 2), contentType: "application/json" });
 
     let actions = 0;

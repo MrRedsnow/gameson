@@ -113,69 +113,7 @@ function readResources(value: unknown): Resources {
   return result;
 }
 
-function chooseTerrain(board: Board, random: Random, previousBoard?: Board): Hex["resource"][] {
-  const terrain: Hex["resource"][] = ["wood", "wood", "wood", "wood", "brick", "brick", "brick", "wool", "wool", "wool", "wool", "grain", "grain", "grain", "grain", "ore", "ore", "ore", "desert"];
-  const neighbors = board.hexes.map(() => [] as number[]);
-  for (const edge of board.edges) if (edge.hexes.length === 2) {
-    const [a, b] = edge.hexes;
-    neighbors[a].push(b); neighbors[b].push(a);
-  }
-  const repeatsPrevious = (layout: readonly (Hex["resource"] | null)[]) => previousBoard?.hexes.length === layout.length
-    && layout.every((resource, id) => resource === previousBoard.hexes[id].resource);
-  function hasValidGroups(layout: Hex["resource"][]): boolean {
-    const seen = new Set<number>();
-    for (let id = 0; id < layout.length; id++) {
-      if (seen.has(id)) continue;
-      const pending = [id]; seen.add(id); let size = 0;
-      while (pending.length) {
-        const current = pending.pop()!;
-        if (++size > 3) return false;
-        for (const next of neighbors[current]) if (!seen.has(next) && layout[next] === layout[id]) {
-          seen.add(next); pending.push(next);
-        }
-      }
-    }
-    return true;
-  }
-  // Accept the first valid shuffle without favoring evenly separated terrain.
-  // Bound retries so a constant test RNG still reaches the placement fallback.
-  for (let attempt = 0; attempt < 16; attempt++) {
-    const layout = shuffled(terrain, random);
-    if (!repeatsPrevious(layout) && hasValidGroups(layout)) return layout;
-  }
-
-  // Exhaustive placement also terminates when every shuffle from a test RNG is identical.
-  const layout: (Hex["resource"] | null)[] = Array(terrain.length).fill(null);
-  const remaining = new Map<Hex["resource"], number>();
-  for (const resource of terrain) remaining.set(resource, (remaining.get(resource) ?? 0) + 1);
-  const order = shuffled([...remaining.keys()], random);
-  function overflows(id: number, resource: Hex["resource"]): boolean {
-    const seen = new Set([id]); const pending = [id];
-    while (pending.length) {
-      for (const next of neighbors[pending.pop()!]) if (!seen.has(next) && layout[next] === resource) {
-        seen.add(next);
-        if (seen.size > 3) return true;
-        pending.push(next);
-      }
-    }
-    return false;
-  }
-  function place(id: number): boolean {
-    if (id === layout.length) return !repeatsPrevious(layout);
-    for (const resource of order) {
-      const count = remaining.get(resource)!;
-      if (!count || overflows(id, resource)) continue;
-      layout[id] = resource; remaining.set(resource, count - 1);
-      if (place(id + 1)) return true;
-      remaining.set(resource, count); layout[id] = null;
-    }
-    return false;
-  }
-  assert(place(0), "Eine gültige Landschaftsverteilung konnte nicht erzeugt werden.");
-  return layout as Hex["resource"][];
-}
-
-export function createBoard(random: Random = randomIndex, previousBoard?: Board): Board {
+export function createBoard(random: Random = randomIndex): Board {
   const board: Board = { hexes: [], vertices: [], edges: [], harbors: [] };
   const vertexMap = new Map<string, number>(); const edgeMap = new Map<string, number>();
   for (let r = -2; r <= 2; r++) for (let q = -2; q <= 2; q++) {
@@ -205,25 +143,13 @@ export function createBoard(random: Random = randomIndex, previousBoard?: Board)
     }
     board.hexes.push(hex);
   }
-  const terrain = chooseTerrain(board, random, previousBoard);
+  // Independent uniform shuffles keep the base inventory without filtering
+  // clusters or adjacent red numbers. Every reroll uses this same distribution.
+  const terrain = shuffled<Hex["resource"]>(["wood", "wood", "wood", "wood", "brick", "brick", "brick", "wool", "wool", "wool", "wool", "grain", "grain", "grain", "grain", "ore", "ore", "ore", "desert"], random);
   board.hexes.forEach((hex, id) => { hex.resource = terrain[id]; });
-  // Give every valid set of four nonadjacent red fields the same chance.
-  // Taking the first solution from a shuffled traversal biases their positions.
   const productive = board.hexes.filter((h) => h.resource !== "desert");
-  const adjacent = (a: Hex, b: Hex) => Math.max(Math.abs(a.q - b.q), Math.abs(a.r - b.r), Math.abs(a.q + a.r - b.q - b.r)) === 1;
-  const redPlacements: Hex[][] = [];
-  function collectRed(start: number, chosen: Hex[]): void {
-    if (chosen.length === 4) { redPlacements.push(chosen); return; }
-    for (let i = start; i <= productive.length - (4 - chosen.length); i++) {
-      if (chosen.some((h) => adjacent(h, productive[i]))) continue;
-      collectRed(i + 1, [...chosen, productive[i]]);
-    }
-  }
-  collectRed(0, []);
-  const red = redPlacements[random(redPlacements.length)]; const redNumbers = shuffled([6, 6, 8, 8], random);
-  red.forEach((hex, i) => { hex.number = redNumbers[i]; });
-  const numbers = shuffled([2, 3, 3, 4, 4, 5, 5, 9, 9, 10, 10, 11, 11, 12], random);
-  productive.filter((hex) => !red.includes(hex)).forEach((hex, i) => { hex.number = numbers[i]; });
+  const numbers = shuffled([2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12], random);
+  productive.forEach((hex, i) => { hex.number = numbers[i]; });
   const coast = board.edges.filter((edge) => edge.hexes.length === 1);
   const perimeter: Edge[] = [coast[0]]; let end = coast[0].b;
   while (perimeter.length < coast.length) {
@@ -231,7 +157,23 @@ export function createBoard(random: Random = randomIndex, previousBoard?: Board)
     perimeter.push(edge); end = edge.a === end ? edge.b : edge.a;
   }
   const harbors = shuffled<Resource | "any">(["any", "any", "any", "any", ...RESOURCES], random);
-  board.harbors = [0, 3, 7, 10, 13, 17, 20, 23, 27].map((index, i) => ({ edge: perimeter[index].id, resource: harbors[i] }));
+  // A harbor occupies two vertices, so leave at least one free coastal edge
+  // between harbors. Uniform gap compositions plus a uniform starting edge
+  // give every nonoverlapping set of nine coastal positions the same chance:
+  // each set has exactly nine representations, one per possible first harbor.
+  const gaps = Array<number>(harbors.length).fill(2);
+  const separators = shuffled([
+    ...Array<boolean>(perimeter.length - 2 * harbors.length).fill(false),
+    ...Array<boolean>(harbors.length - 1).fill(true),
+  ], random);
+  let gapIndex = 0;
+  for (const separator of separators) { if (separator) gapIndex++; else gaps[gapIndex]++; }
+  let coastIndex = random(perimeter.length);
+  board.harbors = harbors.map((resource, i) => {
+    const edge = perimeter[coastIndex].id;
+    coastIndex = (coastIndex + gaps[i]) % perimeter.length;
+    return { edge, resource };
+  });
   return board;
 }
 
@@ -265,7 +207,7 @@ function resolveMap(game: CatanGame, accept: boolean, random: Random) {
     delete game.mapVote; game.phase = "setup_settlement";
     addLog(game, `Die Karte ist angenommen. ${game.players[0].name} beginnt. Gründet zuerst reihum, dann in umgekehrter Reihenfolge.`);
   } else {
-    game.board = createBoard(random, game.board);
+    game.board = createBoard(random);
     game.robberHex = game.board.hexes.find((h) => h.resource === "desert")!.id;
     game.mapVote = { id: crypto.randomUUID(), hostPlayerId: game.mapVote!.hostPlayerId, votes: {} };
     addLog(game, "Die Karte wurde abgelehnt. Eine neue Karte steht zur Abstimmung bereit.");
