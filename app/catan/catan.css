@@ -616,6 +616,7 @@
   --catan-glass-background:rgba(12,48,63,.86);
   --catan-glass-opal:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.04) 62%);
   --catan-glass-filter:blur(20px) saturate(118%);
+  --catan-glass-control-filter:blur(10px) saturate(118%);
   --catan-glass-edge:rgba(219,247,245,.36);
   --catan-glass-inner-edge:rgba(219,247,245,.22);
   --catan-glass-inner:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.025)),rgba(9,43,58,var(--catan-glass-alpha));
@@ -657,7 +658,8 @@
 @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
   .catan-world { --catan-glass-background:var(--catan-glass-tint); }
   .catan-world .is-game-menu { --catan-glass-background:var(--catan-glass-tint); }
-  .catan-world :is(.is-game-menu,.catan-island-context:not(:empty),.catan-hand-resource,.catan-board-controls button,.catan-island-tools button,.catan-island-dock>.catan-screen-actions button) { -webkit-backdrop-filter:var(--catan-glass-filter); backdrop-filter:var(--catan-glass-filter); }
+  .catan-world :is(.is-game-menu,.catan-island-context:not(:empty)) { -webkit-backdrop-filter:var(--catan-glass-filter); backdrop-filter:var(--catan-glass-filter); }
+  .catan-world :is(.catan-hand-resource,.catan-board-controls button,.catan-island-tools button,.catan-island-dock>.catan-screen-actions button) { -webkit-backdrop-filter:var(--catan-glass-control-filter); backdrop-filter:var(--catan-glass-control-filter); }
 }
 @media(prefers-reduced-motion:reduce) { .catan-world-sea { background-size:cover; background-position:center; } }
 .catan-menu-stage { position:relative; flex:1 1 0; min-width:0; min-height:0; }
