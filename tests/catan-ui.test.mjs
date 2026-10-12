@@ -18,7 +18,7 @@ await build({
   absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", jsx: "automatic", outfile: output, logLevel: "silent",
 });
 after(() => rm(output, { force: true }));
-const { CatanGameUI, CatanRules, CatanBoard, CardsPanel, OverviewPanel, ResourceAmounts, TradeInventoryPreview, CATAN_TABS, suggestedTab, navigationTask, resolveNavigation, WoodIcon, ResourceIcon, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads, COSTS, RESOURCES, RESOURCE_INFO, emptyResources, buildUnavailable, hasBuildOption, buildingPreview, developmentGroups } = createRequire(import.meta.url)(output);
+const { CatanGameUI, CatanRules, CatanBoard, CardsPanel, OverviewPanel, ResourceAmounts, TradeInventoryPreview, CATAN_TABS, suggestedTab, navigationTask, resolveNavigation, WoodIcon, ResourceIcon, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads, tradeRatio, COSTS, RESOURCES, RESOURCE_INFO, emptyResources, buildUnavailable, hasBuildOption, buildingPreview, developmentGroups } = createRequire(import.meta.url)(output);
 const render = (component, props) => renderToStaticMarkup(createElement(component, props));
 const send = async () => true;
 const seats = [{ id: "a", name: "Robin" }, { id: "b", name: "Mara" }, { id: "c", name: "Lea" }];
@@ -81,6 +81,11 @@ function costNumber(row, resource) {
   const entry = row.match(new RegExp(`<span\\b[^>]*data-catan-cost="${resource}"[^>]*>[\\s\\S]*?<b\\b([^>]*)>(\\d+)<\\/b>`));
   assert.ok(entry, `Die benötigte Menge für ${resource} fehlt.`);
   return { count: Number(entry[2]), missing: /\bclass="is-missing"/.test(entry[1]) };
+}
+function buildNavigation(html) {
+  const button = (html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []).find((element) => attribute(element, "data-catan-menu-trigger") === "bauen");
+  assert.ok(button, "Der Bauen-Tab fehlt.");
+  return button;
 }
 
 test("zeigt fünf angeheftete Menübereiche mit sprechenden Gruppen", () => {
@@ -359,6 +364,49 @@ test("Bauentscheidungen erklären Kosten, Zugphase, leeren Vorrat und fehlende P
   view.board.vertices.forEach((vertex) => { if (vertex.owner === id) vertex.building = "city"; });
   assert.match(buildUnavailable(view, "city"), /eigene Siedlung/);
   assert.match(buildUnavailable(catanView(g, g.players.find((p) => p.id !== id).id), "road"), /eigenen Zug/);
+});
+
+test("Bauen-Badge zählt Bau- und Kaufoptionen und folgt Handel, Kauf und Bau", () => {
+  let game = foundedGame(); const active = game.players[game.currentPlayer].id;
+  game.phase = "main";
+  const badge = (count) => {
+    const button = buildNavigation(ui(game, active));
+    assert.match(button, new RegExp(`class="catan-nav-badge ${count ? "is-ready" : ""}"[^>]*>${count}<\\/span>`));
+    assert.equal(attribute(button, "aria-label"), `Bauen öffnen, ${count} ${count === 1 ? "Bau- oder Kaufoption" : "Bau- oder Kaufoptionen"} mit deinen Rohstoffen verfügbar`);
+  };
+  game.players[game.currentPlayer].resources = emptyResources(); badge(0);
+  game.players[game.currentPlayer].resources = { wood: 1, brick: 0, wool: 1, grain: 1, ore: tradeRatio(game, active, "ore") }; badge(1);
+  game = applyCatanAction(game, active, { type: "bank_trade", give: "ore", receive: "brick" });
+  badge(1);
+  game.players[game.currentPlayer].resources.ore = 1; badge(2);
+  game = applyCatanAction(game, active, { type: "buy_development" }, sequence([0])); badge(1);
+  game = applyCatanAction(game, active, { type: "build", building: "road", position: legalRoads(game, active)[0] }); badge(0);
+});
+
+test("Bauen-Badge berücksichtigt Vorräte und gültige Bauplätze", () => {
+  const game = foundedGame(); const active = game.players[game.currentPlayer].id;
+  game.phase = "main"; game.players[game.currentPlayer].resources = emptyResources(5);
+  assert.equal(legalSettlements(game, active).length, 0);
+  const view = catanView(game, active);
+  const badge = (count) => assert.match(buildNavigation(render(CatanGameUI, { game: view, send, busy: false, local: false })), new RegExp(`catan-nav-badge[^>]*>${count}<\\/span>`));
+  badge(3);
+  view.players[view.currentPlayer].pieces.road = 15; badge(2);
+  view.deckCount = 0; badge(1);
+  for (const vertex of view.board.vertices) if (vertex.owner === active) vertex.building = "city";
+  badge(0);
+});
+
+test("Bauen-Badge zeigt null außerhalb der Bauphase und bleibt bei laufenden Anfragen stabil", () => {
+  const game = foundedGame(); const active = game.players[game.currentPlayer].id;
+  game.players[game.currentPlayer].resources = emptyResources(5);
+  for (const phase of ["roll", "discard", "robber", "free_roads", "finished"]) {
+    game.phase = phase; game.winner = phase === "finished" ? active : null;
+    assert.match(buildNavigation(ui(game, active)), /catan-nav-badge[^>]*>0<\/span>/);
+  }
+  game.phase = "main"; game.winner = null;
+  assert.match(buildNavigation(ui(game, game.players[1].id)), /catan-nav-badge[^>]*>0<\/span>/);
+  assert.match(buildNavigation(ui(game, active, { busy: true })), /catan-nav-badge is-ready[^>]*>3<\/span>/);
+  assert.doesNotMatch(buildNavigation(ui(createCatanGame(seats, 10, sequence([0])), "a")), /catan-nav-badge/);
 });
 
 test("das Baumenü erklärt allgemeine Einschränkungen einmal und behält jede Kostenzeile", () => {

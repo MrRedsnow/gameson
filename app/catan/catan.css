@@ -325,6 +325,7 @@
 .catan-nav-icon>svg { width:22px; height:22px; }
 .catan-nav-badge { position:absolute; top:-7px; right:-3px; display:grid; place-items:center; min-width:18px; height:18px; padding:0 5px; border:2px solid #111f27; border-radius:10px; background:#516a75; color:#fff; font-size:.625rem; font-weight:800; line-height:1; }
 .catan-nav-badge.catan-hand-total { font-variant-numeric:tabular-nums; }
+.catan-nav-badge.is-ready { background:#357d61; }
 .catan-nav-badge.is-warn { background:#b8772a; }
 .catan-nav-badge.is-alert { background:#c74a3c; }
 .catan-nav-badge.is-dot { min-width:0; width:12px; height:12px; padding:0; background:#efd18a; }

@@ -224,6 +224,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
   const islandTitle = voting ? "Eure Karte prüfen" : mode === "settlement" && game.phase === "setup_settlement" ? `${game.setupIndex < game.players.length ? "Erste" : "Zweite"} Siedlung setzen`
     : mode ? `${mode === "robber" ? "Räuber" : BUILDING_NAMES[mode]} platzieren` : own && game.phase === "steal" ? "Wen möchtest du bestehlen?" : "Eure Insel";
   const cardCount = resourceCount(me.resources);
+  const buildCount = (Object.keys(COSTS) as BuildKind[]).filter((kind) => !buildUnavailable(game, kind)).length;
   const cardDescription = [
     `${cardCount} Rohstoffkarten`,
     me.development.length ? `${me.development.length} Entwicklungskarten` : null,
@@ -231,6 +232,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
   ].filter(Boolean).join(", ");
   const badges: Partial<Record<CatanTab, { text?: string; tone: string; description: string }>> = {
     karten: voting ? undefined : { text: String(cardCount), tone: needsDiscard ? "is-alert" : cardCount > 7 ? "is-warn" : "", description: cardDescription },
+    bauen: voting ? undefined : { text: String(buildCount), tone: buildCount ? "is-ready" : "", description: `${buildCount} ${buildCount === 1 ? "Bau- oder Kaufoption" : "Bau- oder Kaufoptionen"} mit deinen Rohstoffen verfügbar` },
     handel: isTradeRecipient(game.trade, me.id) ? { text: "1", tone: "is-alert", description: "Ein Handelsangebot wartet auf deine Antwort" } : game.trade?.fromId === me.id ? { tone: "is-dot", description: "Dein Angebot ist noch offen" } : undefined,
     insel: mode || (own && game.phase === "steal") ? { tone: "is-dot", description: "Die Insel wartet auf deine Auswahl" } : undefined,
     uebersicht: activity.unread.length ? { text: String(activity.unread.length), tone: "", description: "Neue Meldungen" } : undefined,
@@ -290,7 +292,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
     <nav ref={menuNavRef} className="catan-nav" aria-label={expanded ? "Vollbild-Spielmenü" : "Spielmenü"} onPointerEnter={enterMenu} onPointerLeave={leaveMenu}><div className="catan-nav-list">{CATAN_TABS.map(({ id, label, Icon }) => {
       const badge = badges[id]; const unavailable = voting && ["karten", "bauen", "handel"].includes(id);
       return <Button key={id} type="button" variant="ghost" disabled={unavailable} className="catan-nav-tab" data-state={tab === id ? "active" : "inactive"} data-catan-menu-trigger={id} data-catan-fullscreen-trigger={expanded && id !== "insel" ? id : undefined} aria-label={`${label}${id === "insel" ? " anzeigen" : " öffnen"}${badge ? `, ${badge.description}` : ""}`} aria-haspopup={id === "insel" ? undefined : "dialog"} aria-expanded={id === "insel" ? undefined : activeMenu === id} aria-pressed={id === "insel" ? tab === "insel" : undefined} aria-controls={id === "insel" ? undefined : `${menuId}-${id}`} onPointerEnter={(event) => { if (expanded && id !== "insel" && !unavailable) hoverMenu(id, event); }} onClick={() => id === "insel" ? closeMenu() : clickMenu(id)}>
-        <span className="catan-nav-icon"><Icon />{badge && <span className={`catan-nav-badge ${badge.tone}${id === "karten" ? " catan-hand-total" : ""}`} aria-hidden="true" title={id === "karten" ? badge.description : undefined}>{id === "karten" ? <><b className="catan-hand-count">{badge.text}</b><span className="catan-hand-feedback"><em className="catan-hand-gain" hidden aria-hidden="true" /><em className="catan-hand-loss" hidden aria-hidden="true" /></span></> : badge.text}</span>}</span><span className="catan-nav-label">{label}</span>{badge && <span className="sr-only">, {badge.description}</span>}
+        <span className="catan-nav-icon"><Icon />{badge && <span className={`catan-nav-badge ${badge.tone}${id === "karten" ? " catan-hand-total" : ""}`} aria-hidden="true" title={id === "karten" || id === "bauen" ? badge.description : undefined}>{id === "karten" ? <><b className="catan-hand-count">{badge.text}</b><span className="catan-hand-feedback"><em className="catan-hand-gain" hidden aria-hidden="true" /><em className="catan-hand-loss" hidden aria-hidden="true" /></span></> : badge.text}</span>}</span><span className="catan-nav-label">{label}</span>{badge && <span className="sr-only">, {badge.description}</span>}
       </Button>;
     })}</div></nav>
   </div>;

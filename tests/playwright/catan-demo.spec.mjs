@@ -20,7 +20,7 @@ const hold = integerOption("CATAN_DEMO_HOLD_MS", 15000, 0, 3600000);
 const waitForAudio = process.env.CATAN_DEMO_WAIT_FOR_AUDIO !== "0";
 
 async function tab(page, label) {
-  const control = page.locator(".catan-nav-tab").filter({ hasText: new RegExp(`^${label}`) });
+  const control = page.locator(".catan-nav-tab").filter({ has: page.locator(".catan-nav-label", { hasText: new RegExp(`^${label}$`) }) });
   if (await control.getAttribute("data-state") !== "active") await control.click();
 }
 function button(page, name) {
