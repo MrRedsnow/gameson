@@ -231,7 +231,7 @@ try {
   assert.equal(await fallback.locator(".catan-world-sea").getAttribute("data-catan-sea-ready"),"true","Confirmed loss/gain feedback retains the active sea");
   await auditWorld(fallback,"handel"); await capture(fallback,"390x844-glass-active-gain-loss");
   await trigger(fallback,"bauen").click();
-  await fallback.addStyleTag({content:'.catan-world { --catan-glass-background:rgba(12,48,63,.86)!important; } .catan-world :is(.is-game-menu,.catan-island-dock) { backdrop-filter:none!important; -webkit-backdrop-filter:none!important; }'});
+  await fallback.addStyleTag({content:'.catan-world { --catan-glass-background:rgba(12,48,63,.86)!important; } .catan-world .is-game-menu { --catan-glass-background:rgba(7,30,42,.94)!important; } .catan-world :is(.is-game-menu,.catan-island-dock) { backdrop-filter:none!important; -webkit-backdrop-filter:none!important; }'});
   assert.equal(await panel(fallback,"bauen").evaluate((element) => getComputedStyle(element).backdropFilter), "none");
   await auditLayout(fallback,()=>observe(fallback)); await capture(fallback,"390x844-glass-no-filter");
   await fallback.emulateMedia({reducedMotion:"reduce"}); await observe(fallback);
