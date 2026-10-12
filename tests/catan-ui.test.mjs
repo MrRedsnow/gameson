@@ -380,7 +380,7 @@ test("Baukosten markieren nur unzureichende Rohstoffe und zeigen benötigte Gesa
   assert.deepEqual(costNumber(road, "brick"), { count: 1, missing: true });
   assert.deepEqual(costNumber(city, "grain"), { count: 2, missing: true });
   assert.deepEqual(costNumber(city, "ore"), { count: 3, missing: true });
-  assert.match(city, /Dir fehlen 1 Getreide, 1 Erz/);
+  assert.doesNotMatch(menu(html, "bauen"), /Dir fehlen|class="is-unavailable"/);
   assert.match(road, /aria-disabled="true"/);
   assert.match(city, /aria-disabled="true"/);
   assert.match(development, /aria-disabled="false"/);

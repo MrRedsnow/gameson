@@ -22,7 +22,7 @@ import { useIslandFullscreen } from "./use-island-fullscreen";
 import { useFullscreenMenu, type FullscreenMenu } from "./use-fullscreen-menu";
 import { IslandMark } from "./island-mark";
 import { COSTS, MAX_TARGET_POINTS, MIN_TARGET_POINTS, PLAYER_COLORS, RESOURCES, RESOURCE_INFO, canAfford, legalCities, legalRoads, legalSettlements, mapVoteProgress, victoryPoints, type CatanView, type Resources } from "@/lib/catan";
-import { buildingPreview, buildPhaseUnavailable, buildUnavailable, type BuildKind } from "@/lib/catan-ux";
+import { buildingPreview, buildPhaseUnavailable, buildUnavailable, missingResources, type BuildKind } from "@/lib/catan-ux";
 export { TradePanel } from "./trade-panel";
 
 export function TargetPoints({ value, onChange, disabled = false }: { value: number; onChange: (value: number) => void; disabled?: boolean }) {
@@ -114,7 +114,7 @@ function BuildChoices({ game, busy, selected, onBuild }: { game: CatanView; busy
       return <button type="button" className="catan-build-choice" key={kind} aria-pressed={selected === kind} aria-disabled={busy || Boolean(reason)} onClick={() => { if (!busy && !reason) onBuild(kind); }}>
         <Icon /><span><strong>{BUILDING_NAMES[kind]}{kind === "development" ? " kaufen" : ""}</strong><Cost cost={COSTS[kind]} available={game.me!.resources} />
           <small>{BUILDING_DESCRIPTIONS[kind]}</small>
-          {reason && !restriction && <small className="is-unavailable">{reason}</small>}
+          {reason && !restriction && reason !== missingResources(game.me!.resources, COSTS[kind]) && <small className="is-unavailable">{reason}</small>}
           {kind === "development" && <small>{game.deckCount} im Stapel</small>}
         </span><ChevronRight />
       </button>;
