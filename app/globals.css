@@ -1918,6 +1918,15 @@ body, .gameson-home, .imposter-theme, .werewolf-theme {
 /* Stadt Land Fluss in the shared game library. */
 .slf-library-card { background:linear-gradient(145deg,#254f3c,#172f25); border-color:#456c48; }
 .hive-library-card { background:linear-gradient(145deg,#4a412b,#29291f); border-color:#74633c; }
+.core-ball-library-card { background:linear-gradient(145deg,#343051,#171925); border-color:#74699e; }
+.core-ball-library-card .library-eyebrow { color:#c8b7ff; }
+.core-ball-library-art { display:grid; place-items:center; color:#ece6ff; }
+.core-ball-library-art>svg { width:74px; height:74px; stroke-width:1.2; }
+.core-ball-library-art>span { position:absolute; width:10px; height:10px; border-radius:50%; background:#bba6f4; }
+.core-ball-library-art>span:nth-child(2) { transform:translate(-61px,-30px); }
+.core-ball-library-art>span:nth-child(3) { transform:translate(52px,-48px); background:#83dec7; }
+.core-ball-library-art>span:nth-child(4) { transform:translate(33px,57px); background:#edbd77; }
+@media(max-width:720px) { .gameson-home .core-ball-library-art>svg { width:36px; height:42px; } .gameson-home .core-ball-library-art>span { display:none; } }
 .hive-library-card .library-eyebrow { color:#eacb7b; }
 .hive-library-art { display:grid; place-items:center; color:#eacb7b; }
 .hive-library-art>svg:first-child { width:92px; height:102px; stroke-width:1.1; }

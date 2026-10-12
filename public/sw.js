@@ -1,6 +1,6 @@
 const CACHE = "gameson-shell-v29";
 const SHELL = [
-  "/", "/imposter", "/werwolf", "/catan", "/stadt-land-fluss", "/hive", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
+  "/", "/imposter", "/werwolf", "/catan", "/stadt-land-fluss", "/hive", "/core-ball", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png",
   "/catan/terrain-atlas-v3.jpg", "/catan/sea-v3.jpg", "/catan/buildings-v3.png", "/catan/harbor-atlas-v3.png", "/catan/robber-v2.png",
   "/catan/ambient-atlas-v1.png", "/catan/pasture-v1.png",
   "/catan/boats-directions-v1.png", "/catan/wildlife-atlas-v1.png",

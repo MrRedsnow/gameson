@@ -2,12 +2,15 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import type { CatanLiveNamespace } from "../lib/catan-live-server";
+import type { CoreBallLiveNamespace } from "../lib/core-ball-live-server";
 export { CatanLobbyLive } from "./catan-lobby-live";
+export { CoreBallLobbyLive } from "./core-ball-lobby-live";
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   CATAN_LIVE: CatanLiveNamespace;
+  CORE_BALL_LIVE: CoreBallLiveNamespace;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -31,6 +34,14 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname === "/api/core-ball/live") {
+      try {
+        const { upgradeCoreBallLive } = await import("../lib/core-ball-live-server");
+        return await upgradeCoreBallLive(request, env.CORE_BALL_LIVE);
+      }
+      catch { return Response.json({ error: "Die Live-Verbindung ist momentan nicht erreichbar." }, { status: 503, headers: { "Cache-Control": "no-store" } }); }
+    }
 
     if (url.pathname === "/api/catan/live") {
       try {

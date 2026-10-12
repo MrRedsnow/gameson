@@ -68,7 +68,7 @@ export function GameRules({ game }: { game: keyof typeof RULES }) {
 }
 
 export type ResumeLobbyInfo = { name?: string; detail: string };
-export type GameTheme = "imposter" | "werewolf" | "catan" | "slf" | "hive";
+export type GameTheme = "imposter" | "werewolf" | "catan" | "slf" | "hive" | "core-ball";
 
 // Dialogs are portaled outside the route layout, so each game's theme class travels with the content.
 const DIALOG_THEME_CLASS: Record<GameTheme, string> = {
@@ -77,6 +77,7 @@ const DIALOG_THEME_CLASS: Record<GameTheme, string> = {
   catan: "catan-theme catan-dialog",
   slf: "slf-theme slf-dialog",
   hive: "hive-theme hive-dialog",
+  "core-ball": "core-ball-theme core-ball-dialog",
 };
 
 /** Every window in every game is built from the same class: its theme, plus one shared shape and position. */
@@ -123,6 +124,7 @@ const QR_COLORS: Record<GameTheme, { dark: string; light: string }> = {
   catan: { dark: "#13232b", light: "#f4f0e5" },
   slf: { dark: "#183d37", light: "#f4f3ec" },
   hive: { dark: "#29291f", light: "#f4f0e6" },
+  "core-ball": { dark: "#171925", light: "#f2f0ff" },
 };
 
 /** The same invitation in every game: scan the code, share the link, or read out the group name. */

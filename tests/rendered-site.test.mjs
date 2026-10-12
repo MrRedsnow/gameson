@@ -19,6 +19,8 @@ test("rendert die Gameson-Spielauswahl", async () => {
   assert.match(html, /WERWOLF/);
   assert.match(html, /CATAN/);
   assert.match(html, /HIVE/);
+  assert.match(html, /CORE BALL/);
+  assert.match(html, /href="\/core-ball"/);
   assert.match(html, /href="\/hive"/);
   assert.match(html, /href="\/catan"/);
   assert.match(html, /App installieren/);
@@ -40,6 +42,14 @@ test("rendert Imposter und Werwolf als eigene Spiele", async () => {
 test("rendert HIVE mit eigener Route und den vorhandenen Spielmodi", async () => {
   const response = await render("/hive"); assert.equal(response.status, 200);
   const html = await response.text(); assert.match(html, /HIVE/); assert.match(html, /HIVE wird geladen/);
+});
+
+test("rendert Core Ball und nimmt die lokale Route in den PWA-Cache auf", async () => {
+  const response = await render("/core-ball"); assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Core Ball – Gameson/); assert.match(html, /Core Ball wird geladen/);
+  const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+  assert.match(serviceWorker, /"\/core-ball"/);
 });
 
 test("liefert ein installierbares deutsches PWA-Manifest", async () => {

@@ -17,6 +17,7 @@ const target = integerOption("CATAN_DEMO_TARGET", 8, 8, 15);
 const rounds = integerOption("CATAN_DEMO_ROUNDS", 0, 0, 100);
 const maxTurns = integerOption("CATAN_DEMO_MAX_TURNS", 300, 1, 3000);
 const hold = integerOption("CATAN_DEMO_HOLD_MS", 15000, 0, 3600000);
+const visibleBrowsers = integerOption("CATAN_DEMO_VISIBLE_BROWSERS", 3, 1, 3);
 const waitForAudio = process.env.CATAN_DEMO_WAIT_FOR_AUDIO !== "0";
 
 async function tab(page, label) {
@@ -161,11 +162,24 @@ test("sichtbare Catan-Partie mit echter Zufallskarte und hörbaren Sounds", asyn
   const names = ["Anna", "Ben", "Clara"];
   const viewerName = process.env.CATAN_DEMO_VIEWER ?? "Anna";
   if (!names.includes(viewerName)) throw new Error("CATAN_DEMO_VIEWER: Anna, Ben oder Clara wählen.");
+  const visibleNames = new Set([viewerName, ...names.filter((name) => name !== viewerName)].slice(0, visibleBrowsers));
+  let backgroundBrowser;
   let reference;
 
-  // Independent player sessions/tabs; no saved local match is overwritten.
+  // Headless applies to an entire browser, so hidden seats share a separate
+  // browser while keeping their own independent sessions and real UI actions.
   async function newSeat(name) {
-    const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 }, reducedMotion: "no-preference", serviceWorkers: "block" });
+    let seatBrowser = browser;
+    if (!testInfo.project.use.headless && !visibleNames.has(name)) {
+      backgroundBrowser ??= await browser.browserType().launch({
+        ...testInfo.project.use.launchOptions,
+        headless: true,
+        // Keep Chromium's default audio mute for invisible players as well.
+        ignoreDefaultArgs: [],
+      });
+      seatBrowser = backgroundBrowser;
+    }
+    const context = await seatBrowser.newContext({ baseURL, viewport: { width: 1440, height: 1000 }, reducedMotion: "no-preference", serviceWorkers: "block" });
     await context.addInitScript(observeDemoAudio);
     const page = await context.newPage();
     page.on("pageerror", (error) => pageErrors.push(`${name}: ${error.message}`));
@@ -199,7 +213,7 @@ test("sichtbare Catan-Partie mit echter Zufallskarte und hörbaren Sounds", asyn
   }
   async function focus(seat) {
     // Keep one human spectator's perspective visible for the entire match.
-    // Other players act in their own background tabs with audio disabled.
+    // Other players act in their own sessions with audio disabled.
     await reference.page.bringToFront();
     // The authoritative API can be ahead of a tab's WebSocket/React update.
     // Consume the previous move while still muted, before unlocking audio.
@@ -295,6 +309,7 @@ test("sichtbare Catan-Partie mit echter Zufallskarte und hörbaren Sounds", asyn
       return { started, ended, cancelled, decoded, decodeErrors };
     }) })));
     expect(audio.reduce((sum, seat) => sum + seat.started, 0)).toBeGreaterThan(0);
+    expect(audio.filter((seat) => seat.name !== viewerName).every((seat) => seat.started === 0), "Nur die ausgewählte Spieleransicht darf Sounds abspielen.").toBeTruthy();
     expect(audio.every((seat) => seat.decodeErrors === 0)).toBeTruthy();
     if (waitForAudio) expect(audio.every((seat) => seat.cancelled === 0), "Kein Sound darf durch den nächsten Demo-Schritt abgebrochen werden.").toBeTruthy();
     await testInfo.attach("audio-pruefung", { body: JSON.stringify(audio, null, 2), contentType: "application/json" });
@@ -306,12 +321,16 @@ test("sichtbare Catan-Partie mit echter Zufallskarte und hörbaren Sounds", asyn
     await last.page.screenshot({ path: testInfo.outputPath("catan-demo.png"), fullPage: true });
     if (hold) await last.page.waitForTimeout(hold);
   } finally {
-    for (const seat of seats) {
-      const failed = testInfo.status !== testInfo.expectedStatus;
-      if (failed) {
-        await seat.page.screenshot({ path: testInfo.outputPath(`${seat.name}-failure.png`), fullPage: true }).catch(() => {});
+    try {
+      for (const seat of seats) {
+        const failed = testInfo.status !== testInfo.expectedStatus;
+        if (failed) {
+          await seat.page.screenshot({ path: testInfo.outputPath(`${seat.name}-failure.png`), fullPage: true }).catch(() => {});
+        }
+        await seat.context.close();
       }
-      await seat.context.close();
+    } finally {
+      await backgroundBrowser?.close();
     }
   }
 });

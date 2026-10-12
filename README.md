@@ -1,6 +1,6 @@
 # Gameson
 
-**Spieleabend. Sofort.** Five German games for your next games night, played on
+**Spieleabend. Sofort.** Six German games for your next games night, played on
 separate phones or one shared device. No accounts are required. Gameson is an
 installable web app with online lobbies, private player views and local play.
 
@@ -12,6 +12,7 @@ installable web app with online lobbies, private player views and local play.
 
 | Game | Players | Modes | Route |
 | --- | --- | --- | --- |
+| **CORE BALL** | 2–8 | Cooperative or competitive, online or one shared device | `/core-ball` |
 | **HIVE** | 2 | Online or one shared device | `/hive` |
 | **Imposter** | 3–22 | Online or one shared device | `/imposter` |
 | **Werwolf** | 3–22 | Online or one shared device | `/werwolf` |
@@ -22,9 +23,33 @@ Online players join through invitation links, QR codes, lobby codes or group
 names. Discoverable waiting lobbies appear to other devices on the same network;
 hosts can turn discovery off. The home screen offers installation as a PWA.
 Local games work offline after their pages and assets have been loaded online;
-Catan and HIVE also save local progress after every move. Keep local Imposter
+Catan, HIVE and Core Ball also save local progress after every move. Keep local Imposter
 and Werwolf games open: reloading resets the current match. Online games require
 a connection to the server.
+
+### CORE BALL
+
+Tap to attach a ball to a rotating circle without touching an existing ball.
+Everyone shares the circle; only the active player can shoot. Completing a
+level or colliding passes play to the next seat. After a successful shot, the
+active player can hand off to anyone else. Rotation pauses at every handoff
+until the new player presses **Bereit**.
+
+Cooperative groups try to finish as many levels as possible. In competitive
+play, each successful shot earns a provisional point; a completed level banks
+those points, while a collision discards the level's contributions and restarts
+the same level. The host ends an online match explicitly; on a shared device,
+the group can end it. Unfinished points are discarded and tied leaders share
+the victory. There is no timer or final level.
+
+The deterministic rotation adds speed modulation and direction changes as
+levels progress, with at most eight initial balls and sixteen new balls.
+Shots land after 150 ms. Server-authoritative online actions use synchronized
+tap timestamps, revision guards and idempotent command receipts. Authenticated
+WebSockets push changes; reconnecting clients reconcile through HTTP. The host
+can explicitly skip an absent player without losing balls or contributions.
+Reloading a local match restores it paused; online reloads restore the current
+server state.
 
 ### Catan in play
 
@@ -56,6 +81,15 @@ suspected imposters. Choose a themed word pool, family or adult content, or add
 custom word pairs. The number of imposters is configurable. On a shared device,
 private cards stay hidden between players; online, each person receives their
 own assignment.
+
+The built-in word pool in `lib/game.ts` contains 1,020 curated pairs: 120 in
+each of the six family categories and 100 in each of the three adult categories.
+Pairs connect different subjects through shared situations, functions or sensory
+properties. Imposter words allow several plausible guesses; close variants and
+shared word stems are avoided. Categories follow the crew word, and adult crew
+words include explicit sexual vocabulary. Family mode excludes all adult pairs.
+Adult mode with the random pool mixes both ratings; choose an adult category
+for an exclusively 18+ round.
 
 ### Werwolf
 
@@ -191,10 +225,22 @@ npx wrangler dev --config dist/server/wrangler.json --local --persist-to .wrangl
 | `npm test` | Production build followed by automated tests |
 | `npm run lint` | Source checks |
 | `npm run test:catan:demo` | Visible, slow Playwright Catan match with real random map and audio |
+| `npm run test:catan:demo:1` | One visible player view; the other two players run headless |
+| `npm run test:catan:demo:3` | All three player views visible (same as the default demo) |
 | `npm run db:generate` | Generate Drizzle migration SQL; does not apply it |
 
 The tests cover game rules, APIs, sessions, UI rendering, map controls, realtime
 updates and Ubuntu setup behavior.
+
+### Core Ball browser check
+
+With the development server running on port 3000 and Playwright's Chromium
+available, run `node tests/core-ball-browser.mjs`. The check uses five isolated
+phone-sized browser sessions and a separate shared-device game. It exercises
+real UI handoffs, readiness, reloads, results, clock skew, added network latency
+and HTTP fallback when WebSockets are unavailable. Screenshots are saved under
+`.wrangler/core-ball-browser/`. `CORE_BALL_BROWSER_URL` selects another local
+development URL.
 
 ### Live Catan browser demo
 
@@ -206,16 +252,29 @@ npx playwright install chromium
 npm run test:catan:demo
 ```
 
-Playwright opens a visible browser with three independent players (Anna, Ben
-and Clara) in a fresh lobby on the local server. It starts the match through the
-real UI, so terrain, numbers, harbors, starting player, dice and cards use the
+Playwright opens three visible browser views with independent players (Anna, Ben
+and Clara) in a fresh lobby on the local server. To show only one player view
+while the other two players keep playing through the real UI headlessly, run:
+
+```bash
+npm run test:catan:demo:1
+```
+
+`npm run test:catan:demo:3` explicitly selects all three visible views, matching
+the default command. You can also set `CATAN_DEMO_VISIBLE_BROWSERS=1`, `2` or `3`
+with `npm run test:catan:demo`. The selected `CATAN_DEMO_VIEWER` is always visible;
+only that player's audio is enabled, including in the one-view demo.
+`CATAN_DEMO_HEADLESS=1` still makes all players headless regardless of this count.
+
+The demo starts the match through the real UI, so terrain, numbers, harbors,
+starting player, dice and cards use the
 normal random generator. No prepared board, fixed seed, injected resources or
 scripted dice are used. The bots vote for the map, complete snake-order setup
 and play legal moves until someone reaches **8 points**. They use bank trades
 and development cards; player-to-player offers are not part of the demo.
 
 Anna's reference view stays in the foreground with a small step label; Ben and
-Clara take their turns in background tabs. Real sound effects are enabled for
+Clara take their turns in their own sessions. Real sound effects are enabled for
 Anna, other players are muted, and each action waits for
 the dice animation and all scheduled audio to finish before the next action.
 There is also a 1.5-second reading pause and a slower browser action speed.
@@ -279,7 +338,7 @@ not an application route or part of the deployed UI.
 | [components/](components/) | Shared UI and game boards |
 | [lib/](lib/) | Rules engines, sessions, audio and realtime helpers |
 | [db/](db/) and [drizzle/](drizzle/) | D1 schema, runtime bootstrap and migrations |
-| [worker/](worker/) | Worker entry point and Catan live Durable Object |
+| [worker/](worker/) | Worker entry point and live Durable Objects |
 | [public/](public/) | PWA assets, active artwork and audio |
 | [assets/](assets/) | Asset documentation and archived source material |
 | [tests/](tests/) | Automated tests and browser preview fixtures |
@@ -290,6 +349,11 @@ Catan push updates require the `CATAN_LIVE` Durable Object binding, exported
 `CatanLobbyLive` class and `catan-live-v1` SQLite namespace migration. Keep those
 entries in the generated Worker configuration. The Sites build also includes
 hosting metadata and Drizzle migrations in `dist/.openai/`.
+
+Core Ball uses the separate `CORE_BALL_LIVE` binding, `CoreBallLobbyLive` class
+and `core-ball-live-v1` SQLite namespace migration. Its D1 table is initialized
+at runtime; [0011_core_ball.sql](drizzle/0011_core_ball.sql) also provides an
+idempotent migration for managed deployments.
 
 ## Ubuntu hosting with HTTPS
 

@@ -12,6 +12,8 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test:catan:demo": "playwright test --config playwright.config.mjs",
+    "test:catan:demo:1": "CATAN_DEMO_VISIBLE_BROWSERS=1 playwright test --config playwright.config.mjs",
+    "test:catan:demo:3": "CATAN_DEMO_VISIBLE_BROWSERS=3 playwright test --config playwright.config.mjs",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

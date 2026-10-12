@@ -14,8 +14,14 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
-  durable_objects: { bindings: [{ name: "CATAN_LIVE", class_name: "CatanLobbyLive" }] },
-  migrations: [{ tag: "catan-live-v1", new_sqlite_classes: ["CatanLobbyLive"] }],
+  durable_objects: { bindings: [
+    { name: "CATAN_LIVE", class_name: "CatanLobbyLive" },
+    { name: "CORE_BALL_LIVE", class_name: "CoreBallLobbyLive" },
+  ] },
+  migrations: [
+    { tag: "catan-live-v1", new_sqlite_classes: ["CatanLobbyLive"] },
+    { tag: "core-ball-live-v1", new_sqlite_classes: ["CoreBallLobbyLive"] },
+  ],
   d1_databases: d1
     ? [
         {

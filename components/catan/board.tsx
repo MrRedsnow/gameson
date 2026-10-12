@@ -6,6 +6,7 @@ import { Anchor, LocateFixed, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Hex, type Resource } from "@/lib/catan";
 import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM, type BoardCamera } from "@/lib/catan-camera";
+import { pointInPolygon, type AmbientPoint } from "@/lib/catan-geometry";
 import { seaParallax } from "@/lib/catan-parallax";
 import { BuildingPiece, HarborIllustration, HarborSeaClip, Landscape, LandscapeDefinitions, RobberPiece } from "./landscape";
 import { HARBOR_BOAT_CLEARANCE, harborLayout } from "@/lib/catan-harbor";
@@ -22,6 +23,7 @@ import { NumberLabel } from "./number-label";
 
 export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
+type BoardInspection = { kind: "hex" | "building"; id: number; gameId: string };
 
 function HexNumber({ artId, hex, blocked = false }: { artId: string; hex: Hex; blocked?: boolean }) {
   return hex.number ? <>
@@ -41,9 +43,15 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   useEffect(() => preloadAmbientArtwork(setPastureReady), []);
   const [size, setSize] = useState({ width: 360, height: 300, measured: false });
   const [worldSize, setWorldSize] = useState({ width: 360, height: 300, measured: false });
-  const [inspect, setInspect] = useState<number | null>(null);
+  const [inspect, setInspect] = useState<BoardInspection | null>(null);
   const seaRef = useRef<CatanSeaHandle>(null);
+  const infoRef = useRef<HTMLParagraphElement>(null);
   const { board } = game;
+  const inspection = inspect?.gameId === game.id ? inspect : null;
+  const inspectedHex = inspection?.kind === "hex" ? board.hexes[inspection.id] : null;
+  const inspectedBuilding = inspection?.kind === "building" ? board.vertices[inspection.id] : null;
+  const inspectedOwner = game.players.find((player) => player.id === inspectedBuilding?.owner);
+  const infoId = `${artId}-inspection`;
   const harborLayouts = board.harbors.map((harbor) => harborLayout(board, harbor.edge));
   const buildingPreview = !disabled && game.me && (mode === "settlement" || mode === "city") && selected !== null && choices.includes(selected) ? board.vertices[selected] : null;
   const robberHex = board.hexes[game.robberHex];
@@ -53,7 +61,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     return `M${a.x},${a.y}L${b.x},${b.y}`;
   }).join(" ");
   const selectedHex = mode === "robber" && selected !== null && choices.includes(selected) ? board.hexes[selected]
-    : !mode && inspect !== null ? board.hexes[inspect] : null;
+    : !mode ? inspectedHex : null;
   const bounds = [...board.vertices.map((v) => ({ x: v.x, y: v.y })), ...board.harbors.flatMap((h) => {
     const edge = board.edges[h.edge]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
     const x = (a.x + b.x) / 2 * 1.29; const y = (a.y + b.y) / 2 * 1.29;
@@ -93,9 +101,32 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     if (seaTarget) observer.observe(seaTarget);
     return () => observer.disconnect();
   }, [viewportRef, seaTarget]);
+  useLayoutEffect(() => {
+    const node = viewportRef.current;
+    const info = infoRef.current;
+    if (!node || !info) return;
+    const hand = node.closest(".catan-play")?.querySelector<HTMLElement>(".catan-hand-bar");
+    const measure = () => {
+      const viewport = node.getBoundingClientRect(); const handBounds = hand?.getBoundingClientRect(); const infoBounds = info.getBoundingClientRect();
+      const floating = hand && handBounds && getComputedStyle(hand).position === "absolute" && handBounds.bottom > viewport.top && handBounds.top < viewport.bottom && handBounds.right > infoBounds.left && handBounds.left < infoBounds.right;
+      node.style.setProperty("--catan-inspection-top", `${floating ? Math.max(8, handBounds.bottom - viewport.top + 8) : 8}px`);
+    };
+    measure(); const observer = new ResizeObserver(measure); observer.observe(node); observer.observe(info); if (hand) observer.observe(hand);
+    window.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+  }, [viewportRef, inspection]);
   const color = (id: string) => PLAYER_COLORS[game.players.find((p) => p.id === id)!.color];
-  const activate = (id: number) => { if (!disabled) onSelect(id); };
+  const inspectBuilding = (id: number) => setInspect({ kind: "building", id, gameId: game.id });
+  const activate = (id: number) => {
+    if (disabled) return;
+    if (mode === "city" && board.vertices[id]?.owner) inspectBuilding(id);
+    onSelect(id);
+  };
   const hitRadius = 24 / scale;
+  const buildingTargets = board.vertices.filter((vertex) => vertex.owner && vertex.building).map((vertex) => {
+    const size = Math.max(vertex.building === "city" ? 56 : 44, hitRadius * 2);
+    return { vertex, x: vertex.x - size / 2, y: vertex.y - size / 2 - 6, size };
+  });
   const placementPoints = choices.map((id) => {
     if (mode === "road") {
       const edge = board.edges[id]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
@@ -104,20 +135,52 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     const point = mode === "robber" ? board.hexes[id] : board.vertices[id];
     return { id, x: point.x, y: point.y };
   });
-  // Overlapping touch areas resolve to the closest marked place, rather than SVG paint order.
-  const activateFromTap = (id: number, event: React.MouseEvent<SVGGElement>) => {
-    if (event.detail === 0 || mode === "robber") { activate(id); return; }
+  const tapPoint = (event: React.MouseEvent<SVGGElement>) => {
     const svg = event.currentTarget.ownerSVGElement; const matrix = svg?.getScreenCTM();
-    if (!svg || !matrix) return;
+    if (!svg || !matrix) return null;
     const point = svg.createSVGPoint(); point.x = event.clientX; point.y = event.clientY;
-    const local = point.matrixTransform(matrix.inverse());
-    const nearest = placementPoints.reduce((best, point) => Math.hypot(point.x - local.x, point.y - local.y) < Math.hypot(best.x - local.x, best.y - local.y) ? point : best);
-    if (Math.hypot(nearest.x - local.x, nearest.y - local.y) <= Math.max(22, hitRadius)) activate(nearest.id);
+    return point.matrixTransform(matrix.inverse());
   };
-  const interactive = (id: number, label: string, run?: () => void) => ({
-    role: "button" as const, tabIndex: disabled ? -1 : 0, "aria-label": label, "aria-pressed": run ? inspect === id : selected === id, "aria-disabled": disabled,
-    onClick: (event: React.MouseEvent<SVGGElement>) => { if (!disabled) { if (run) run(); else activateFromTap(id, event); } },
-    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!disabled) { if (run) run(); else activate(id); } } },
+  const inspectBuildingAt = (point: AmbientPoint) => {
+    const hits = buildingTargets.filter((target) => point.x >= target.x && point.x <= target.x + target.size && point.y >= target.y && point.y <= target.y + target.size);
+    if (!hits.length) return;
+    const nearest = hits.reduce((best, target) => Math.hypot(target.vertex.x - point.x, target.vertex.y - 6 - point.y) < Math.hypot(best.vertex.x - point.x, best.vertex.y - 6 - point.y) ? target : best);
+    inspectBuilding(nearest.vertex.id);
+  };
+  // Overlapping touch areas resolve to the closest marked place, rather than SVG paint order.
+  const activateAt = (point: AmbientPoint, robberTarget?: number) => {
+    if (!mode || !placementPoints.length) return;
+    if (mode === "robber") {
+      // Building hit areas sit above terrain; preserve the underlying field choice.
+      const hex = robberTarget === undefined ? board.hexes.slice().reverse().find((hex) => choices.includes(hex.id) && pointInPolygon(point, hex.vertices.map((id) => board.vertices[id]))) : board.hexes[robberTarget];
+      if (hex) activate(hex.id);
+      return;
+    }
+    const nearest = placementPoints.reduce((best, target) => Math.hypot(target.x - point.x, target.y - point.y) < Math.hypot(best.x - point.x, best.y - point.y) ? target : best);
+    if (Math.hypot(nearest.x - point.x, nearest.y - point.y) <= Math.max(22, hitRadius)) activate(nearest.id);
+  };
+  const activateFromTap = (id: number, event: React.MouseEvent<SVGGElement>) => {
+    if (event.detail === 0) { activate(id); return; }
+    const point = tapPoint(event);
+    if (!point) return;
+    inspectBuildingAt(point);
+    activateAt(point, mode === "robber" ? id : undefined);
+  };
+  const inspectFromTap = (id: number, event: React.MouseEvent<SVGGElement> | null) => {
+    if (!event || event.detail === 0) {
+      inspectBuilding(id);
+      if (mode === "city" && choices.includes(id)) activate(id);
+      return;
+    }
+    const point = tapPoint(event);
+    if (!point) return;
+    inspectBuildingAt(point);
+    activateAt(point);
+  };
+  const interactive = (id: number, label: string, run?: (event: React.MouseEvent<SVGGElement> | null) => void) => ({
+    role: "button" as const, tabIndex: disabled ? -1 : 0, "aria-label": label, "aria-pressed": run ? inspection?.kind === "hex" && inspection.id === id : selected === id, "aria-disabled": disabled,
+    onClick: (event: React.MouseEvent<SVGGElement>) => { if (!disabled) { if (run) run(event); else activateFromTap(id, event); } },
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!disabled) { if (run) run(null); else activate(id); } } },
   });
   const seaSurface = <CatanSeaBackground ref={seaRef} width={seaViewport.width} height={seaViewport.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && seaViewport.measured} interacting={interactionActive} ambientEnabled={ambientEnabled} />;
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
@@ -138,7 +201,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           const enabled = mode === "robber" && choices.includes(hex.id); const picked = enabled && selected === hex.id;
           const name = hex.resource === "desert" ? "Wüste" : RESOURCE_INFO[hex.resource].terrain;
           const inspectable = !mode;
-          const regionAction = () => { setInspect(hex.id); if (hex.resource !== "desert") onInspect?.(hex.resource); };
+          const regionAction = () => { setInspect({ kind: "hex", id: hex.id, gameId: game.id }); if (hex.resource !== "desert") onInspect?.(hex.resource); };
           return <g key={hex.id} className={enabled || inspectable ? "catan-map-target" : undefined} {...(enabled ? interactive(hex.id, `Räuber auf Feld ${hex.id + 1}: ${name}${hex.number ? `, Zahl ${hex.number}` : ""}`) : inspectable ? interactive(hex.id, `Feld ansehen: ${name}, ${hex.number ?? "Wüste"}, Feld ${hex.id + 1}`, regionAction) : {})}>
             <title>{`Feld ${hex.id + 1}: ${name}${hex.number ? ` (${hex.number})` : ""}${hex.id === game.robberHex ? " – Räuber blockiert den Ertrag" : ""}`}</title>
             <g clipPath={`url(#${artId}-hex-${hex.id})`}><Landscape id={artId} resource={hex.resource} x={hex.x} y={hex.y} mirrored={hex.id % 2 === 1} blocked={hex.id === game.robberHex} /></g>
@@ -195,6 +258,14 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
         {buildingPreview && game.me && (mode === "settlement" || mode === "city") && <g className="catan-building-preview" pointerEvents="none" aria-hidden="true" data-catan-building-preview={buildingPreview.id}>
           <BuildingPiece id={artId} building={mode} colorIndex={game.me.color} x={buildingPreview.x} y={buildingPreview.y} />
         </g>}
+        {buildingTargets.map(({ vertex, x, y, size }) => {
+          const owner = game.players.find((player) => player.id === vertex.owner)!;
+          const label = `${vertex.building === "city" ? "Stadt" : "Siedlung"} · ${owner.name}`;
+          return <g key={vertex.id} className="catan-map-target" data-catan-building-target={vertex.id} {...interactive(vertex.id, `Besitzer ansehen: ${label}, Kreuzung ${vertex.id + 1}`, (event) => inspectFromTap(vertex.id, event))} aria-pressed={undefined} aria-expanded={inspection?.kind === "building" && inspection.id === vertex.id} aria-controls={infoId}>
+            <rect className="catan-building-hit-area" x={x} y={y} width={size} height={size} fill="transparent" />
+            <rect className="catan-target-focus" x={x} y={y} width={size} height={size} rx="5" fill="none" stroke="#fff5c3" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+          </g>;
+        })}
         {mode === "road" && choices.map((id) => {
           const edge = board.edges[id]; const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
           return <g key={id} className="catan-map-target" {...interactive(id, `Straße auf Weg ${id + 1} bauen`)}>
@@ -220,7 +291,8 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           {robberHex.resource === "desert" && <text className="catan-blocked-desert-label" x={robberHex.x} y={robberHex.y + 29} fontSize="13" textAnchor="middle" aria-hidden="true">Wüste</text>}
         </g>
       </svg>
-      {!mode && inspect !== null && <p className="catan-board-field-info" role="status">{board.hexes[inspect].resource === "desert" ? "Wüste" : RESOURCE_INFO[board.hexes[inspect].resource as Resource].terrain} · {board.hexes[inspect].number ? `Zahl ${board.hexes[inspect].number}` : "kein Ertrag"}{inspect === game.robberHex ? " · Räuber blockiert den Ertrag" : ""}</p>}
+      {inspectedBuilding?.building && inspectedOwner ? <p ref={infoRef} id={infoId} className="catan-board-field-info" style={{ top: "var(--catan-inspection-top,8px)" }} role="status" aria-atomic="true">{inspectedBuilding.building === "city" ? "Stadt" : "Siedlung"} · {inspectedOwner.name}</p>
+        : !mode && inspectedHex && <p ref={infoRef} id={infoId} className="catan-board-field-info" style={{ top: "var(--catan-inspection-top,8px)" }} role="status" aria-atomic="true">{inspectedHex.resource === "desert" ? "Wüste" : RESOURCE_INFO[inspectedHex.resource as Resource].terrain} · {inspectedHex.number ? `Zahl ${inspectedHex.number}` : "kein Ertrag"}{inspectedHex.id === game.robberHex ? " · Räuber blockiert den Ertrag" : ""}</p>}
     </div>
     <div className="catan-board-controls">
       <div className="catan-board-zoom" role="group" aria-label="Kartenzoom">

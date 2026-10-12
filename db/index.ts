@@ -18,6 +18,9 @@ export async function ensureSchema() {
   const db = getD1();
   initialization = (async () => {
     const statements = [
+      `CREATE TABLE IF NOT EXISTS core_ball_lobbies (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, normalized_name TEXT NOT NULL, host_player_id TEXT NOT NULL, settings TEXT NOT NULL, members TEXT DEFAULT '[]' NOT NULL, game TEXT, discoverable INTEGER DEFAULT 1 NOT NULL, network_hash TEXT NOT NULL, revision INTEGER DEFAULT 1 NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_core_ball_lobbies_name ON core_ball_lobbies (normalized_name)`,
+      `CREATE INDEX IF NOT EXISTS idx_core_ball_lobbies_nearby ON core_ball_lobbies (network_hash, updated_at)`,
       `CREATE TABLE IF NOT EXISTS hive_lobbies (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, normalized_name TEXT NOT NULL, host_player_id TEXT NOT NULL, members TEXT DEFAULT '[]' NOT NULL, game TEXT, discoverable INTEGER DEFAULT 1 NOT NULL, network_hash TEXT NOT NULL, revision INTEGER DEFAULT 1 NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_hive_lobbies_name ON hive_lobbies (normalized_name)`,
       `CREATE INDEX IF NOT EXISTS idx_hive_lobbies_nearby ON hive_lobbies (network_hash, updated_at)`,

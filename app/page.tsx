@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bug, Hexagon, PencilLine } from "lucide-react";
+import { Bug, CircleDot, Hexagon, PencilLine } from "lucide-react";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -93,6 +93,16 @@ export default function GamesonHome() {
       </section>
 
       <section className="game-library" aria-label="Spiel auswählen">
+        <a className="library-card core-ball-library-card" href="/core-ball">
+          <div className="library-card-art core-ball-library-art" aria-hidden="true"><CircleDot /><span /><span /><span /></div>
+          <div className="library-card-copy">
+            <span className="library-eyebrow">Timing &amp; Multiplayer</span>
+            <h2>CORE BALL</h2>
+            <p>Setzt eure Kugeln am rotierenden Kern. Gemeinsam weit kommen oder um Punkte spielen.</p>
+            <div><span>2–8 Personen</span><span>Online &amp; 1 Gerät</span></div>
+          </div>
+          <strong>Spielen <span>→</span></strong>
+        </a>
         <a className="library-card hive-library-card" href="/hive">
           <div className="library-card-art hive-library-art" aria-hidden="true"><Hexagon /><Bug /></div>
           <div className="library-card-copy">

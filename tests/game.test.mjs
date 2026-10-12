@@ -20,20 +20,46 @@ test("erlaubt nie die Hälfte der Gruppe als Imposter", () => {
 });
 
 test("Wortpaare sind vollständig, verschieden und korrekt eingestuft", () => {
-  const categoryIds = new Set(CATEGORIES.map((item) => item.id));
-  assert.ok(WORD_PAIRS.length >= 60);
+  const categories = new Map(CATEGORIES.filter((item) => !["random", "custom"].includes(item.id)).map((item) => [item.id, item]));
+  const seen = new Set();
   for (const pair of WORD_PAIRS) {
-    assert.ok(pair.crew.length >= 2);
-    assert.ok(pair.imposter.length >= 2);
+    for (const word of [pair.crew, pair.imposter]) {
+      assert.ok(word.length >= 2 && word.length <= 40, word);
+      assert.equal(word, word.trim(), word);
+    }
     assert.notEqual(normalizeName(pair.crew), normalizeName(pair.imposter));
-    assert.ok(categoryIds.has(pair.category));
-    assert.ok(pair.rating === "family" || pair.rating === "adult");
+    assert.ok(categories.has(pair.category), pair.category);
+    assert.equal(pair.rating, categories.get(pair.category).rating, pair.category);
+    const key = JSON.stringify([normalizeName(pair.crew), normalizeName(pair.imposter)].sort());
+    assert.ok(!seen.has(key), `Doppeltes Wortpaar: ${pair.crew} / ${pair.imposter}`);
+    seen.add(key);
   }
-  assert.ok(WORD_PAIRS.some((pair) => pair.rating === "adult"));
-  assert.ok(WORD_PAIRS.filter((pair) => pair.rating === "family").every((pair) => pair.rating !== "adult"));
+  for (const category of categories.values()) {
+    assert.ok(WORD_PAIRS.filter((pair) => pair.category === category.id).length >= 100, category.id);
+  }
 });
 
 test("normalisiert Gruppen- und Spielernamen stabil", () => {
   assert.equal(normalizeName("  Die   Runde  "), "die runde");
   assert.equal(normalizeName("WOHNZIMMER"), "wohnzimmer");
+});
+
+test("Imposterwörter verraten keinen gemeinsamen Hauptbestandteil", () => {
+  // Guard lexical giveaways; semantic distance still needs editorial review.
+  const stems = [
+    "foto", "date", "sex", "kuss", "party", "spiel", "vibrator", "dildo", "plug", "piercing", "fetisch", "hotel", "club", "bar", "brust", "penis", "beziehung",
+    "bier", "wein", "kaffee", "cocktail", "salat", "kuchen", "brot", "milch", "saft", "reis", "soße", "schokolade",
+    "maschine", "gerät", "automat", "schlüssel", "helm", "handschuh", "schuh", "tasche", "korb", "brief", "haus", "zimmer", "stuhl", "brille", "jacke", "kasten", "stift", "schirm",
+    "wasser", "schlaf", "garten", "tanz", "film", "kino", "buch", "stern", "tier", "maus", "katze", "hund", "pferd", "bär", "fisch", "vogel", "schwimm", "wander",
+  ];
+  for (const pair of WORD_PAIRS) {
+    const crew = normalizeName(pair.crew);
+    const imposter = normalizeName(pair.imposter);
+    const label = `${pair.crew} / ${pair.imposter}`;
+    assert.ok(!(crew.length >= 4 && imposter.includes(crew)), label);
+    assert.ok(!(imposter.length >= 4 && crew.includes(imposter)), label);
+    for (const stem of stems) {
+      assert.ok(!(crew.includes(stem) && imposter.includes(stem)), `${label}: ${stem}`);
+    }
+  }
 });

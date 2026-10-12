@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after } from "node:test";
+import { CATEGORIES, WORD_PAIRS } from "../lib/game.ts";
 import { build } from "esbuild";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -92,6 +93,21 @@ test("eigene Wörter gelten erst nach dem Speichern und nur im passenden Inhalts
   assert.equal(validate(names, "family", "custom", adult).canStart, false);
   assert.deepEqual(validate(names, "family", "custom", [...family, ...adult]).eligiblePairs, family);
   assert.equal(validate(names, "adult", "custom", [...family, ...adult]).eligiblePairs.length, 2);
+});
+
+test("jugendfreie Runden schließen sämtliche 18+-Wortpools aus", () => {
+  const names = ["Mia", "Ben", "Lea"];
+  const family = WORD_PAIRS.filter((pair) => pair.rating === "family");
+  assert.deepEqual(validate(names).eligiblePairs, family);
+  assert.deepEqual(validate(names, "adult").eligiblePairs, WORD_PAIRS);
+  for (const category of CATEGORIES.filter((item) => item.rating === "adult")) {
+    const blocked = validate(names, "family", category.id);
+    assert.equal(blocked.canStart, false);
+    assert.deepEqual(blocked.eligiblePairs, []);
+    const allowed = validate(names, "adult", category.id);
+    assert.equal(allowed.canStart, true);
+    assert.deepEqual(allowed.eligiblePairs, WORD_PAIRS.filter((pair) => pair.category === category.id));
+  }
 });
 
 test("verwendet für alle Modi jeweils eine eindeutige Schaltfläche", () => {
