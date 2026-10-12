@@ -106,17 +106,21 @@ test("zeigt fünf angeheftete Menübereiche mit sprechenden Gruppen", () => {
   assert.match(html, /Nächster Bauplatz oder Räuberplatz/);
 });
 
-test("hält Zugstatus, Würfelwurf und nächsten Schritt dauerhaft im Bild", () => {
+test("zeigt oben nur die Person am Zug ohne ausklappbare Erklärung und behält Würfel und Punkte", () => {
   let game = foundedGame();
   const active = game.players[game.currentPlayer].id; const other = game.players.find((p) => p.id !== active).id;
   const waiting = ui(game, other);
   // Die Statuszeile steht vor allen Menübereichen und nennt, wer dran ist.
-  const status = waiting.slice(waiting.indexOf('class="catan-status '), waiting.indexOf('class="catan-hand-bar'));
+  const statusRow = (html) => html.slice(html.indexOf('class="catan-status '), html.indexOf('class="catan-hand-bar'));
+  const status = statusRow(waiting);
   assert.ok(status, "Die Statuszeile fehlt.");
   assert.match(status, new RegExp(`${game.players[game.currentPlayer].name} ist am Zug`));
   assert.match(status, /Punktestand öffnen: Du hast 2 von 10 Siegpunkten/);
-  assert.match(status, /Zug erklären/);
-  assert.match(status, /aria-expanded="false"/);
+  assert.match(status, /<div class="catan-status-main" aria-live="polite" aria-atomic="true">/);
+  assert.doesNotMatch(status, /<button[^>]*class="catan-status-main"|Zug erklären|aria-expanded|lucide-chevron-down|catan-phase-help|Warten auf den Würfelwurf/);
+  const ownStatus = statusRow(ui(game, active));
+  assert.match(ownStatus, /<strong>Du bist am Zug<\/strong>/);
+  assert.doesNotMatch(ownStatus, /Würfeln, bauen oder handeln/);
   assert.match(ui(acceptedCatanGame(seats, 12, sequence([0])), seats[0].id), /Erste Siedlung setzen/);
   game = applyCatanAction(game, active, { type: "roll" }, sequence([1, 3]));
   // Nach dem Wurf steht das Ergebnis in derselben Zeile – auch für alle, die nicht am Zug sind.

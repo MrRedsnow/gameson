@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ArrowRightLeft, BookOpen, Castle, Check, ChevronDown, ChevronRight, CircleHelp, Dices, Ellipsis, Flag, Hammer, LockKeyhole, Map as MapIcon, Maximize2, Minimize2, Route, Shield, Users, Volume2, VolumeX, WalletCards, WifiOff, X, type LucideIcon } from "lucide-react";
-import { Popover } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { CatanBoard, ResourceIcon, boardAction, type BoardMode } from "./board";
 import { CatanDice } from "./dice";
@@ -63,20 +62,6 @@ function Cost({ cost, available }: { cost: Partial<Resources>; available?: Resou
     return <span key={r} data-catan-cost={r} title={RESOURCE_INFO[r].label}><ResourceIcon resource={r} /><b className={missing ? "is-missing" : undefined}>{cost[r]}</b><span className="sr-only"> {RESOURCE_INFO[r].label}{missing ? ` benötigt, ${available[r]} vorhanden` : ""}</span></span>;
   })}</span>;
 }
-export function turnGuidance(game: CatanView): { title: string; text: string } {
-  const active = game.players[game.currentPlayer]; const own = active.id === game.me?.id; const who = own ? "Du bist" : `${active.name} ist`;
-  if (game.phase === "map_vote") return { title: "Kartenabstimmung", text: "Alle stimmen vor der Gründung über die Karte ab. Die Mehrheit entscheidet; bei 2:2 entscheidet die Spielleitung ausdrücklich." };
-  if (game.phase === "finished") return { title: `${game.players.find((p) => p.id === game.winner)!.name} gewinnt!`, text: `Das Ziel von ${game.targetPoints} Siegpunkten ist erreicht. Alle Punktestände sind aufgedeckt.` };
-  if (game.phase === "setup_settlement") return { title: `${who} mit der Gründung dran`, text: `${game.setupIndex < game.players.length ? "Erste" : "Zweite"} Siedlung: ${own ? "Wähle" : "Wartet auf"} eine markierte Kreuzung. Zwischen Siedlungen bleibt eine Kreuzung frei.` };
-  if (game.phase === "setup_road") return { title: `${who} mit einer Straße dran`, text: "Die Straße muss direkt an die soeben gegründete Siedlung anschließen." };
-  if (game.phase === "discard") return { title: "Eine 7: Rohstoffe abgeben", text: Object.entries(game.discards).map(([id, n]) => `${game.players.find((p) => p.id === id)!.name}: ${n} Karten`).join(" · ") };
-  if (game.phase === "robber") return { title: `${who} mit dem Räuber dran`, text: "Wähle ein anderes Landfeld. Dort werden bis zum nächsten Versetzen keine Rohstoffe verteilt." };
-  if (game.phase === "steal") return { title: `${who} mit Stehlen dran`, text: "Wähle eine Person am Räuberfeld. Eine zufällige Rohstoffkarte wechselt die Hand." };
-  if (game.phase === "free_roads") return { title: `${game.freeRoads} kostenlose ${game.freeRoads === 1 ? "Straße" : "Straßen"}`, text: `${own ? "Baue" : active.name + " baut"} an den markierten Wegen weiter.` };
-  if (game.phase === "roll") return { title: `${who} am Zug`, text: own ? "Würfle für die Rohstofferträge. Du darfst vorher eine ältere Entwicklungskarte spielen." : "Warte auf den Würfelwurf. Deine Handkarten siehst nur du." };
-  return { title: `${who} am Zug`, text: own ? "Handle und baue in beliebiger Reihenfolge. Beende deinen Zug, sobald du fertig bist." : `Du kannst ${active.name} ein Handelsangebot machen.` };
-}
-
 export type CatanTab = "insel" | "karten" | "bauen" | "handel" | "uebersicht";
 export const CATAN_TABS: { id: CatanTab; label: string; Icon: LucideIcon }[] = [
   { id: "insel", label: "Insel", Icon: MapIcon }, { id: "karten", label: "Karten", Icon: WalletCards },
@@ -191,14 +176,8 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
       return accepted;
     } catch (error) { sounds.cue("ui_error"); throw error; }
   };
-  const guidance = turnGuidance(game);
-  const statusHint = {
-    map_vote: "Wählt eure Insel gemeinsam", setup_settlement: own ? "Wähle eine freie Kreuzung" : "Warten auf die nächste Siedlung", setup_road: own ? "Verbinde deine neue Siedlung" : "Warten auf die nächste Straße",
-    roll: own ? "Würfeln, bauen oder handeln" : "Warten auf den Würfelwurf", main: own ? "Bauen, handeln und Zug beenden" : `Handeln mit ${active.name}`,
-    discard: game.discards[me.id] > 0 ? "Rohstoffe auswählen und abgeben" : "Warten auf die Rohstoffabgabe", robber: own ? "Wähle ein anderes Landfeld" : "Warten auf den Räuber", steal: own ? "Wähle eine Person am Räuberfeld" : "Warten auf den Kartendiebstahl",
-    free_roads: own ? "Wähle einen markierten Weg" : "Warten auf den Straßenbau", finished: "Alle Punktestände sind aufgedeckt",
-  }[game.phase];
   const finished = game.phase === "finished"; const needsDiscard = game.phase === "discard" && game.discards[me.id] > 0;
+  const statusTitle = voting ? "Kartenabstimmung" : finished ? `${game.players.find((p) => p.id === game.winner)!.name} gewinnt!` : own ? "Du bist am Zug" : `${active.name} ist am Zug`;
   const setup = own && game.phase.startsWith("setup");
   const guideOpen = setup && (guideRequested || (!guideDismissed && game.players.find((p) => p.id === me.id)!.pieces.settlement === 0));
   const closeGuide = () => { setGuideDismissed(true); setGuideRequested(false); };
@@ -270,7 +249,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
     if (control?.getAttribute("data-catan-sound") === "cancel" && !control.hasAttribute("disabled") && control.getAttribute("aria-disabled") !== "true") sounds.cue("ui_cancel");
   }}>
     <div className={`catan-status ${own ? "is-yours" : ""}`} style={{ "--player-color": PLAYER_COLORS[active.color] } as React.CSSProperties}>
-      <Popover.Root><Popover.Trigger asChild><button type="button" className="catan-status-main" aria-label={`${guidance.title}, Zug erklären`}><IslandMark sunset /><span className="catan-status-copy"><span><i className="catan-player-dot" /><strong>{guidance.title}</strong></span><small>{statusHint}</small></span><ChevronDown /></button></Popover.Trigger><Popover.Portal><Popover.Content className="catan-phase-help" sideOffset={8} collisionPadding={16}><h2>{guidance.title}</h2><p>{guidance.text}</p><Popover.Close aria-label="Erklärung schließen"><X /></Popover.Close></Popover.Content></Popover.Portal></Popover.Root>
+      <div className="catan-status-main" aria-live="polite" aria-atomic="true"><IslandMark sunset /><span className="catan-status-copy"><span><i className="catan-player-dot" aria-hidden="true" /><strong>{statusTitle}</strong></span></span></div>
       {offline && <span className="catan-status-offline" role="status" aria-label="Verbindung unterbrochen"><WifiOff /></span>}
       {!voting && <div className="catan-status-roll">{game.dice ? <CatanDice dice={game.dice} /> : <Dices aria-hidden="true" />}</div>}
       {(expanded || activeMenu) && (!mode || activeMenu) && turnActions && <div className="catan-status-actions">{turnActions}</div>}
