@@ -98,6 +98,8 @@ test("zeigt fünf angeheftete Menübereiche mit sprechenden Gruppen", () => {
   assert.equal(attribute(island, "data-state"), "active");
   for (const tab of CATAN_TABS.filter((tab) => tab.id !== "insel")) assert.match(menu(html, tab.id), /role="dialog"/);
   assert.match(html, /Deine Rohstoffe: 0 Holz, 0 Lehm, 0 Wolle, 0 Getreide, 0 Erz/);
+  assert.doesNotMatch(html, /catan-hand-meta|>Deine Rohstoffe<|aria-label="Spielübersicht öffnen"/);
+  assert.match(labelledButton(html, "Karten öffnen, 0 Rohstoffkarten"), /catan-hand-total[^>]*>[\s\S]*?<b class="catan-hand-count">0<\/b>/);
   assert.doesNotMatch(html, /Deine Karten öffnen/);
   assert.match(html, /Punktestand öffnen: Du hast 0 von 12 Siegpunkten/);
   // Das Brett trägt keine eigene Kopfzeile und keine Legende mehr; beides kostete dauerhaft Platz.
@@ -247,16 +249,17 @@ test("öffnet den Bereich, dessen Aufgabe gerade ansteht", () => {
   assert.match(ui(withOffer, active), /class="catan-nav-badge is-dot"[^>]*><\/span><\/span><span class="catan-nav-label">Handel<\/span><span class="sr-only">, Dein Angebot ist noch offen/);
 });
 
-test("warnt oben vor mehr als sieben Rohstoffen und markiert die Abgabe als Kartenaufgabe", () => {
+test("zählt Rohstoffkarten im unteren Menü und markiert Warnung und Abgabe am Badge", () => {
   const game = foundedGame(); const me = game.players[0].id;
   const rich = { ...game, players: game.players.map((p) => p.id === me ? { ...p, resources: { wood: 3, brick: 2, wool: 2, grain: 1, ore: 1 } } : p) };
   const html = ui(rich, me);
-  assert.doesNotMatch(html, /catan-nav-badge is-warn[^>]*>9<\/span>/);
+  assert.match(html, /catan-nav-badge is-warn catan-hand-total[^>]*><b class="catan-hand-count">9<\/b>/);
   assert.match(html, /Mehr als sieben Karten: Bei einer 7 musst du 4 abgeben\./);
   const discard = { ...rich, phase: "discard", discards: { [me]: 4 } };
   assert.equal(suggestedTab(catanView(discard, me)), "karten");
   const discardHtml = ui(discard, me);
-  assert.match(discardHtml, /class="catan-nav-badge is-alert" aria-hidden="true">4<\/span><\/span><span class="catan-nav-label">Karten<\/span><span class="sr-only">,[^<]*4[^<]*abgeben/);
+  assert.match(discardHtml, /catan-nav-badge is-alert catan-hand-total[^>]*><b class="catan-hand-count">9<\/b>/);
+  assert.match(discardHtml, /aria-label="Karten öffnen, 9 Rohstoffkarten, 4 Rohstoffkarten abgeben"/);
   assert.match(discardHtml, /class="catan-screen catan-discard"/);
   assert.equal(suggestedTab(catanView(discard, game.players[1].id)), "insel");
 });
@@ -272,7 +275,9 @@ test("heftet die eigenen Rohstoffe über alle Menübereiche an", () => {
   // Sie steht vor den Menübereichen und damit in jedem Bereich, nicht nur auf der Insel.
   assert.ok(barStart < firstPanel);
   assert.equal((html.match(/catan-hand-strip/g) ?? []).length, 1);
-  assert.match(bar, /class="catan-hand-total"[^>]*>[\s\S]*?>9</);
+  assert.doesNotMatch(bar, /catan-hand-total|catan-hand-meta|>Deine Rohstoffe</);
+  const nav = html.slice(html.indexOf('<nav class="catan-nav"'));
+  assert.match(nav, /catan-hand-total[^>]*><b class="catan-hand-count">9<\/b>/);
   assert.match(bar, /<div\b[^>]*class="catan-hand-strip"[^>]*role="group"[^>]*aria-label="Deine Rohstoffe: 3 Holz, 2 Lehm, 2 Wolle, 1 Getreide, 1 Erz"/);
   assert.doesNotMatch(bar, /<button[^>]*class="catan-hand-strip"/);
   assert.match(html, /<div class="catan-hand-bar is-warn">/);
@@ -575,7 +580,7 @@ test("Angebote an alle zeigen jedem Empfänger Antwortaktionen und lassen abgele
   assert.match(ui(declined, "c"), /Ein Handelsangebot wartet auf deine Antwort/);
 });
 
-test("Karten öffnen unmittelbar die gruppierten Entwicklungskarten und zählen nur diese im Tab", () => {
+test("Karten öffnen die gruppierten Entwicklungskarten und das Badge zählt weiterhin Rohstoffkarten", () => {
   const game = foundedGame(); const me = game.players[game.currentPlayer].id;
   game.turn = 4; game.phase = "main";
   game.players[game.currentPlayer].resources = { wood: 3, brick: 2, wool: 2, grain: 1, ore: 1 };
@@ -591,7 +596,8 @@ test("Karten öffnen unmittelbar die gruppierten Entwicklungskarten und zählen 
   assert.match(cards, /Spielbar · 1 neu gekauft/);
   assert.match(cards, /aria-label="2 Karten">2×/);
   assert.doesNotMatch(cards, /Deine Rohstoffe|catan-resource-hand|catan-card-links|Bankbestand|Rohstoffkarten|Einen Schritt zurück/);
-  assert.match(ui(game, me), /class="catan-nav-badge " aria-hidden="true">3<\/span><\/span><span class="catan-nav-label">Karten<\/span><span class="sr-only">, 3 Entwicklungskarten/);
+  assert.match(ui(game, me), /catan-nav-badge is-warn catan-hand-total[^>]*><b class="catan-hand-count">9<\/b>/);
+  assert.match(ui(game, me), /aria-label="Karten öffnen, 9 Rohstoffkarten, 3 Entwicklungskarten,/);
   const empty = render(CardsPanel, { game: catanView(foundedGame(), me), busy: false, send });
   assert.match(empty, /Noch keine Entwicklungskarten/);
   assert.match(empty, /class="catan-card-illustration" aria-hidden="true"/);

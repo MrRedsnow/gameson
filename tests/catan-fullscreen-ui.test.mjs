@@ -119,8 +119,8 @@ test("eine eigene Abgabe öffnet ausschließlich Karten mit Mengenwahl und Best�
     assert.match(cards, /<button[^>]*disabled=""[^>]*>Abgabe bestätigen<\/button>/);
     const trigger = (html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []).find((button) => attribute(button, "data-catan-fullscreen-trigger") === "karten");
     assert.match(trigger, /aria-expanded="true"/);
-    assert.match(trigger, /aria-label="Karten öffnen, 4 Rohstoffkarten abgeben"/);
-    assert.match(trigger, /catan-nav-badge is-alert[^>]*>4<\/span>/);
+    assert.match(trigger, /aria-label="Karten öffnen, 9 Rohstoffkarten, 4 Rohstoffkarten abgeben"/);
+    assert.match(trigger, /catan-nav-badge is-alert catan-hand-total[^>]*><b class="catan-hand-count">9<\/b>/);
   }
 });
 

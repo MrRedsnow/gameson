@@ -1,15 +1,14 @@
-.catan-hand-bar .catan-hand-loss { position:absolute; top:2px; left:2px; min-width:1.4em; padding:1px 3px; border-radius:4px; background:#50332c; color:#ffd0b7; font:800 .6875rem/1 Arial,Helvetica,sans-serif; font-variant-numeric:tabular-nums; font-style:normal; white-space:nowrap; pointer-events:none; }
-.catan-hand-bar .catan-hand-loss[hidden] { display:none; }
+:is(.catan-hand-bar,.catan-hand-total) .catan-hand-loss { position:absolute; top:2px; left:2px; min-width:1.4em; padding:1px 3px; border-radius:4px; background:#50332c; color:#ffd0b7; font:800 .6875rem/1 Arial,Helvetica,sans-serif; font-variant-numeric:tabular-nums; font-style:normal; white-space:nowrap; pointer-events:none; }
+:is(.catan-hand-bar,.catan-hand-total) .catan-hand-loss[hidden] { display:none; }
 .catan-hand-feedback { position:absolute; top:2px; left:2px; right:2px; display:flex; justify-content:flex-end; gap:2px; pointer-events:none; }
 .catan-hand-feedback:has(.catan-hand-loss:not([hidden])) { justify-content:space-between; }
-.catan-hand-bar .catan-hand-feedback :is(.catan-hand-gain,.catan-hand-loss) { position:static; min-width:0; max-width:none; padding:1px 2px; }
-.catan-hand-total .catan-hand-feedback { position:static; display:flex; gap:3px; }
+:is(.catan-hand-bar,.catan-hand-total) .catan-hand-feedback :is(.catan-hand-gain,.catan-hand-loss) { position:static; min-width:0; max-width:none; padding:1px 2px; }
+.catan-hand-total .catan-hand-feedback { top:calc(100% + 2px); left:auto; right:0; gap:3px; }
 .catan-hand-strip>.catan-hand-resource.is-losing:not(.is-gaining) { border-color:#956b59; }
-.catan-hand-bar:not(.is-alert):not(.is-warn) .catan-hand-total.is-losing:not(.is-gaining) { border-color:#956b59; }
 .catan-ambient-preference { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:1px solid #3d5762; border-radius:9px; background:#132730; cursor:pointer; }
 .catan-ambient-preference span { display:grid; gap:3px; }
 .catan-ambient-preference small { color:#aabfc6; font-size:.8rem; }
 .catan-ambient-preference input { width:20px; height:20px; flex-shrink:0; accent-color:#efd18a; }
 @media(max-width:420px) {
-  .catan-hand-bar .catan-hand-feedback :is(.catan-hand-gain,.catan-hand-loss) { font-size:.625rem; }
+  :is(.catan-hand-bar,.catan-hand-total) .catan-hand-feedback :is(.catan-hand-gain,.catan-hand-loss) { font-size:.625rem; }
 }

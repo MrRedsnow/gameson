@@ -82,9 +82,10 @@ function environment(t, { reducedMotion = false, clipped = false, expanded = fal
     const loss = new Node(); loss.hidden = true; cell.queries.set(".catan-hand-loss", loss);
     if (resource !== "total") hand.queries.set(`[data-catan-resource="${resource}"]`, cell);
   }
-  hand.queries.set(".catan-hand-total", total); hand.queries.set("[data-catan-gain-announcement]", announcement);
+  hand.queries.set("[data-catan-gain-announcement]", announcement);
   hand.queries.set("[data-catan-loss-announcement]", new Node());
   const play = new Node(); const board = new Node(); const viewport = new Node();
+  play.queries.set(".catan-hand-total", total);
   if (expanded) play.classList.add("is-board-expanded");
   viewport.rect = { left: 0, top: 80, width: 600, height: 500 };
   board.ancestors.set(".catan-board-viewport", viewport);
