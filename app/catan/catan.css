@@ -656,7 +656,7 @@
 @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
   .catan-world { --catan-glass-background:var(--catan-glass-tint); }
   .catan-world .is-game-menu { --catan-glass-background:var(--catan-glass-tint); }
-  .catan-world :is(.is-game-menu,.catan-island-dock) { -webkit-backdrop-filter:var(--catan-glass-filter); backdrop-filter:var(--catan-glass-filter); }
+  .catan-world :is(.is-game-menu,.catan-island-context:not(:empty)) { -webkit-backdrop-filter:var(--catan-glass-filter); backdrop-filter:var(--catan-glass-filter); }
 }
 @media(prefers-reduced-motion:reduce) { .catan-world-sea { background-size:cover; background-position:center; } }
 .catan-menu-stage { position:relative; flex:1 1 0; min-width:0; min-height:0; }
@@ -679,9 +679,10 @@
 .catan-play.is-menu-open :is(.catan-island-tools,.catan-board-controls,.catan-board-field-info) { visibility:hidden; pointer-events:none; }
 
 /* A bounded dock keeps required choices above navigation, without covering the map. */
-.catan-world .catan-island-dock { flex:0 1 auto; display:grid; grid-template-rows:minmax(0,1fr) auto; min-width:0; min-height:0; max-height:min(44dvh,max(64px,calc(var(--catan-stage-height,500px) - 96px))); border:1px solid var(--catan-glass-edge); border-radius:var(--catan-glass-menu-radius); background:var(--catan-glass-opal),var(--catan-glass-background); box-shadow:var(--catan-glass-shadow); overflow:hidden; }
+.catan-world .catan-island-dock { flex:0 1 auto; display:grid; grid-template-rows:minmax(0,1fr) auto; min-width:0; min-height:0; max-height:min(44dvh,max(64px,calc(var(--catan-stage-height,500px) - 96px))); border:0; border-radius:0; background:transparent; box-shadow:none; overflow:hidden; }
 .catan-world .catan-island-dock[data-menu-hidden=true] { visibility:hidden; pointer-events:none; }
 .catan-menu-stage .catan-island-context { position:static; display:grid; gap:12px; width:100%; max-height:none; min-height:0; padding:12px; overflow:auto; overscroll-behavior:contain; background:transparent; pointer-events:auto; scrollbar-width:thin; scrollbar-color:#5e8291 transparent; }
+.catan-world .catan-island-context:not(:empty) { border:1px solid var(--catan-glass-edge); border-radius:var(--catan-glass-menu-radius); background:var(--catan-glass-opal),var(--catan-glass-background); box-shadow:var(--catan-glass-shadow); }
 .catan-island-context:empty { display:none; }
 .catan-placement-controls,.catan-steal-panel { display:grid; gap:12px; min-width:0; }
 .catan-placement-heading { display:flex; align-items:flex-start; gap:12px; min-width:0; }
