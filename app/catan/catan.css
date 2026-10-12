@@ -778,7 +778,7 @@
 .catan-world .is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost svg { opacity:1; filter:saturate(.75); }
 .catan-world .is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost b { color:#d6e0e1; }
 .catan-world .is-game-menu .catan-build-choice[aria-disabled=true] small { color:var(--catan-glass-muted); }
-.catan-world .is-game-menu .catan-build-choice .catan-cost b.is-missing { color:#ffb39d; font-weight:750; }
+.catan-world .is-game-menu .catan-build-choice .catan-cost b.is-missing { color:#ff5252; font-weight:750; }
 .catan-world .is-game-menu .catan-build-choice[aria-pressed=true] { border-color:#f4ce7a; background:var(--catan-glass-selected); box-shadow:inset 0 0 0 1px #efc86f55; }
 .catan-world .is-game-menu .catan-build-choice .is-unavailable { font-size:.75rem; color:#ffd0ad; }
 .catan-world .is-game-menu .catan-build-choice[aria-disabled=true] .is-unavailable { color:#ffd0ad; }
