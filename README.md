@@ -94,8 +94,8 @@ Local games hide private hands when passing the device.
 
 The five areas—Island, Cards, Build, Trade and Overview—keep the current action
 and resource hand available. The map supports drag, pinch zoom, centering and
-fullscreen. Placement previews explain resources, probabilities, robber blocks
-and ports. Construction and trades require explicit confirmation. Normal phase
+fullscreen. Select building and robber positions directly on the island.
+Construction and trades require explicit confirmation. Normal phase
 changes preserve the chosen area and unfinished inputs; new required tasks or
 incoming offers open the relevant area.
 

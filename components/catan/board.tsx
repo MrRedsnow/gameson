@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { Anchor, ChevronLeft, ChevronRight, LocateFixed, Minus, Plus } from "lucide-react";
+import { Anchor, LocateFixed, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Hex, type Resource } from "@/lib/catan";
 import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM, type BoardCamera } from "@/lib/catan-camera";
@@ -29,7 +29,7 @@ function HexNumber({ artId, hex, blocked = false }: { artId: string; hex: Hex; b
   </> : null;
 }
 
-export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, expanded = false, islandVisible = true, animationBaseline = 0, ambientEnabled = true }: {
+export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, islandVisible = true, animationBaseline = 0, ambientEnabled = true }: {
   game: CatanView; mode: BoardMode; choices: number[]; selected: number | null;
   onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number; ambientEnabled?: boolean;
 }) {
@@ -41,7 +41,6 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   const [size, setSize] = useState({ width: 360, height: 300, measured: false });
   const [inspect, setInspect] = useState<number | null>(null);
   const seaRef = useRef<CatanSeaHandle>(null);
-  const index = selected === null ? -1 : choices.indexOf(selected);
   const { board } = game;
   const harborLayouts = board.harbors.map((harbor) => harborLayout(board, harbor.edge));
   const buildingPreview = !disabled && game.me && (mode === "settlement" || mode === "city") && selected !== null && choices.includes(selected) ? board.vertices[selected] : null;
@@ -221,11 +220,6 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
       <Button type="button" variant="outline" size="icon" className="catan-map-overview" aria-label="Ganze Insel anzeigen und zentrieren" title="Ganze Insel zentrieren" onClick={() => { reset(); setInspect(null); }}><LocateFixed /></Button>
       <span className="sr-only" id={`${artId}-navigation-hint`}>Insel verschieben und mit zwei Fingern zoomen.</span>
     </div></div>
-    {mode && !expanded && <div className="catan-board-selection">
-      <Button type="button" variant="ghost" size="icon" aria-label="Vorheriger Bauplatz oder Räuberplatz" disabled={disabled || index <= 0} onClick={() => activate(choices[index - 1])}><ChevronLeft /></Button>
-      <span>{index >= 0 ? `Platz ${index + 1} / ${choices.length}` : `${choices.length} mögliche Plätze`}</span>
-      <Button type="button" variant="ghost" size="icon" aria-label="Nächster Bauplatz oder Räuberplatz" disabled={disabled || !choices.length || index >= choices.length - 1} onClick={() => activate(choices[index + 1])}><ChevronRight /></Button>
-    </div>}
   </section>;
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ArrowRightLeft, BookOpen, Castle, Check, ChevronDown, ChevronRight, CircleHelp, Dices, Flag, Hammer, LockKeyhole, Map as MapIcon, Maximize2, Minimize2, Route, Shield, Users, Volume2, VolumeX, WalletCards, WifiOff, X, type LucideIcon } from "lucide-react";
+import { ArrowRightLeft, BookOpen, Castle, Check, ChevronRight, CircleHelp, Dices, Flag, Hammer, LockKeyhole, Map as MapIcon, Maximize2, Minimize2, Route, Shield, Users, Volume2, VolumeX, WalletCards, WifiOff, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CatanBoard, ResourceIcon, boardAction, type BoardMode } from "./board";
 import { CatanDice } from "./dice";
@@ -21,7 +21,7 @@ import { useIslandFullscreen } from "./use-island-fullscreen";
 import { useFullscreenMenu, type FullscreenMenu } from "./use-fullscreen-menu";
 import { IslandMark } from "./island-mark";
 import { COSTS, MAX_TARGET_POINTS, MIN_TARGET_POINTS, PLAYER_COLORS, RESOURCES, RESOURCE_INFO, canAfford, isTradeRecipient, legalCities, legalRoads, legalSettlements, mapVoteProgress, resourceCount, victoryPoints, type CatanView, type Resources } from "@/lib/catan";
-import { buildingPreview, buildPhaseUnavailable, buildUnavailable, missingResources, type BuildKind } from "@/lib/catan-ux";
+import { buildPhaseUnavailable, buildUnavailable, missingResources, type BuildKind } from "@/lib/catan-ux";
 export { TradePanel } from "./trade-panel";
 
 export function TargetPoints({ value, onChange, disabled = false }: { value: number; onChange: (value: number) => void; disabled?: boolean }) {
@@ -105,17 +105,6 @@ function BuildChoices({ game, busy, selected, onBuild }: { game: CatanView; busy
       </button>;
     })}</div>
   </>;
-}
-
-function PlacementPreview({ game, mode, selected, compact = false }: { game: CatanView; mode: NonNullable<BoardMode>; selected: number; compact?: boolean }) {
-  const preview = buildingPreview(game, mode, selected);
-  const content = <>
-    <div className="catan-placement-fields">{preview.fields.map((field) => <span key={field.id}><strong><ResourceIcon resource={field.resource} />{RESOURCE_INFO[field.resource].label} · {field.number}</strong><small>{field.blocked && mode !== "robber" ? "Räuber blockiert" : `${field.combinations} / 36 Würfe`}</small></span>)}{!preview.fields.length && <span>Hier gibt es keine Rohstofffelder.</span>}</div>
-    <p>{preview.hint} {preview.port}</p>
-  </>;
-  return compact ? <details className="catan-placement-preview catan-placement-detail" aria-label="Vorschau des gewählten Bauplatzes">
-    <summary>{mode === "robber" ? "Räuberfeld" : BUILDING_NAMES[mode]} · Details <ChevronDown /></summary>{content}
-  </details> : <aside className="catan-placement-preview" aria-label="Vorschau des gewählten Bauplatzes" aria-live="polite">{content}</aside>;
 }
 
 export function CatanGameUI({ game, send: sendAction, busy, local, offline = false, onHide, onRematch, afterNotificationSequence, onActivityRead, animationBaseline = 0 }: {
@@ -277,7 +266,6 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
           {own && game.phase === "steal" && <div className="catan-victim-choices">{game.victims.map((id) => <Button variant="outline" key={id} disabled={busy} onClick={() => void send({ type: "steal", victimId: id })}>{game.players.find((p) => p.id === id)!.name} bestehlen</Button>)}</div>}
           {game.phase === "discard" && !needsDiscard && <p className="catan-inline-hint">Andere geben Rohstoffe ab. Danach geht es weiter.</p>}
           {guideOpen && <SetupGuide onClose={closeGuide} />}
-          {mode && selected !== null && <PlacementPreview game={game} mode={mode} selected={selected} compact={expanded} />}
           {!canBuild && mode && mode !== "robber" && <p className="catan-inline-hint" role="status">{buildUnavailable(game, mode)}</p>}
         </div>
       </Screen>

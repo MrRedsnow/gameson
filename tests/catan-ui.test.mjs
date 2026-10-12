@@ -110,7 +110,7 @@ test("zeigt fünf angeheftete Menübereiche mit sprechenden Gruppen", () => {
   // Das Brett trägt keine eigene Kopfzeile und keine Legende mehr; beides kostete dauerhaft Platz.
   assert.doesNotMatch(html, /catan-board-toolbar|catan-board-legend/);
   assert.match(html, /class="catan-board-controls"/);
-  assert.match(html, /Nächster Bauplatz oder Räuberplatz/);
+  assert.doesNotMatch(html, /catan-board-selection|Vorheriger Bauplatz|Nächster Bauplatz/);
 });
 
 test("zeigt oben nur die Person am Zug ohne ausklappbare Erklärung und behält Würfel und Punkte", () => {
@@ -166,13 +166,12 @@ test("Bauplätze bleiben konkrete Tastaturziele und eine Auswahl verändert den 
   assert.match(busy, /role="button"[^>]*tabindex="-1"[^>]*aria-label="Siedlung auf Kreuzung \d+ bauen"[^>]*aria-disabled="true"/);
 });
 
-test("die maximierte Karte behält Bauziele und Kamerasteuerung ohne die zusätzliche Platzliste", () => {
+test("normale und maximierte Karte behalten Bauziele und Kamerasteuerung ohne die zusätzliche Platzliste", () => {
   const game = acceptedCatanGame(seats, 12, sequence([0])); const viewer = game.players[0].id;
   const choices = legalSettlements(game, viewer, true);
   const props = { game: catanView(game, viewer), mode: "settlement", choices, selected: choices[0], onSelect() {}, disabled: false };
   const normal = render(CatanBoard, props); const expanded = render(CatanBoard, { ...props, expanded: true });
-  assert.match(normal, /Nächster Bauplatz oder Räuberplatz/);
-  assert.doesNotMatch(expanded, /Nächster Bauplatz oder Räuberplatz|catan-board-selection/);
+  for (const html of [normal, expanded]) assert.doesNotMatch(html, /catan-board-selection|Vorheriger Bauplatz|Nächster Bauplatz/);
   for (const label of ["Insel verkleinern", "Ganze Insel anzeigen und zentrieren", "Insel vergrößern"]) labelledButton(expanded, label);
   assert.match(expanded, new RegExp(`aria-label="Siedlung auf Kreuzung ${choices[0] + 1} bauen"[^>]*aria-pressed="true"`));
   assert.equal((expanded.match(/aria-label="Siedlung auf Kreuzung/g) ?? []).length, choices.length);

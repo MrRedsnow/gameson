@@ -461,17 +461,7 @@
 .catan-theme .catan-board-controls [data-slot=button]>svg { width:clamp(22px,3vw,28px); height:clamp(22px,3vw,28px); flex-shrink:0; }
 .catan-map-overview>span { min-width:0; font-size:.875rem; display:grid; line-height:1.2; gap:3px; }
 .catan-map-overview small { font-size:.6875rem; font-weight:400; color:#b7cad1; white-space:normal; }
-.catan-board-selection { display:flex; align-items:center; justify-content:space-between; flex:0 0 auto; border-top:1px solid #3e5964; background:#132a34; padding:0 4px; }
-.catan-theme .catan-board-selection [data-slot=button] { min-width:44px; min-height:44px; padding:8px; }
-.catan-board-selection>span { color:#d5e1e2; font-size:.8125rem; text-align:center; }
 .catan-theme .catan-board-field-info { position:absolute; top:8px; left:8px; max-width:calc(100% - 16px); margin:0; padding:6px 10px; border:1px solid #3e5964; border-radius:8px; color:#d5e1e2; background:#132a34ed; font-size:.8125rem; line-height:1.35; pointer-events:none; }
-.catan-placement-preview { flex:0 0 auto; border:1px solid #776747; border-radius:9px; background:#303a32; padding:8px; }
-.catan-placement-fields { display:flex; flex-wrap:wrap; gap:5px; justify-content:space-between; }
-.catan-placement-fields>span { flex:1 1 5rem; min-width:0; display:grid; gap:2px; }
-.catan-placement-fields strong { display:flex; align-items:center; gap:3px; font-size:.8125rem; }
-.catan-placement-fields svg { width:15px; height:15px; flex-shrink:0; }
-.catan-placement-fields small { font-size:.75rem; color:#dae2ce; }
-.catan-placement-preview p { margin:5px 0 0; font-size:.8125rem; line-height:1.35; color:#f0e5cb; }
 .catan-victim-choices { display:flex; flex-wrap:wrap; gap:6px; }
 .catan-victim-choices [data-slot=button] { flex:1; min-width:100px; }
 .catan-pager { display:flex; align-items:center; justify-content:space-between; flex:0 0 auto; min-height:44px; gap:8px; margin-top:auto; padding-top:4px; }
@@ -649,7 +639,7 @@
 .catan-menu-stage .catan-island-screen>.catan-screen-actions:has(>:is(.catan-roll-button,.catan-end-turn):only-child) { left:50%; right:auto; width:min(380px,calc(100% - 128px)); margin:0; transform:translateX(-50%); }
 .catan-theme .catan-menu-stage .catan-island-screen>.catan-screen-actions [data-slot=button] { min-height:44px; padding:8px; border-radius:10px; font-size:.875rem; gap:6px; }
 .catan-menu-stage .catan-island-screen>.catan-screen-actions [data-slot=button]>svg { width:20px; height:20px; }
-.catan-play.is-menu-open .catan-island-screen>.catan-screen-actions, .catan-play.is-menu-open .catan-island-tools, .catan-play.is-menu-open .catan-island-context, .catan-play.is-menu-open .catan-board-controls, .catan-play.is-menu-open .catan-board-selection { visibility:hidden; pointer-events:none; }
+.catan-play.is-menu-open .catan-island-screen>.catan-screen-actions, .catan-play.is-menu-open .catan-island-tools, .catan-play.is-menu-open .catan-island-context, .catan-play.is-menu-open .catan-board-controls { visibility:hidden; pointer-events:none; }
 .catan-play.is-map-vote .catan-island-context { top:auto; bottom:72px; left:8px; width:min(420px,calc(100% - 16px)); max-height:calc(100% - 140px); }
 .catan-theme .catan-menu-stage .catan-board-field-info { top:66px; max-width:min(360px,calc(100% - 16px)); }
 .catan-menu-stage .catan-board-controls { left:8px; bottom:8px; gap:6px; }
@@ -673,12 +663,6 @@
 .catan-theme .is-game-menu .catan-screen-actions .catan-primary:disabled { opacity:1; border-color:#64828e; color:#6f97a9; background:#314e5d; box-shadow:none; }
 .catan-theme .catan-menu-close { position:absolute; top:24px; right:12px; z-index:3; display:grid; place-items:center; width:38px; min-width:38px; height:38px; min-height:38px; margin:0; padding:8px; border:1px solid #4b7385; border-radius:12px; background:#0b2c3a80; color:#e4eff0; }
 .catan-menu-close>svg { width:20px; height:20px; }
-.catan-placement-detail>summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:32px; padding:0; cursor:pointer; font-size:.8125rem; font-weight:650; list-style:none; }
-.catan-placement-detail>summary::after { content:none; display:none; }
-.catan-placement-detail>summary::-webkit-details-marker { display:none; }
-.catan-placement-detail>summary>svg { width:16px; height:16px; flex-shrink:0; }
-.catan-placement-detail[open]>summary { margin-bottom:8px; }
-.catan-placement-detail[open]>summary>svg { transform:rotate(180deg); }
 
 .catan-play>.catan-status { gap:8px; min-height:60px; padding:6px 10px; border-radius:16px; }
 .catan-theme .catan-status-main { gap:9px; }
