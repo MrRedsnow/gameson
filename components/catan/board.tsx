@@ -214,9 +214,11 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
       {!mode && inspect !== null && <p className="catan-board-field-info" role="status">{board.hexes[inspect].resource === "desert" ? "Wüste" : RESOURCE_INFO[board.hexes[inspect].resource as Resource].terrain} · {board.hexes[inspect].number ? `Zahl ${board.hexes[inspect].number}` : "kein Ertrag"}{inspect === game.robberHex ? " · Räuber blockiert den Ertrag" : ""}</p>}
     </div>
     <div className="catan-board-controls">
-      <Button type="button" variant="outline" size="icon" aria-label="Insel verkleinern" title="Verkleinern" disabled={camera.zoom <= MIN_BOARD_ZOOM} onClick={() => zoomBy(1 / 1.35)}><Minus /></Button>
-      <Button type="button" variant="outline" size="icon" className="catan-map-overview" aria-label="Ganze Insel anzeigen und zentrieren" title="Ganze Insel zentrieren" onClick={() => { reset(); setInspect(null); }}><LocateFixed /></Button>
+      <div className="catan-board-zoom" role="group" aria-label="Kartenzoom">
       <Button type="button" variant="outline" size="icon" aria-label="Insel vergrößern" title="Vergrößern" disabled={camera.zoom >= MAX_BOARD_ZOOM} onClick={() => zoomBy(1.35)}><Plus /></Button>
+      <Button type="button" variant="outline" size="icon" aria-label="Insel verkleinern" title="Verkleinern" disabled={camera.zoom <= MIN_BOARD_ZOOM} onClick={() => zoomBy(1 / 1.35)}><Minus /></Button>
+      </div>
+      <Button type="button" variant="outline" size="icon" className="catan-map-overview" aria-label="Ganze Insel anzeigen und zentrieren" title="Ganze Insel zentrieren" onClick={() => { reset(); setInspect(null); }}><LocateFixed /></Button>
       <span className="sr-only" id={`${artId}-navigation-hint`}>Insel verschieben und mit zwei Fingern zoomen.</span>
     </div></div>
     {mode && !expanded && <div className="catan-board-selection">

@@ -8,11 +8,11 @@ import { ResourceIcon } from "./board";
 
 export type Send = (action: import("@/lib/catan").CatanAction) => Promise<boolean>;
 
-export function Screen({ title, eyebrow, back, children, actions, headingAction, className = "" }: {
-  title: string; eyebrow?: string; back?: () => void; children: ReactNode; actions?: ReactNode; headingAction?: ReactNode; className?: string;
+export function Screen({ title, eyebrow, subtitle, headingIcon, back, children, actions, headingAction, className = "" }: {
+  title: string; eyebrow?: string; subtitle?: string; headingIcon?: ReactNode; back?: () => void; children: ReactNode; actions?: ReactNode; headingAction?: ReactNode; className?: string;
 }) {
   return <section className={`catan-screen ${className}`}>
-    <header className="catan-screen-heading">{back && <Button variant="ghost" size="icon" aria-label="Einen Schritt zurück" onClick={back}><ArrowLeft /></Button>}<div>{eyebrow && <span className="catan-eyebrow">{eyebrow}</span>}<h2>{title}</h2></div>{headingAction}</header>
+    <header className="catan-screen-heading">{back && <Button variant="ghost" size="icon" aria-label="Einen Schritt zurück" onClick={back}><ArrowLeft /></Button>}{headingIcon}<div>{eyebrow && <span className="catan-eyebrow">{eyebrow}</span>}<h2>{title}</h2>{subtitle && <p className="catan-screen-subtitle">{subtitle}</p>}</div>{headingAction}</header>
     <div className="catan-screen-body">{children}</div>
     {actions && <footer className="catan-screen-actions">{actions}</footer>}
   </section>;

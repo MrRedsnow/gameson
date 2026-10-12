@@ -257,8 +257,8 @@ export function CatanResourceHand({ game, islandVisible, animationBaseline = 0 }
   useLayoutEffect(() => () => { playback.current?.dispose(); lossPlayback.current?.dispose(); }, []);
 
   return <div ref={hand} className={`catan-hand-bar ${needsDiscard ? "is-alert" : count > 7 ? "is-warn" : ""}`}>
+    <div className="catan-hand-meta"><span>Deine Rohstoffe</span><span className="catan-hand-total" title={warning} aria-label={warning}><Hand aria-hidden="true" /><b className="catan-hand-count">{count}</b><small>Karten</small><span className="catan-hand-feedback"><em className="catan-hand-gain" hidden aria-hidden="true" /><em className="catan-hand-loss" hidden aria-hidden="true" /></span>{(needsDiscard || count > 7) && <span className="sr-only">{warning}</span>}</span></div>
     <div className="catan-hand-strip" role="group" aria-label={`Deine Rohstoffe: ${RESOURCES.map((resource) => `${resources[resource]} ${RESOURCE_INFO[resource].label}`).join(", ")}`}>
-      <span className="catan-hand-total" title={warning} aria-label={warning}><Hand aria-hidden="true" /><b className="catan-hand-count">{count}</b><span className="catan-hand-feedback"><em className="catan-hand-gain" hidden aria-hidden="true" /><em className="catan-hand-loss" hidden aria-hidden="true" /></span>{(needsDiscard || count > 7) && <span className="sr-only">{warning}</span>}</span>
       {RESOURCES.map((resource) => <span key={resource} className="catan-hand-resource" data-catan-resource={resource}><ResourceIcon resource={resource} /><b className="catan-hand-count">{resources[resource]}</b><small>{RESOURCE_INFO[resource].label}</small><span className="catan-hand-feedback"><em className="catan-hand-gain" hidden aria-hidden="true" /><em className="catan-hand-loss" hidden aria-hidden="true" /></span></span>)}
     </div>
     <span className="sr-only" data-catan-gain-announcement role="status" aria-live="polite" aria-atomic="true" />
