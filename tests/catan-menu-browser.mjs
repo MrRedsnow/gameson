@@ -19,6 +19,11 @@ async function qa(page, change) {
 async function scenario(page, name) {
   await qa(page, () => page.getByLabel("Prüfsituation").selectOption(name));
 }
+async function assertDisplayOnlyStatus(page) {
+  const status = page.locator(".catan-status");
+  await expect(status).toBeVisible();
+  await expect(status.locator('button, [role="button"], a, input, select, textarea, [tabindex]')).toHaveCount(0);
+}
 async function visibleInViewport(locator, width, height) {
   await expect(locator).toBeVisible();
   const box = await locator.boundingBox();
@@ -43,6 +48,7 @@ try {
       assert.ok(Math.abs(endTurnBox.x + endTurnBox.width / 2 - dockBox.x - dockBox.width / 2) < 1, "End turn must be centered in its action dock");
       for (const id of ["bauen", "handel", "karten", "uebersicht"]) {
         await nav(page, id).click();
+        await assertDisplayOnlyStatus(page);
         const panel = menu(page, id);
         await expect(panel).toBeVisible();
         await expect(endTurn).toBeHidden();
@@ -112,6 +118,81 @@ try {
     await page.close();
   }
 
+  console.log("Catan menu layouts passed at four viewport sizes.");
+  const statusPage = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  statusPage.on("pageerror", (error) => errors.push(error.message));
+  await statusPage.goto(baseURL);
+  for (const expanded of [false, true]) for (const name of ["map-vote", "map-waiting", "map-tie", "map-tie-guest", "setup", "setup-road", "roll", "rich", "discard", "robber", "steal", "free-roads", "incoming", "outgoing", "waiting", "finished"]) {
+    await scenario(statusPage, name);
+    await nav(statusPage, "insel").click();
+    if (expanded) await statusPage.getByRole("button", { name: "Insel im Vollbild öffnen", exact: true }).click();
+    for (const local of [false, true]) {
+      await qa(statusPage, () => statusPage.getByLabel("Lokales Spiel", { exact: true }).setChecked(local));
+      await assertDisplayOnlyStatus(statusPage);
+      for (const id of ["karten", "bauen", "handel", "uebersicht"]) {
+        if (await nav(statusPage, id).isDisabled()) continue;
+        await nav(statusPage, id).click();
+        await expect(menu(statusPage, id)).toBeVisible();
+        await assertDisplayOnlyStatus(statusPage);
+      }
+      await qa(statusPage, async () => {
+        await statusPage.getByLabel("Aktion blockieren", { exact: true }).check();
+        await statusPage.getByRole("checkbox", { name: "Verbindung unterbrochen", exact: true }).check();
+      });
+      await nav(statusPage, "uebersicht").click();
+      await assertDisplayOnlyStatus(statusPage);
+      await expect(statusPage.locator(".catan-status-offline")).toBeVisible();
+      await qa(statusPage, async () => {
+        await statusPage.getByLabel("Aktion blockieren", { exact: true }).uncheck();
+        await statusPage.getByRole("checkbox", { name: "Verbindung unterbrochen", exact: true }).uncheck();
+      });
+    }
+  }
+
+  console.log("Catan display-only status passed for all phases with open menus, local/online play and normal/expanded layouts.");
+  // Opening a menu during an active placement used to insert a header button.
+  for (const expanded of [false, true]) for (const [name, building] of [["rich", "Straße"], ["build-settlement", "Siedlung"], ["rich", "Stadt"]]) {
+    await scenario(statusPage, name);
+    await nav(statusPage, "insel").click();
+    if (expanded) await statusPage.getByRole("button", { name: "Insel im Vollbild öffnen", exact: true }).click();
+    await nav(statusPage, "bauen").click();
+    await menu(statusPage, "bauen").locator(".catan-build-choice").filter({ has: statusPage.locator("strong", { hasText: new RegExp(`^${building}$`) }) }).click();
+    await menu(statusPage, "bauen").getByRole("button", { name: "Auswählen", exact: true }).click();
+    await expect(statusPage.getByRole("button", { name: new RegExp(`^${building} auf (Weg|Kreuzung)`) }).first()).toBeVisible();
+    for (const id of ["karten", "bauen", "handel", "uebersicht"]) {
+      await nav(statusPage, id).click();
+      await assertDisplayOnlyStatus(statusPage);
+    }
+    await nav(statusPage, "insel").click();
+    await statusPage.getByRole("button", { name: "Abbrechen", exact: true }).click();
+    await expect(menu(statusPage, "bauen")).toBeVisible();
+  }
+
+  console.log("Catan display-only status passed during road, settlement and city placement.");
+  // Privacy controls live in Overview and still close fullscreen before handoff.
+  for (const [width, height] of sizes) for (const expanded of [false, true]) for (const name of ["rich", "map-vote"]) {
+    await statusPage.setViewportSize({ width, height });
+    await scenario(statusPage, name);
+    await nav(statusPage, "insel").click();
+    if (expanded) await statusPage.getByRole("button", { name: "Insel im Vollbild öffnen", exact: true }).click();
+    await qa(statusPage, () => statusPage.getByLabel("Lokales Spiel", { exact: true }).check());
+    await nav(statusPage, "uebersicht").click();
+    const hide = menu(statusPage, "uebersicht").getByRole("button", { name: name === "map-vote" ? "Gerät weitergeben" : "Handkarten verdecken", exact: true });
+    await hide.scrollIntoViewIfNeeded();
+    await visibleInViewport(hide, width, height);
+    await visibleInViewport(menu(statusPage, "uebersicht").getByRole("link", { name: "Zur Spielauswahl", exact: true }), width, height);
+    await statusPage.screenshot({ path: `${output}${width}x${height}-${expanded ? "expanded" : "normal"}-${name}-local-overview.png` });
+    const count = Number(await statusPage.locator('output[aria-label="Verdeckte Handkarten"]').textContent());
+    await hide.click();
+    await expect(statusPage.locator('output[aria-label="Verdeckte Handkarten"]')).toHaveText(String(count + 1));
+    await expect(statusPage.locator(".catan-play")).not.toHaveClass(/is-board-expanded/);
+    await assertDisplayOnlyStatus(statusPage);
+    await qa(statusPage, () => statusPage.getByLabel("Lokales Spiel", { exact: true }).uncheck());
+    await nav(statusPage, "uebersicht").click();
+    await expect(menu(statusPage, "uebersicht").locator(".catan-hide-button")).toHaveCount(0);
+  }
+  await statusPage.close();
+
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => Object.defineProperty(document, "fullscreenEnabled", { value: false }));
@@ -180,10 +261,12 @@ try {
   await scenario(page, "discard");
   await expect(menu(page, "karten").getByRole("heading", { name: "Rohstoffe abgeben", exact: true })).toBeVisible();
 
-  // Normal-menu status controls must survive pointerdown and execute their click.
+  // Close the menu to reach the island action; the header stays display-only.
   await scenario(page, "roll");
   await nav(page, "bauen").click();
-  await page.locator(".catan-status").getByRole("button", { name: "Würfeln", exact: true }).click();
+  await assertDisplayOnlyStatus(page);
+  await nav(page, "insel").click();
+  await page.locator(".catan-island-dock").getByRole("button", { name: "Würfeln", exact: true }).click();
   await expect(build.getByText("Würfle zuerst.", { exact: true })).toHaveCount(0);
   await scenario(page, "rich");
   await nav(page, "bauen").click();
@@ -253,7 +336,7 @@ try {
   await page.screenshot({ path: `${output}844x390-expanded-large-text.png` });
   await page.close();
   assert.deepEqual(errors, [], "Browser errors");
-  console.log("Catan menu browser checks passed: four sizes, normal/expanded layouts, selection, trade, mandatory tasks, keyboard and 200% text.");
+  console.log("Catan menu browser checks passed: four sizes, display-only status in every phase, normal/expanded layouts, local handoff, selection, trade, mandatory tasks, keyboard and 200% text.");
 } finally {
   await browser.close();
 }

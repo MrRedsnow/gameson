@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
-import { Bell, BookOpen, CheckCheck, ChevronRight, ScrollText, Trophy, Users } from "lucide-react";
+import { Bell, BookOpen, CheckCheck, ChevronRight, LockKeyhole, ScrollText, Trophy, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GameBackLink } from "@/components/game-entry";
 import { COSTS, PLAYER_COLORS, PLAYER_COLOR_NAMES, RESOURCES, RESOURCE_INFO, resourceCount, victoryPoints, type CatanView } from "@/lib/catan";
@@ -24,7 +24,7 @@ const RULES = [
 const BUILDING_NAMES: Record<keyof typeof COSTS, string> = { road: "Straße", settlement: "Siedlung", city: "Stadt", development: "Entwicklungskarte" };
 export type OverviewPage = "menu" | "scores" | "log" | "rules" | "activity";
 
-export function OverviewPanel({ game, page, setPage, activity, unreadActivity, unread, onRead, onRematch, busy, turnActions, ambientEnabled = true, onAmbientChange, onClose }: {
+export function OverviewPanel({ game, page, setPage, activity, unreadActivity, unread, onRead, local, onHide, onRematch, busy, turnActions, ambientEnabled = true, onAmbientChange, onClose }: {
   game: CatanView; page: OverviewPage; setPage: (page: OverviewPage) => void; activity: CatanActivity[]; unreadActivity?: CatanActivity[]; unread: number; onRead: () => void;
   local: boolean; onHide?: () => void; onRematch?: () => void; busy: boolean; turnActions?: ReactNode;
   ambientEnabled?: boolean; onAmbientChange?: (enabled: boolean) => void; onClose?: () => void;
@@ -48,6 +48,7 @@ export function OverviewPanel({ game, page, setPage, activity, unreadActivity, u
     </Screen>;
   }
   const finished = game.phase === "finished"; const winner = game.players.find((p) => p.id === game.winner);
+  const hideLabel = game.phase === "map_vote" ? "Gerät weitergeben" : "Handkarten verdecken";
   return <Screen onClose={onClose} title={finished ? `${winner?.name} gewinnt!` : "Übersicht"} headingIcon={finished ? <Trophy /> : <Users />} subtitle={finished ? "Die Partie ist beendet" : "Punkte, Meldungen und Spielregeln"} actions={finished && onRematch ? <Button className="catan-primary" disabled={busy} onClick={onRematch}>Neue Partie vorbereiten</Button> : turnActions}>
     {finished && <p className="catan-inline-hint"><Trophy /> {game.targetPoints} Punkte erreicht.</p>}
     <div className="catan-score-list">{game.players.map((p) => <details className="catan-player-card" key={p.id} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties}>
@@ -58,6 +59,6 @@ export function OverviewPanel({ game, page, setPage, activity, unreadActivity, u
     </details>)}</div>
     <div className="catan-overview-links">{([{ id: "log", title: "Spielverlauf", Icon: ScrollText }, { id: "activity", title: "Deine Meldungen", Icon: Bell }, { id: "rules", title: "Spielregeln & Baukosten", Icon: BookOpen }] as const).map(({ id, title, Icon }) => <button type="button" className="catan-overview-link" key={id} onClick={() => setPage(id)}><Icon /><span>{title}</span>{id === "activity" && unread > 0 && <b>{unread} neu</b>}<ChevronRight /></button>)}</div>
     {onAmbientChange && <label htmlFor={ambientId} aria-label="Lebendige Insel" className="catan-ambient-preference"><span><strong>Lebendige Insel</strong><small>Tiere, Boote und kleine Bewegungen</small></span><input id={ambientId} type="checkbox" checked={ambientEnabled} onChange={(event) => onAmbientChange(event.target.checked)} /></label>}
-    <div className="catan-overview-exit"><GameBackLink /></div>
+    <div className="catan-overview-exit">{local && onHide && !finished && <Button type="button" variant="outline" className="catan-hide-button" data-catan-sound="cancel" aria-label={hideLabel} onClick={onHide}><LockKeyhole />{hideLabel}</Button>}<GameBackLink /></div>
   </Screen>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ArrowRightLeft, BookOpen, Castle, Check, ChevronRight, CircleHelp, Dices, Flag, Hammer, LockKeyhole, Map as MapIcon, Maximize2, Minimize2, Route, Shield, Users, Volume2, VolumeX, WalletCards, WifiOff, type LucideIcon } from "lucide-react";
+import { ArrowRightLeft, BookOpen, Castle, Check, ChevronRight, CircleHelp, Dices, Flag, Hammer, Map as MapIcon, Maximize2, Minimize2, Route, Shield, Users, Volume2, VolumeX, WalletCards, WifiOff, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CatanBoard, ResourceIcon, boardAction, type BoardMode } from "./board";
 import { CatanDice } from "./dice";
@@ -163,7 +163,6 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
     "aria-labelledby": undefined,
     tabIndex: -1,
   });
-  const showOverview = (page: OverviewPage) => { setOverviewPage(page); selectTab("uebersicht"); };
   const activity = useCatanActivity(game, afterNotificationSequence, onActivityRead);
   const sounds = useCatanSounds(game, animationBaseline);
   const ambient = useAmbientPreference();
@@ -258,13 +257,12 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
     const control = event.target instanceof Element ? event.target.closest("button, [role='button']") : null;
     if (control?.getAttribute("data-catan-sound") === "cancel" && !control.hasAttribute("disabled") && control.getAttribute("aria-disabled") !== "true") sounds.cue("ui_cancel");
   }}>
+    {/* Status stays display-only in every phase, including while a menu is open. */}
     <div className={`catan-status ${own ? "is-yours" : ""}`} style={{ "--player-color": PLAYER_COLORS[active.color] } as React.CSSProperties}>
       <div className="catan-status-main" aria-live="polite" aria-atomic="true"><span className="catan-status-copy"><span><i className="catan-player-dot" aria-hidden="true" /><strong>{statusTitle}</strong></span></span></div>
       {offline && <span className="catan-status-offline" role="status" aria-label="Verbindung unterbrochen"><WifiOff /></span>}
       {!voting && <div className="catan-status-roll">{game.dice ? <CatanDice dice={game.dice} /> : <Dices aria-hidden="true" />}</div>}
-      {activeMenu && turnActions && <div className="catan-status-actions">{turnActions}</div>}
-      {!voting && <button type="button" className="catan-status-points" aria-label={`Punktestand öffnen: Du hast ${victoryPoints(game, me)} von ${game.targetPoints} Siegpunkten`} onClick={() => showOverview("scores")}><span>{victoryPoints(game, me)}<small> / {game.targetPoints}</small></span><span className="catan-status-points-label">Punkte</span></button>}
-      {local && onHide && !finished && <Button variant="ghost" size="icon" className="catan-hide-button" data-catan-sound="cancel" onClick={hideHand} aria-label={voting ? "Gerät weitergeben" : "Handkarten verdecken"}><LockKeyhole /></Button>}
+      {!voting && <div className="catan-status-points" role="status" aria-label={`Punktestand: Du hast ${victoryPoints(game, me)} von ${game.targetPoints} Siegpunkten`}><span>{victoryPoints(game, me)}<small> / {game.targetPoints}</small></span><span className="catan-status-points-label">Punkte</span></div>}
     </div>
     <div className="catan-world">
     <div ref={setSeaTarget} className="catan-world-sea" aria-hidden="true" />

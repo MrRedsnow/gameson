@@ -17,7 +17,11 @@ function fixture(name: string) {
     return { game, viewer: name === "map-tie-guest" ? seats[1].id : seats[0].id };
   }
   game = acceptMap(game, applyCatanAction);
-  if (name === "setup") return { game, viewer: game.players[0].id };
+  if (["setup", "setup-road"].includes(name)) {
+    const viewer = game.players[0].id;
+    if (name === "setup-road") game = applyCatanAction(game, viewer, { type: "build", building: "settlement", position: legalSettlements(game, viewer, true)[0] }, () => 0);
+    return { game, viewer };
+  }
   while (game.phase.startsWith("setup")) {
     const id = game.players[game.currentPlayer].id; const road = game.phase === "setup_road";
     game = applyCatanAction(game, id, { type: "build", building: road ? "road" : "settlement", position: road ? legalRoads(game, id, game.setupVertex)[0] : legalSettlements(game, id, true)[0] }, () => 0);
@@ -28,6 +32,16 @@ function fixture(name: string) {
   }
   game.phase = name === "roll" ? "roll" : "main"; game.dice = name === "roll" ? null : [3, 3];
   let viewer = game.players[0].id;
+  if (name === "build-settlement") {
+    while (!legalSettlements(game, viewer).length) {
+      const position = legalRoads(game, viewer)[0];
+      if (position === undefined) throw new Error("Die Bauprüfung benötigt einen erreichbaren Siedlungsplatz.");
+      const player = game.players[0];
+      for (const resource of ["wood", "brick"] as const) if (!player.resources[resource]) { player.resources[resource]++; game.bank[resource]--; }
+      game = applyCatanAction(game, viewer, { type: "build", building: "road", position });
+    }
+    for (const resource of RESOURCES) { game.bank[resource] += game.players[0].resources[resource] - 5; game.players[0].resources[resource] = 5; }
+  }
   if (["cards", "empty-bank"].includes(name)) {
     for (const type of ["knight", "plenty", "monopoly", "road_building", "victory", ...Array(10).fill("knight")] as const) {
       game.players[0].development.push({ id: `card-${game.players[0].development.length}`, type, boughtOnTurn: 1 });
@@ -70,17 +84,23 @@ function Preview() {
   const [largeText, setLargeText] = useState(false);
   const [rejectAction, setRejectAction] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [local, setLocal] = useState(false);
+  const [offline, setOffline] = useState(false);
+  const [hideCount, setHideCount] = useState(0);
   async function send(action: CatanAction) {
     if (rejectAction) { setError("Prüfung: Die Aktion wurde abgelehnt. Deine Auswahl bleibt erhalten."); return false; }
     try { setState({ ...state, game: applyCatanAction(state.game, state.viewer, action, () => 2) }); setError(""); return true; }
     catch (e) { setError((e as Error).message); return false; }
   }
-  return <><style>{`html { font-size:${largeText ? 32 : 16}px; }`}</style><details className="qa-controls"><summary>QA</summary>
-    <label>Prüfsituation<select value={scenario} onChange={(e) => { setScenario(e.target.value); setState(fixture(e.target.value)); setError(""); }}>{["map-vote", "map-waiting", "map-tie", "map-tie-guest", "rich", "poor", "setup", "roll", "discard", "robber", "robber-after-seven", "robber-after-knight", "steal", "steal-single", "free-roads", "cards", "empty-bank", "incoming", "outgoing", "waiting", "finished", "history"].map((name) => <option key={name}>{name}</option>)}</select></label>
+  return <><style>{`html { font-size:${largeText ? 32 : 16}px; } .qa-controls { max-height:calc(100dvh - 8px); overflow-y:auto; }`}</style><details className="qa-controls"><summary>QA</summary>
+    <label>Prüfsituation<select value={scenario} onChange={(e) => { setScenario(e.target.value); setState(fixture(e.target.value)); setError(""); }}>{["map-vote", "map-waiting", "map-tie", "map-tie-guest", "rich", "poor", "build-settlement", "setup", "setup-road", "roll", "discard", "robber", "robber-after-seven", "robber-after-knight", "steal", "steal-single", "free-roads", "cards", "empty-bank", "incoming", "outgoing", "waiting", "finished", "history"].map((name) => <option key={name}>{name}</option>)}</select></label>
     <label>Perspektive<select value={state.viewer} onChange={(e) => { setState({ ...state, viewer: e.target.value }); setError(""); }}>{state.game.players.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select></label>
     <label><input type="checkbox" checked={largeText} onChange={(e) => setLargeText(e.target.checked)} />Text 200%</label>
     <label><input type="checkbox" checked={rejectAction} onChange={(e) => setRejectAction(e.target.checked)} />Aktion ablehnen</label>
     <label><input type="checkbox" checked={busy} onChange={(e) => setBusy(e.target.checked)} />Aktion blockieren</label>
+    <label><input type="checkbox" checked={local} onChange={(e) => setLocal(e.target.checked)} />Lokales Spiel</label>
+    <label><input type="checkbox" checked={offline} onChange={(e) => setOffline(e.target.checked)} />Verbindung unterbrochen</label>
+    <output aria-label="Verdeckte Handkarten">{hideCount}</output>
     <button type="button" onClick={() => setState((current) => ({ ...current, game: { ...current.game, victims: current.game.victims.slice(1) } }))}>Erste Opferauswahl entfernen</button>
     <button type="button" onClick={() => setState((current) => {
       const next = structuredClone(current.game); const player = next.players.find((entry) => entry.id === current.viewer)!;
@@ -92,7 +112,7 @@ function Preview() {
       setState({ ...state, game: applyCatanAction({ ...state.game, phase: "roll" }, state.game.players[state.game.currentPlayer].id, { type: "roll" }, () => face++) });
     }}>7 auslösen</button>
     </details>
-    <div className="catan-theme"><main className="catan-shell catan-shell-wide catan-shell-play">{error && <div className="catan-notice" role="alert">{error}</div>}<CatanGameUI key={`${scenario}:${state.game.id}:${state.viewer}`} game={catanView(state.game, state.viewer)} send={send} busy={busy} local={false} afterNotificationSequence={0} onRematch={() => setState(fixture("setup"))} /></main></div>
+    <div className="catan-theme"><main className="catan-shell catan-shell-wide catan-shell-play">{error && <div className="catan-notice" role="alert">{error}</div>}<CatanGameUI key={`${scenario}:${state.game.id}:${state.viewer}`} game={catanView(state.game, state.viewer)} send={send} busy={busy} local={local} offline={offline} onHide={() => setHideCount((count) => count + 1)} afterNotificationSequence={0} onRematch={() => setState(fixture("setup"))} /></main></div>
   </>;
 }
 createRoot(document.getElementById("root")!).render(<Preview />);

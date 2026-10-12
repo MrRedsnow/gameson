@@ -113,7 +113,6 @@
 .catan-status-offline { display:grid; place-items:center; flex-shrink:0; color:#ffd29a; }
 .catan-status-offline svg { width:18px; height:18px; }
 .catan-theme .catan-hide-button { color:#d5bd87; border:1px solid #3e5762; }
-.catan-theme .catan-status .catan-hide-button { width:44px; min-width:44px; height:44px; padding:10px; }
 .catan-turn-details { flex:0 0 auto; padding:12px 14px; margin-bottom:8px; border:1px solid #3e5762; border-radius:12px; background:#142731; }
 .catan-turn-details .catan-kicker { margin-bottom:6px; font-size:.6875rem; letter-spacing:.1em; }
 .catan-turn-details p { color:#c3ced0; font-size:.9375rem; }
@@ -530,7 +529,7 @@
 .catan-overview-link>span { min-width:0; flex:1; font-size:.9375rem; overflow-wrap:anywhere; }
 .catan-overview-link>svg { width:20px; height:20px; flex-shrink:0; color:#e0c68e; }
 .catan-overview-link>b { font-size:.75rem; color:#edcf89; white-space:nowrap; }
-.catan-overview-exit { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:auto; }
+.catan-overview-exit { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-top:auto; }
 .catan-theme .catan-overview-exit .game-back-link { margin:0; font-size:.875rem; min-height:44px; align-items:center; }
 .catan-overview-exit [data-slot=button] { padding:6px; font-size:.875rem; }
 .catan-player-card { border-bottom:1px solid #48616b; background:transparent; }
@@ -760,9 +759,6 @@
 .catan-theme .catan-nav-tab:is([aria-expanded=true],[aria-pressed=true]) { color:#f5d38c; background:#efd18a08; }
 .catan-nav-tab:is([aria-expanded=true],[aria-pressed=true])::before { background:#edc366; }
 .catan-nav-tab:is([aria-expanded=true],[aria-pressed=true]) .catan-nav-icon { background:transparent; }
-.catan-status-actions { display:flex; flex:0 0 auto; align-items:center; justify-content:center; gap:8px; }
-.catan-theme .catan-status-actions [data-slot=button] { width:auto; min-height:44px; margin:0; padding:8px 12px; font-size:.8125rem; line-height:1.3; }
-@media(max-width:600px) { .catan-play>.catan-status { flex-wrap:wrap; } .catan-status-actions { order:1; flex-basis:100%; } }
 
 .catan-world .is-game-menu .catan-build-list { gap:10px; }
 .catan-world .is-game-menu .catan-build-choice { align-items:center; min-height:82px; gap:12px; padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); box-shadow:inset 0 1px 0 rgba(255,255,255,.1); }

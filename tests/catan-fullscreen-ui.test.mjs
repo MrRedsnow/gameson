@@ -55,7 +55,14 @@ function foundedGame() {
   }
   return game;
 }
-const ui = (game, viewerId, extra = {}) => renderToStaticMarkup(createElement(CatanGameUI, { game: catanView(game, viewerId), send: async () => true, busy: false, local: false, ...extra }));
+const ui = (game, viewerId, extra = {}) => {
+  const html = renderToStaticMarkup(createElement(CatanGameUI, { game: catanView(game, viewerId), send: async () => true, busy: false, local: false, ...extra }));
+  const start = html.indexOf('class="catan-status ');
+  const end = html.indexOf('<div class="catan-world">', start);
+  assert.ok(start >= 0 && end > start, "Die Statusleiste vor der Insel fehlt.");
+  assert.doesNotMatch(html.slice(start, end), /<button\b|role="button"/, "Auch die Vollbild-Statusleiste darf keine Buttons enthalten.");
+  return html;
+};
 const attribute = (tag, name) => tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
 const panelTags = (html) => (html.match(/<div\b[^>]*>/g) ?? []).filter((tag) => attribute(tag, "data-catan-fullscreen-panel"));
 
@@ -78,6 +85,24 @@ function assertMountedIsland(html, activeMenu) {
   assert.equal(panelTags(html).length, 4);
   assert.deepEqual(panelTags(html).filter((tag) => attribute(tag, "data-state") === "active").map((tag) => attribute(tag, "data-catan-fullscreen-panel")), activeMenu ? [activeMenu] : []);
 }
+
+test("Vollbild-Statusleiste bleibt in allen Phasen und Perspektiven ohne Buttons", () => {
+  const founded = foundedGame();
+  for (const phase of ["map_vote", "setup_settlement", "setup_road", "roll", "main", "discard", "robber", "steal", "free_roads", "finished"]) {
+    const game = phase === "map_vote" ? createCatanGame(seats, 10, sequence([0])) : structuredClone(founded);
+    game.phase = phase;
+    const actor = game.players[game.currentPlayer].id;
+    if (phase === "discard") game.discards = { [actor]: 1 };
+    if (phase === "steal") game.victims = game.players.filter((player) => player.id !== actor).map((player) => player.id);
+    if (phase === "free_roads") game.freeRoads = 2;
+    if (phase === "finished") game.winner = actor;
+    for (const viewer of [actor, game.players.find((player) => player.id !== actor).id]) for (const local of [false, true]) {
+      for (const flags of [{ busy: false, offline: false }, { busy: true, offline: true }]) {
+        assert.match(ui(game, viewer, { local, onHide() {}, ...flags }), /is-board-expanded/);
+      }
+    }
+  }
+});
 
 test("Vollbild hält Insel und Hand einmal montiert und zeigt fünf Navigationseinträge mit vier Dialogen", () => {
   const game = foundedGame();

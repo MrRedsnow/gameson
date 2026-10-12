@@ -55,7 +55,17 @@ function foundedGame() {
   }
   return game;
 }
-const ui = (game, viewerId, extra = {}) => render(CatanGameUI, { game: catanView(game, viewerId), send, busy: false, local: false, ...extra });
+const ui = (game, viewerId, extra = {}) => {
+  const html = render(CatanGameUI, { game: catanView(game, viewerId), send, busy: false, local: false, ...extra });
+  assert.doesNotMatch(statusRow(html), /<button\b|role="button"/, "Die obere Statusleiste darf keine Buttons enthalten.");
+  return html;
+};
+function statusRow(html) {
+  const start = html.indexOf('class="catan-status ');
+  const end = html.indexOf('<div class="catan-world">', start);
+  assert.ok(start >= 0 && end > start, "Die Statusleiste vor der Insel fehlt.");
+  return html.slice(start, end);
+}
 const overview = (game, viewerId, extra = {}) => render(OverviewPanel, { game: catanView(game, viewerId), page: "menu", setPage() {}, activity: [], unreadActivity: [], unread: 0, onRead() {}, local: false, busy: false, ...extra });
 function labelledButton(html, label) {
   const button = (html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []).find((element) => element.includes(`aria-label="${label}"`));
@@ -107,7 +117,7 @@ test("zeigt fünf angeheftete Menübereiche mit sprechenden Gruppen", () => {
   assert.doesNotMatch(html, /catan-hand-meta|>Deine Rohstoffe<|aria-label="Spielübersicht öffnen"/);
   assert.match(labelledButton(html, "Karten öffnen, 0 Rohstoffkarten"), /catan-hand-total[^>]*>[\s\S]*?<b class="catan-hand-count">0<\/b>/);
   assert.doesNotMatch(html, /Deine Karten öffnen/);
-  assert.match(html, /Punktestand öffnen: Du hast 0 von 12 Siegpunkten/);
+  assert.match(html, /class="catan-status-points" role="status" aria-label="Punktestand: Du hast 0 von 12 Siegpunkten"/);
   // Das Brett trägt keine eigene Kopfzeile und keine Legende mehr; beides kostete dauerhaft Platz.
   assert.doesNotMatch(html, /catan-board-toolbar|catan-board-legend/);
   assert.match(html, /class="catan-board-controls"/);
@@ -119,11 +129,10 @@ test("zeigt oben nur die Person am Zug ohne ausklappbare Erklärung und behält 
   const active = game.players[game.currentPlayer].id; const other = game.players.find((p) => p.id !== active).id;
   const waiting = ui(game, other);
   // Die Statuszeile steht vor allen Menübereichen und nennt, wer dran ist.
-  const statusRow = (html) => html.slice(html.indexOf('class="catan-status '), html.indexOf('class="catan-hand-bar'));
   const status = statusRow(waiting);
   assert.ok(status, "Die Statuszeile fehlt.");
   assert.match(status, new RegExp(`${game.players[game.currentPlayer].name} ist am Zug`));
-  assert.match(status, /Punktestand öffnen: Du hast 2 von 10 Siegpunkten/);
+  assert.match(status, /Punktestand: Du hast 2 von 10 Siegpunkten/);
   assert.match(status, /<div class="catan-status-main" aria-live="polite" aria-atomic="true">/);
   assert.doesNotMatch(status, /<button[^>]*class="catan-status-main"|Zug erklären|aria-expanded|lucide-chevron-down|catan-phase-help|Warten auf den Würfelwurf/);
   const ownStatus = statusRow(ui(game, active));
@@ -133,6 +142,25 @@ test("zeigt oben nur die Person am Zug ohne ausklappbare Erklärung und behält 
   game = applyCatanAction(game, active, { type: "roll" }, sequence([1, 3]));
   // Nach dem Wurf steht das Ergebnis in derselben Zeile – auch für alle, die nicht am Zug sind.
   assert.match(ui(game, other), /class="catan-status[^"]*"[\s\S]*?class="catan-dice"[^>]*aria-label="Würfel: 2 und 4, Summe 6"/);
+});
+
+test("Statusleiste bleibt in jeder Phase auch lokal, beschäftigt und offline reine Anzeige", () => {
+  const founded = foundedGame();
+  for (const phase of ["map_vote", "setup_settlement", "setup_road", "roll", "main", "discard", "robber", "steal", "free_roads", "finished"]) {
+    const game = phase === "map_vote" ? createCatanGame(seats, 10, sequence([0])) : structuredClone(founded);
+    game.phase = phase;
+    const actor = game.players[game.currentPlayer].id;
+    if (phase === "discard") game.discards = { [actor]: 1 };
+    if (phase === "steal") game.victims = game.players.filter((player) => player.id !== actor).map((player) => player.id);
+    if (phase === "free_roads") game.freeRoads = 2;
+    if (phase === "finished") game.winner = actor;
+    for (const viewer of [actor, game.players.find((player) => player.id !== actor).id]) for (const local of [false, true]) for (const busy of [false, true]) for (const offline of [false, true]) {
+      const status = statusRow(ui(game, viewer, { local, busy, offline, onHide() {} }));
+      assert.doesNotMatch(status, /catan-status-actions|tabindex=|Punktestand öffnen|Handkarten verdecken|Gerät weitergeben/);
+      assert.equal(status.includes("Verbindung unterbrochen"), offline);
+      assert.equal(status.includes('class="catan-status-points" role="status"'), phase !== "map_vote");
+    }
+  }
 });
 
 test("Ganze Insel bleibt als Reset auch beim Erkunden und während einer Spielaktion erreichbar", () => {
@@ -424,6 +452,7 @@ test("das Baumenü erklärt allgemeine Einschränkungen einmal und behält jede 
   assert.match(island, /class="catan-screen-actions"[\s\S]*?Würfeln/);
   const local = ui(game, active, { local: true, onHide() {} });
   assert.equal((local.match(/aria-label="Handkarten verdecken"/g) ?? []).length, 1);
+  labelledButton(menu(local, "uebersicht"), "Handkarten verdecken");
   assert.doesNotMatch(local, />Hand verdecken<\/button>/);
 });
 
@@ -704,10 +733,28 @@ test("Übersicht zeigt sofort alle Punktestände, Listenlinks und nur zusätzlic
   assert.equal((html.match(/class="catan-overview-link"/g) ?? []).length, 3);
   assert.match(html, /Spielverlauf/); assert.match(html, /Deine Meldungen/); assert.match(html, /Spielregeln &amp; Baukosten/);
   assert.match(html, /2 neu/);
+  const hide = labelledButton(html, "Handkarten verdecken");
+  assert.ok(html.indexOf(hide) > html.indexOf('class="catan-overview-exit"'));
+  assert.ok(html.indexOf(hide) < html.indexOf('class="game-back-link"'));
   assert.doesNotMatch(html, /catan-overview-menu|Hand verdecken|Einen Schritt zurück/);
   for (const card of html.match(/<details class="catan-player-card"[\s\S]*?<\/details>/g) ?? []) {
     assert.equal((card.match(/Rohstoffkarten/g) ?? []).length, 1, "Aufgeklappte Spielerdetails dürfen die Rohstoffzahl nicht erneut zeigen.");
     assert.match(card, /Entwicklungskarten/); assert.match(card, /Vorrat:/);
+  }
+});
+
+test("Übersicht bietet Verdecken ausschließlich in laufenden lokalen Partien mit Übergabe an", () => {
+  const playing = foundedGame();
+  const voting = createCatanGame(seats, 10, sequence([0]));
+  const finished = { ...playing, phase: "finished", winner: playing.players[playing.currentPlayer].id };
+  for (const game of [voting, playing, finished]) for (const local of [false, true]) for (const onHide of [undefined, () => {}]) {
+    const html = overview(game, game.players[0].id, { local, onHide });
+    const expected = local && Boolean(onHide) && game.phase !== "finished";
+    assert.equal(/class="[^"]*\bcatan-hide-button\b/.test(html), expected);
+    if (expected) labelledButton(html, game.phase === "map_vote" ? "Gerät weitergeben" : "Handkarten verdecken");
+  }
+  for (const page of ["rules", "log", "activity"]) {
+    assert.doesNotMatch(overview(playing, playing.players[0].id, { page, local: true, onHide() {} }), /catan-hide-button/);
   }
 });
 

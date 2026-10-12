@@ -36,8 +36,6 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
     if (!active) return;
     const outside = (event: globalThis.PointerEvent) => {
       const target = event.target;
-      // Status controls must stay mounted through their click (for example rolling).
-      if (target instanceof Element && target.closest(".catan-status")) return;
       if (target instanceof Node && !nav.current?.contains(target) && !panel(active)?.contains(target)) close();
     };
     document.addEventListener("pointerdown", outside);
