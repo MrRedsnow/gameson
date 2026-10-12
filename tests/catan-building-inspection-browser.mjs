@@ -76,6 +76,52 @@ async function clickBuilding(page, building, touch = false) {
   else await page.mouse.click(point.x, point.y);
   await expect(info(page)).toHaveText(await expectedInfo(building));
 }
+async function boardPoint(page, field) {
+  const point = field ? await field.evaluateAll((elements) => {
+    for (const element of elements) {
+      const box = element.querySelector(".catan-hex-border").getBoundingClientRect();
+      for (const y of [.5, .65, .35, .2, .8, .1, .9]) for (const x of [.5, .65, .35, .2, .8, .1, .9]) {
+        const point = { x: box.left + box.width * x, y: box.top + box.height * y };
+        const target = document.elementFromPoint(point.x, point.y);
+        if (target && element.contains(target) && !target.closest("[data-catan-building-target]")) return { ...point, label: element.getAttribute("aria-label") };
+      }
+    }
+    return null;
+  }) : await page.locator(".catan-board-viewport").evaluate((viewport) => {
+    const svg = viewport.querySelector(".catan-board");
+    const box = viewport.getBoundingClientRect();
+    for (const y of [.06, .94, .14, .86, .22, .78, .3, .7, .38, .62, .5]) {
+      for (const x of [.06, .94, .14, .86, .22, .78, .3, .7, .38, .62, .5]) {
+        const point = { x: box.left + box.width * x, y: box.top + box.height * y };
+        const target = document.elementFromPoint(point.x, point.y);
+        if (target === svg || target === viewport) return point;
+      }
+    }
+    return null;
+  });
+  assert.ok(point, field ? "A field must have an unobstructed terrain hit area" : "The map must have an unobstructed ocean hit area");
+  return point;
+}
+async function tapBoard(page, touch, field) {
+  const point = await boardPoint(page, field);
+  if (touch) await page.touchscreen.tap(point.x, point.y);
+  else await page.mouse.click(point.x, point.y);
+  return point.label ? page.getByRole("button", { name: point.label, exact: true }) : null;
+}
+async function dismissed(page) {
+  await expect(info(page)).toHaveCount(0);
+  await expect(page.locator(".catan-hex-selection")).toHaveCount(0);
+}
+async function pinchBoard(page) {
+  const box = await page.locator(".catan-board-viewport").boundingBox();
+  const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x: center.x - 20, y: center.y }, { id: 2, x: center.x + 20, y: center.y }] });
+    await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: center.x - 35, y: center.y }, { id: 2, x: center.x + 35, y: center.y }] });
+    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } finally { await session.detach(); }
+}
 async function layout(page) {
   const geometry = await info(page).evaluate((element) => {
     const box = (node) => {
@@ -128,24 +174,47 @@ try {
       await expect(info(page)).toHaveText("Siedlung · BenjaminAlexanderWagner");
       await qa(page, () => page.getByRole("button", { name: "Name ändern", exact: true }).click());
       await expect(info(page)).toHaveText("Siedlung · Mara");
-      const field = page.getByRole("button", { name: /^Feld ansehen:/ }).first();
-      await field.focus(); await page.keyboard.press("Enter");
-      await expect(info(page)).not.toContainText("Mara");
+      const fields = page.getByRole("button", { name: /^Rohstoffton abspielen:/ });
+      const field = fields.first();
+      const desert = page.locator(".catan-board > g").filter({ has: page.locator("title", { hasText: /^Feld \d+: Wüste/ }) });
+      for (const key of ["Enter", "Space"]) {
+        await field.focus(); await page.keyboard.press(key);
+        await dismissed(page);
+        await clickBuilding(page, owner(page, "Mara"), true);
+      }
+      for (const touch of [false, true]) {
+        await tapBoard(page, touch);
+        await dismissed(page);
+        await clickBuilding(page, owner(page, "Mara"), touch);
+        await tapBoard(page, touch, fields);
+        await dismissed(page);
+        await clickBuilding(page, owner(page, "Mara"), touch);
+        await tapBoard(page, touch, desert);
+        await dismissed(page);
+        await clickBuilding(page, owner(page, "Mara"), touch);
+        await expect(page.locator(".catan-board")).toHaveAttribute("viewBox", originalCamera);
+        await expect(page.locator("[data-qa-actions]")).toHaveText("0");
+      }
       await clickBuilding(page, owner(page, "Mara"), true);
       await page.getByRole("button", { name: "Ganze Insel anzeigen und zentrieren", exact: true }).click();
       await expect(info(page)).toHaveCount(0);
 
       const house = owner(page, "Anna");
+      await clickBuilding(page, house);
       const hit = await house.locator(".catan-building-hit-area").boundingBox();
       await page.mouse.move(hit.x + hit.width / 2, hit.y + hit.height / 2);
       await page.mouse.down();
       await page.mouse.move(hit.x + hit.width / 2 + 35, hit.y + hit.height / 2 + 15, { steps: 6 });
       await page.mouse.up();
-      await expect(info(page)).toHaveCount(0);
+      await expect(info(page)).toHaveText("Siedlung · Anna");
       await page.getByRole("button", { name: "Ganze Insel anzeigen und zentrieren", exact: true }).click();
+      await clickBuilding(page, house);
       await page.mouse.move(hit.x + hit.width / 2, hit.y + hit.height / 2);
       await page.mouse.wheel(0, -120);
-      await expect(info(page)).toHaveCount(0);
+      await expect(info(page)).toHaveText("Siedlung · Anna");
+      await pinchBoard(page);
+      await expect(info(page)).toHaveText("Siedlung · Anna");
+      await expect(page.locator("[data-qa-actions]")).toHaveText("0");
       await page.getByRole("button", { name: "Ganze Insel anzeigen und zentrieren", exact: true }).click();
 
       await buildMode(page, "Stadt");
@@ -180,6 +249,10 @@ try {
         await target.focus(); await page.keyboard.press("Enter");
         await expect(target).toHaveAttribute("aria-pressed", "true");
         await layout(page);
+        await tapBoard(page, kind === "Siedlung");
+        await dismissed(page);
+        await expect(target).toHaveAttribute("aria-pressed", "true");
+        await expect(page.locator("[data-qa-actions]")).toHaveText("0");
       }
 
       await reset(page, expanded);
@@ -190,10 +263,24 @@ try {
       await expect(page.locator("[data-qa-actions]")).toHaveText("0");
       await layout(page);
       await page.screenshot({ path: `${output}${width}x${height}-${expanded ? "expanded" : "normal"}.png` });
+      const robberTarget = await tapBoard(page, true, page.getByRole("button", { name: /^Räuber auf Feld \d+:/ }));
+      await expect(info(page)).toHaveCount(0);
+      await expect(robberTarget).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator(".catan-hex-selection")).toHaveCount(1);
+      await clickBuilding(page, foreign, true);
+      await tapBoard(page, false);
+      await expect(info(page)).toHaveCount(0);
+      await expect(page.locator('.catan-board [aria-label^="Räuber auf Feld"][aria-pressed="true"]')).toHaveCount(1);
+      await expect(page.locator("[data-qa-actions]")).toHaveText("0");
       await reset(page, expanded);
       await qa(page, () => page.getByLabel("Prüfphase").selectOption("waiting"));
       await clickBuilding(page, owner(page, "BenjaminAlexanderWagner"), true);
       await layout(page);
+      await tapBoard(page, true);
+      await dismissed(page);
+      await clickBuilding(page, owner(page, "BenjaminAlexanderWagner"), true);
+      await tapBoard(page, false, page.getByRole("button", { name: /^Rohstoffton abspielen:/ }));
+      await dismissed(page);
     }
     await page.close();
   }

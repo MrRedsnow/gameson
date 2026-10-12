@@ -29,7 +29,8 @@ test("map voting shows the island, progress, immutable own vote and host-only ti
   let html = ui(game, "b");
   assert.match(html, /Kartenabstimmung/); assert.match(html, /Karte akzeptieren/); assert.match(html, /Karte ablehnen/);
   assert.match(html, /Felder, Zahlen und Häfen sind frei zufällig verteilt/);
-  assert.match(html, /0 Ja · 0 Nein · 4 offen/); assert.match(html, /Feld ansehen:/);
+  assert.match(html, /0 Ja · 0 Nein · 4 offen/); assert.match(html, /Rohstoffton abspielen:/);
+  assert.doesNotMatch(html, /Feld ansehen:|catan-board-field-info|catan-hex-selection/);
   assert.doesNotMatch(html, /Siedlung auf Kreuzung|Starthilfe zur Gründung|catan-hand-bar/);
   assert.equal((html.match(/<button\b[^>]*>/g) ?? []).filter((tag) => /data-catan-menu-trigger="(?:karten|bauen|handel)"/.test(tag) && /disabled=""/.test(tag)).length, 3);
   const mapId = game.mapVote.id;
