@@ -49,11 +49,14 @@ async function auditFrame(page) {
       .filter((element) => element.scrollWidth > element.clientWidth + 1).map((element) => element.className || element.tagName);
     const panel = play.querySelector('.is-game-menu[data-state="active"]');
     const dock = play.querySelector(".catan-island-dock");
-    return { controls, overflow, width:innerWidth, height:innerHeight, nav:box(play.querySelector(".catan-nav")), hand:box(play.querySelector(".catan-hand-bar")), stage:box(play.querySelector(".catan-menu-stage")), panel:panel && box(panel), dock:dock && box(dock), canvas:box(play.querySelector(".catan-island-canvas")) };
+    return { controls, overflow, width:innerWidth, height:innerHeight, nav:box(play.querySelector(".catan-nav")), hand:box(play.querySelector(".catan-hand-bar")), stage:box(play.querySelector(".catan-menu-stage")), panel:panel && box(panel), dock:dock && box(dock), canvas:box(play.querySelector(".catan-island-canvas")), world:box(play.querySelector(".catan-world")), viewport:box(play.querySelector(".catan-board-viewport")) };
   });
   const context = `${result.width}×${result.height}`;
   assert.equal(result.overflow.length, 0, `Horizontal overflow: ${context}: ${result.overflow.join(", ")}`);
   assert.ok(result.nav.top >= 0 && result.nav.bottom <= result.height + 1, `Navigation clipped: ${context}`);
+  for (const edge of ["left", "top", "right", "bottom"]) {
+    assert.ok(Math.abs(result.viewport[edge] - result.world[edge]) <= 1, `Map must reach the world ${edge} edge behind the HUD: ${context}`);
+  }
   if (result.panel) {
     assert.ok(result.panel.top >= result.hand.bottom + 11, `Menu needs resource clearance: ${context}`);
     assert.ok(result.panel.bottom <= result.nav.top - 11, `Menu needs navigation clearance: ${context}`);
@@ -61,7 +64,7 @@ async function auditFrame(page) {
     assert.ok(result.panel.width <= 561, `Menu exceeds 560px: ${context}`);
   }
   if (result.dock) {
-    assert.ok(result.canvas.bottom <= result.dock.top + 1, `Map overlaps dock: ${context}`);
+    assert.ok(result.canvas.bottom <= result.dock.top + 1, `Map controls need dock clearance: ${context}`);
     assert.ok(result.dock.bottom <= result.nav.top + 1, `Dock overlaps navigation: ${context}`);
     assert.ok(result.canvas.height >= 40, `Map collapsed: ${context}`);
   }
@@ -219,6 +222,34 @@ export async function checkTransitions(page, options = {}) {
   assert.equal(await page.getByRole("button", { name:"Karte stehlen", exact:true }).isEnabled(), false, "Invalid victims must clear the selection");
 }
 
+async function checkMapUnderHud(page, { expanded, largeText, observe }) {
+  await fixture(page, "rich", largeText);
+  if (expanded) await page.getByRole("button", { name:"Insel im Vollbild öffnen", exact:true }).click();
+  await observe();
+  await auditLayout(page, observe);
+  for (let step = 0; step < 5; step++) await page.getByRole("button", { name:"Insel vergrößern", exact:true }).click();
+  const points = await page.locator(".catan-play").evaluate((play) => {
+    const resources = play.querySelectorAll(".catan-hand-resource");
+    const first = resources[0].getBoundingClientRect(); const second = resources[1].getBoundingClientRect();
+    const actions = play.querySelector(".catan-island-dock>.catan-screen-actions").getBoundingClientRect();
+    return [
+      { label:"resource gap", x:(first.right + second.left) / 2, y:(first.top + first.bottom) / 2, dy:24 },
+      { label:"action gap", x:(actions.left + actions.right) / 2, y:actions.top + 2, dy:-24 },
+    ];
+  });
+  const sequence = await page.locator(".catan-play").getAttribute("data-catan-sequence");
+  for (const point of points) {
+    assert.ok(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x,y)?.closest(".catan-board-viewport")), point), `${point.label} must pass input to the map`);
+    const before = await page.locator(".catan-board").getAttribute("viewBox");
+    await page.mouse.move(point.x, point.y); await page.mouse.down();
+    await page.mouse.move(point.x + 24, point.y + point.dy, { steps:6 }); await page.mouse.up();
+    await observe();
+    assert.notEqual(await page.locator(".catan-board").getAttribute("viewBox"), before, `Dragging in the ${point.label} must pan the map`);
+    assert.equal(await page.locator(".catan-play").getAttribute("data-catan-sequence"), sequence, "Panning must not trigger a game action");
+  }
+  assert.ok(await page.getByRole("button", { name:"Zug beenden", exact:true }).isEnabled(), "The action remains usable over the map");
+}
+
 if (typeof process !== "undefined" && process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { chromium } = await import("@playwright/test");
   const browser = await chromium.launch({headless:true});
@@ -228,12 +259,13 @@ if (typeof process !== "undefined" && process.argv[1] && import.meta.url === pat
       await page.addInitScript(() => Object.defineProperty(document,"fullscreenEnabled",{value:false}));
       await page.goto(process.env.CATAN_QA_URL ?? "http://127.0.0.1:3002");
       const options = {expanded,largeText,failureCases:!largeText,clickVisible:([x,y]) => page.mouse.click(x,y),observe:() => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())))};
+      await checkMapUnderHud(page, options);
       await checkRobber(page, options); await checkVictims(page, options); await checkMenus(page, options);
       await page.close();
     }
     const page = await browser.newPage({viewport:{width:390,height:844}, reducedMotion:"reduce"});
     await page.goto(process.env.CATAN_QA_URL ?? "http://127.0.0.1:3002");
     await checkTransitions(page);
-    console.log("Catan layout checks passed: four sizes, normal/fullscreen, 200% text, menu controls, map selection and confirmed theft.");
+    console.log("Catan layout checks passed: four sizes, normal/fullscreen, 200% text, map panning behind the HUD, menu controls, map selection and confirmed theft.");
   } finally { await browser.close(); }
 }

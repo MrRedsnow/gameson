@@ -108,8 +108,8 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     const hand = node.closest(".catan-play")?.querySelector<HTMLElement>(".catan-hand-bar");
     const measure = () => {
       const viewport = node.getBoundingClientRect(); const handBounds = hand?.getBoundingClientRect(); const infoBounds = info.getBoundingClientRect();
-      const floating = hand && handBounds && getComputedStyle(hand).position === "absolute" && handBounds.bottom > viewport.top && handBounds.top < viewport.bottom && handBounds.right > infoBounds.left && handBounds.left < infoBounds.right;
-      node.style.setProperty("--catan-inspection-top", `${floating ? Math.max(8, handBounds.bottom - viewport.top + 8) : 8}px`);
+      const overlapsHand = handBounds && handBounds.bottom > viewport.top && handBounds.top < viewport.bottom && handBounds.right > infoBounds.left && handBounds.left < infoBounds.right;
+      node.style.setProperty("--catan-inspection-top", `${overlapsHand ? Math.max(8, handBounds.bottom - viewport.top + 8) : 8}px`);
     };
     measure(); const observer = new ResizeObserver(measure); observer.observe(node); observer.observe(info); if (hand) observer.observe(hand);
     window.addEventListener("resize", measure);

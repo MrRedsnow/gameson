@@ -605,7 +605,7 @@
   .catan-hand-strip>.catan-hand-resource { transition:none; }
 }
 
-/* The map, action dock and navigation each own their space in both layouts. */
+/* The map fills the shared world behind the resource hand and action dock. */
 .catan-theme, .catan-theme *, .catan-theme *::before, .catan-theme *::after { box-sizing:border-box; }
 .catan-shell-play { min-height:0; }
 .catan-play { position:relative; display:flex; flex-direction:column; min-height:0; gap:8px; padding:0; }
@@ -644,7 +644,7 @@
 }
 .catan-world-sea { position:absolute; inset:0; z-index:0; overflow:hidden; border-radius:var(--catan-glass-button-radius) var(--catan-glass-button-radius) 0 0; background:#254650 url("/catan/sea-v3.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); pointer-events:none; }
 .catan-world-sea>.catan-sea-surface { z-index:0; }
-.catan-world>.catan-hand-bar { position:relative; z-index:1; }
+.catan-world>.catan-hand-bar { position:relative; z-index:1; pointer-events:none; }
 .catan-world :is(button,summary,[role=button]) { min-height:44px; }
 .catan-world button:disabled { opacity:1; color:#c1d0d5; }
 .catan-world :is(button,a,summary,input,[role=button]):focus-visible { outline:3px solid #ffe2a0; outline-offset:3px; }
@@ -664,14 +664,15 @@
 }
 @media(prefers-reduced-motion:reduce) { .catan-world-sea { background-size:cover; background-position:center; } }
 .catan-menu-stage { position:relative; flex:1 1 0; min-width:0; min-height:0; }
-.catan-menu-stage>.catan-tab-insel { display:block; width:100%; height:100%; min-height:0; overflow:hidden; }
-.catan-world .catan-menu-stage .catan-island-screen { display:flex; flex-direction:column; width:100%; height:100%; min-height:0; padding:0; gap:0; border:0; border-radius:0; background:transparent; }
-.catan-island-canvas { position:relative; flex:1 1 0; min-height:64px; overflow:hidden; }
-.catan-menu-stage .catan-island-canvas .catan-board-panel { display:flex; flex-direction:column; height:100%; min-height:0; border:0; border-radius:0; }
+.catan-menu-stage>.catan-tab-insel { display:block; width:100%; height:100%; min-height:0; overflow:visible; }
+.catan-world .catan-menu-stage .catan-island-screen { display:flex; flex-direction:column; width:100%; height:100%; min-height:0; padding:0; gap:0; border:0; border-radius:0; background:transparent; overflow:visible; }
+.catan-island-canvas { position:relative; flex:1 1 0; min-height:64px; overflow:visible; }
+/* Keep toolbar space in the flow while extending the board to the world edges. */
+.catan-menu-stage .catan-island-canvas .catan-board-panel { position:absolute; inset:var(--catan-map-top,0px) 0 var(--catan-map-bottom,0px); display:flex; flex-direction:column; height:auto; min-height:0; border:0; border-radius:var(--catan-glass-button-radius) var(--catan-glass-button-radius) 0 0; }
 .catan-menu-stage .catan-board-map { flex:1 1 0; min-height:0; }
 .catan-menu-stage .catan-board-viewport { height:100%; min-height:0; }
 .catan-world :is(.catan-board-panel,.catan-board-map,.catan-board-viewport,.catan-board) { background:transparent; }
-.catan-menu-stage .catan-board-controls { left:8px; bottom:8px; z-index:3; flex-direction:row; align-items:center; gap:8px; }
+.catan-menu-stage .catan-board-controls { left:8px; bottom:calc(8px - var(--catan-map-bottom,0px)); z-index:3; flex-direction:row; align-items:center; gap:8px; }
 .catan-menu-stage .catan-board-zoom { flex-direction:row; }
 .catan-world .catan-menu-stage .catan-island-tools { position:absolute; bottom:8px; right:8px; z-index:3; flex-direction:row; gap:4px; padding:0; border:0; border-radius:var(--catan-glass-button-radius); background:transparent; }
 .catan-theme .catan-world .catan-menu-stage :is(.catan-board-controls,.catan-island-tools) [data-slot=button] { width:44px; min-width:44px; height:44px; min-height:44px; padding:8px; border:1px solid var(--catan-glass-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-opal),rgba(12,48,63,var(--catan-glass-alpha)); color:var(--catan-glass-text); box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 3px 12px rgba(4,32,43,.16); }
@@ -682,8 +683,8 @@
 .catan-theme .catan-menu-stage .catan-board-field-info { top:8px; max-width:min(360px,calc(100% - 16px)); }
 .catan-play.is-menu-open :is(.catan-island-tools,.catan-board-controls,.catan-board-field-info) { visibility:hidden; pointer-events:none; }
 
-/* A bounded dock keeps required choices above navigation, without covering the map. */
-.catan-world .catan-island-dock { flex:0 1 auto; display:grid; grid-template-rows:minmax(0,1fr) auto; min-width:0; min-height:0; max-height:min(44dvh,max(64px,calc(var(--catan-stage-height,500px) - 96px))); border:0; border-radius:0; background:transparent; box-shadow:none; overflow:hidden; }
+/* The dock floats over the map; its transparent gaps pass input through. */
+.catan-world .catan-island-dock { position:relative; z-index:1; flex:0 1 auto; display:grid; grid-template-rows:minmax(0,1fr) auto; min-width:0; min-height:0; max-height:min(44dvh,max(64px,calc(var(--catan-stage-height,500px) - 96px))); border:0; border-radius:0; background:transparent; box-shadow:none; overflow:hidden; pointer-events:none; }
 .catan-world .catan-island-dock[data-menu-hidden=true] { visibility:hidden; pointer-events:none; }
 .catan-menu-stage .catan-island-context { position:static; display:grid; gap:12px; width:100%; max-height:none; min-height:0; padding:12px; overflow:auto; overscroll-behavior:contain; background:transparent; pointer-events:auto; scrollbar-width:thin; scrollbar-color:#5e8291 transparent; }
 .catan-world .catan-island-context:not(:empty) { border:1px solid var(--catan-glass-edge); border-radius:var(--catan-glass-menu-radius); background:var(--catan-glass-opal),var(--catan-glass-background); box-shadow:var(--catan-glass-shadow); }
@@ -698,7 +699,7 @@
 .catan-robber-preview p { font-size:.8125rem; line-height:1.4; color:#c8d5ce; }
 .catan-robber-preview>strong>svg { width:22px; height:22px; flex-shrink:0; }
 .catan-world .catan-island-dock>.catan-screen-actions { flex-wrap:wrap; gap:8px; margin:0; padding:8px 12px; border:0; background:transparent; }
-.catan-theme .catan-world .catan-island-dock>.catan-screen-actions [data-slot=button] { min-height:44px; margin:0; padding:8px 12px; border-radius:var(--catan-glass-button-radius); font-size:.875rem; }
+.catan-theme .catan-world .catan-island-dock>.catan-screen-actions [data-slot=button] { min-height:44px; margin:0; padding:8px 12px; border-radius:var(--catan-glass-button-radius); font-size:.875rem; pointer-events:auto; }
 .catan-theme .catan-island-dock>.catan-screen-actions .catan-end-turn { flex:1; }
 .catan-island-dock>.catan-screen-actions { justify-content:center; }
 .catan-island-dock>.catan-screen-actions:has(>button:only-child)>button { max-width:560px; }
@@ -835,7 +836,7 @@
 .catan-resource-choices button { position:relative; }
 @media(min-width:600px) { .is-game-menu .catan-exchange { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
-/* Fullscreen keeps the hand, map and dock in the same flow as the normal layout. */
+/* Fullscreen shares the same map and HUD spacing as the normal layout. */
 body:has(.catan-play.is-board-expanded) { overflow:hidden; }
 .catan-play.is-board-expanded { position:fixed; inset:0; z-index:40; display:flex; width:100%; height:100dvh; min-height:0; gap:8px; overflow:hidden; background:#0a2938; padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) 0 max(8px,env(safe-area-inset-left)); }
 .catan-play.is-board-expanded>.catan-status { min-height:54px; padding:4px 8px; }

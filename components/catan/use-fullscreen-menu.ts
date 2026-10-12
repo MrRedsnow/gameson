@@ -47,6 +47,8 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
     const island = board.current;
     const play = island.closest<HTMLElement>(".catan-play")!;
     const hand = play.querySelector<HTMLElement>(".catan-hand-bar");
+    const world = island.closest<HTMLElement>(".catan-world");
+    const canvas = island.querySelector<HTMLElement>(".catan-island-canvas");
     const measure = () => {
       const bounds = island.getBoundingClientRect();
       const container = play.getBoundingClientRect();
@@ -57,12 +59,19 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
       play.style.setProperty("--catan-hand-top", `${bounds.top - container.top + 8}px`);
       play.style.setProperty("--catan-hand-height", `${handHeight}px`);
       play.style.setProperty("--catan-menu-height", `${menuHeight}px`);
+      if (world && canvas) {
+        const worldBounds = world.getBoundingClientRect();
+        const canvasBounds = canvas.getBoundingClientRect();
+        play.style.setProperty("--catan-map-top", `${Math.min(0, worldBounds.top - canvasBounds.top)}px`);
+        play.style.setProperty("--catan-map-bottom", `${Math.min(0, canvasBounds.bottom - worldBounds.bottom)}px`);
+      }
       island.dataset.catanShortStage = String(menuHeight < 340);
       island.dataset.catanTinyStage = String(menuHeight < 180);
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(island); observer.observe(play); if (hand) observer.observe(hand);
+    if (world) observer.observe(world); if (canvas) observer.observe(canvas);
     window.addEventListener("resize", measure);
     return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
   }, [expanded, active, task]);
