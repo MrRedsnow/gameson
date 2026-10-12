@@ -654,6 +654,7 @@
 .catan-menu-stage .catan-island-context>* { pointer-events:auto; }
 .catan-menu-stage .catan-island-context>p, .catan-menu-stage .catan-victim-choices { padding:8px 10px; border:1px solid #456272; border-radius:10px; background:#092d3eed; font-size:.8125rem; line-height:1.35; }
 .catan-menu-stage .catan-island-screen>.catan-screen-actions { position:absolute; bottom:8px; left:64px; right:8px; z-index:3; width:min(380px,calc(100% - 72px)); margin-inline:auto; flex-wrap:wrap; gap:6px; padding:6px; border:1px solid #426779; border-radius:14px; background:#092d3eed; box-shadow:0 4px 18px #0005; }
+.catan-menu-stage .catan-island-screen>.catan-screen-actions:has(>.catan-end-turn:only-child) { left:50%; right:auto; width:min(380px,calc(100% - 128px)); margin:0; transform:translateX(-50%); }
 .catan-theme .catan-menu-stage .catan-island-screen>.catan-screen-actions [data-slot=button] { min-height:44px; padding:8px; border-radius:10px; font-size:.875rem; gap:6px; }
 .catan-menu-stage .catan-island-screen>.catan-screen-actions [data-slot=button]>svg { width:20px; height:20px; }
 .catan-play.is-menu-open .catan-island-screen>.catan-screen-actions, .catan-play.is-menu-open .catan-island-context, .catan-play.is-menu-open .catan-board-controls, .catan-play.is-menu-open .catan-board-selection { visibility:hidden; pointer-events:none; }

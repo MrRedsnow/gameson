@@ -35,10 +35,17 @@ try {
     await page.evaluate(() => { window.qaBoard = document.querySelector(".catan-board"); window.qaHand = document.querySelector(".catan-hand-bar"); });
     for (const expanded of [false, true]) {
       if (expanded) await page.getByRole("button", { name: "Insel im Vollbild öffnen", exact: true }).click();
+      const endTurn = page.getByRole("button", { name: "Zug beenden", exact: true });
+      await visibleInViewport(endTurn, width, height);
+      await expect(page.locator(".catan-status .catan-end-turn")).toHaveCount(0);
+      const endTurnBox = await endTurn.boundingBox();
+      const mapBox = await page.locator(".catan-board-viewport").boundingBox();
+      assert.ok(Math.abs(endTurnBox.x + endTurnBox.width / 2 - mapBox.x - mapBox.width / 2) < 1, "End turn must be centered on the map");
       for (const id of ["bauen", "handel", "karten", "uebersicht"]) {
         await nav(page, id).click();
         const panel = menu(page, id);
         await expect(panel).toBeVisible();
+        await expect(endTurn).toHaveCount(0);
         await expect(page.locator(".catan-board")).toBeVisible();
         assert.ok(await page.evaluate(() => window.qaBoard === document.querySelector(".catan-board") && window.qaHand === document.querySelector(".catan-hand-bar")), "Map and resource hand must retain their instances");
         await visibleInViewport(page.locator(".catan-nav"), width, height);
@@ -62,6 +69,7 @@ try {
         await page.screenshot({ path: `${output}${width}x${height}-${expanded ? "expanded" : "normal"}-${id}.png` });
         await panel.getByRole("button", { name: "Menü schließen", exact: true }).click();
         await expect(panel).toBeHidden();
+        await expect(endTurn).toBeVisible();
         await expect(nav(page, id)).toBeFocused();
       }
     }
@@ -142,7 +150,9 @@ try {
   await scenario(page, "rich");
   await nav(page, "bauen").click();
   await road.click();
-  await page.locator(".catan-status").getByRole("button", { name: "Zug beenden", exact: true }).click();
+  await nav(page, "insel").click();
+  await page.locator(".catan-island-screen").getByRole("button", { name: "Zug beenden", exact: true }).click();
+  await nav(page, "bauen").click();
   await expect(road).toHaveAttribute("aria-pressed", "false");
   await expect(build.getByText("Du kannst in deinem eigenen Zug bauen.", { exact: true })).toBeVisible();
 
