@@ -657,7 +657,7 @@
 @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
   .catan-world { --catan-glass-background:var(--catan-glass-tint); }
   .catan-world .is-game-menu { --catan-glass-background:var(--catan-glass-tint); }
-  .catan-world :is(.is-game-menu,.catan-island-context:not(:empty)) { -webkit-backdrop-filter:var(--catan-glass-filter); backdrop-filter:var(--catan-glass-filter); }
+  .catan-world :is(.is-game-menu,.catan-island-context:not(:empty),.catan-hand-resource,.catan-board-controls button,.catan-island-tools button,.catan-island-dock>.catan-screen-actions button) { -webkit-backdrop-filter:var(--catan-glass-filter); backdrop-filter:var(--catan-glass-filter); }
 }
 @media(prefers-reduced-motion:reduce) { .catan-world-sea { background-size:cover; background-position:center; } }
 .catan-menu-stage { position:relative; flex:1 1 0; min-width:0; min-height:0; }
