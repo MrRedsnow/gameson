@@ -221,7 +221,6 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
   let islandActions = canEndTurn ? endTurn : turnActions;
   if (mode) islandActions = <>{game.phase === "main" && <Button variant="outline" data-catan-sound="cancel" disabled={busy} onClick={cancelBuild}>Abbrechen</Button>}<Button className="catan-primary" disabled={busy || selected === null || !canBuild} onClick={() => void commit()}>{mode === "robber" ? "Räuber versetzen" : expanded ? "Bauen" : "Bauen bestätigen"}</Button></>;
   else if (own && game.phase === "steal") islandActions = undefined;
-  else if (own && game.phase === "roll") islandActions = <>{turnActions}<Button variant="outline" className="catan-end-turn" disabled title="Würfle zuerst und schließe deine Spielaktionen ab."><Check />Zug beenden</Button></>;
   const islandTitle = voting ? "Eure Karte prüfen" : mode === "settlement" && game.phase === "setup_settlement" ? `${game.setupIndex < game.players.length ? "Erste" : "Zweite"} Siedlung setzen`
     : mode ? `${mode === "robber" ? "Räuber" : BUILDING_NAMES[mode]} platzieren` : own && game.phase === "steal" ? "Wen möchtest du bestehlen?" : "Eure Insel";
   const cardCount = resourceCount(me.resources);
