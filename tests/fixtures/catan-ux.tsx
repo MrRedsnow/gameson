@@ -65,6 +65,11 @@ function Preview() {
     <label><input type="checkbox" checked={largeText} onChange={(e) => setLargeText(e.target.checked)} />Text 200%</label>
     <label><input type="checkbox" checked={rejectAction} onChange={(e) => setRejectAction(e.target.checked)} />Aktion ablehnen</label>
     <label><input type="checkbox" checked={busy} onChange={(e) => setBusy(e.target.checked)} />Aktion blockieren</label>
+    <button type="button" onClick={() => setState((current) => {
+      const next = structuredClone(current.game); const player = next.players.find((entry) => entry.id === current.viewer)!;
+      for (const resource of RESOURCES) { next.bank[resource] += player.resources[resource]; player.resources[resource] = 0; }
+      return { ...current, game: next };
+    })}>Bestand leeren</button>
     <button type="button" onClick={() => {
       let face = 2;
       setState({ ...state, game: applyCatanAction({ ...state.game, phase: "roll" }, state.game.players[state.game.currentPlayer].id, { type: "roll" }, () => face++) });

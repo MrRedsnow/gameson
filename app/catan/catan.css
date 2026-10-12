@@ -443,14 +443,6 @@
 .catan-theme .catan-island-tools [data-slot=button] { flex:0 0 auto; width:clamp(44px,5.8vw,58px); min-width:44px; height:clamp(44px,5.8vw,58px); padding:10px; border:1px solid #507d94; border-radius:clamp(10px,1.6vw,16px); background:#0b2a3be6; color:#eef5f5; box-shadow:inset 0 1px 0 #ffffff06,0 3px 8px #0002; }
 .catan-island-tools [data-slot=button]>svg { width:clamp(22px,3vw,28px); height:clamp(22px,3vw,28px); }
 .catan-theme .catan-sound-toggle[aria-pressed=true] { color:#efd18a; background:#efd18a18; }
-@media(max-width:600px) {
-  .catan-play:not(.is-board-expanded) .catan-island-screen>.catan-screen-heading:has(.catan-island-tools>button:nth-child(4)) { display:grid; grid-template-columns:36px minmax(0,1fr); gap:8px; }
-  .catan-play:not(.is-board-expanded) .catan-island-screen>.catan-screen-heading:has(.catan-island-tools>button:nth-child(4))>.catan-island-tools { grid-column:1/-1; justify-content:flex-end; }
-}
-@media(max-width:360px) {
-  .catan-play:not(.is-board-expanded) .catan-island-screen>.catan-screen-heading { display:grid; grid-template-columns:36px minmax(0,1fr); gap:8px; }
-  .catan-play:not(.is-board-expanded) .catan-island-screen>.catan-screen-heading>.catan-island-tools { grid-column:1/-1; justify-content:flex-end; }
-}
 .catan-number-backdrop,.catan-number-label,.catan-building-piece,.catan-robber-layer,.catan-robber-piece,.catan-shoreline,.catan-harbor-illustration { pointer-events:none; }
 .catan-landscape.is-blocked { filter:grayscale(1) brightness(.74); }
 .catan-hex-seams { pointer-events:none; }
@@ -633,64 +625,6 @@
   .catan-development-card { padding:12px; gap:8px; }
   .catan-development-card>svg { display:none; }
 }
-@media(orientation:landscape) and (max-height:520px) {
-  .catan-shell-play { padding:6px; }
-  .catan-play { display:grid; min-height:20rem; grid-template-columns:184px minmax(0,1fr) 68px; grid-template-rows:auto auto minmax(0,1fr); gap:6px; }
-  .catan-status { grid-column:1; grid-row:1; flex-wrap:wrap; align-content:flex-start; }
-  .catan-play:not(.is-board-expanded) .catan-status { display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:6px; padding:6px 8px; }
-  .catan-play:not(.is-board-expanded) .catan-status-main { grid-column:1/-1; }
-  .catan-play:not(.is-board-expanded) .catan-status-copy>small { display:none; }
-  .catan-status-main>.catan-island-mark, .catan-status-main>svg:last-child { display:none; }
-  .catan-status-main strong { font-size:1rem; }
-  .catan-status-copy>small { font-size:.75rem; }
-  .catan-status-roll { width:44px; height:44px; }
-  .catan-status .catan-dice { font-size:1.5rem; }
-  .catan-theme .catan-status-points { font-size:1.25rem; }
-  .catan-theme .catan-status-main { flex-basis:100%; }
-  .catan-hand-bar { grid-column:1; grid-row:2; }
-  .catan-hand-meta { justify-content:flex-end; }
-  .catan-hand-meta>span:first-child { display:none; }
-  .catan-theme .catan-hand-strip { grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .catan-hand-strip>.catan-hand-resource { min-height:76px; column-gap:3px; row-gap:4px; padding:18px 3px 8px; }
-  .catan-hand-resource>svg { width:24px; height:24px; }
-  .catan-hand-resource b { font-size:1rem; }
-  .catan-hand-strip small { font-size:.625rem; overflow-wrap:anywhere; }
-  .catan-activity-bar { grid-column:1; grid-row:3; align-self:start; flex-wrap:wrap; }
-  .catan-activity-bar>button:first-child>span { white-space:normal; }
-  .catan-tab-panel { grid-column:2; grid-row:1/-1; }
-  .catan-nav { grid-column:3; grid-row:1/-1; margin:0; padding:0; border:1px solid #3b5360; border-radius:10px; }
-  .catan-nav-list { display:flex; flex-direction:column; height:100%; padding:0; }
-  .catan-theme .catan-nav-tab { flex:1; min-height:48px; padding:6px 2px; gap:5px; font-size:.75rem; }
-  .catan-nav-icon { height:26px; }
-  .catan-nav-icon>svg { width:24px; height:24px; }
-  .catan-nav-tab::before { display:none; }
-  .catan-screen:not(.catan-island-screen) { padding:8px; gap:7px; }
-  .catan-screen-heading h2 { font-size:1rem; }
-  .catan-screen-body { gap:8px; }
-  .catan-screen-actions { padding-top:6px; }
-  .catan-placement-preview { padding:5px; }
-  .catan-placement-preview p { font-size:.75rem; }
-  .catan-development-card { padding:10px; gap:6px; }
-  .catan-development-card>svg { display:none; }
-  .catan-screen-body>.catan-rule-page { line-height:1.4; }
-  .catan-theme .catan-island-tools [data-slot=button] { min-height:44px; height:44px; width:44px; padding:8px; }
-  .catan-island-screen>.catan-screen-heading { min-height:60px; padding:8px 10px; }
-  .catan-island-screen .catan-screen-heading h2 { font-size:1rem; }
-  .catan-island-screen .catan-screen-subtitle { font-size:.75rem; }
-  .catan-island-screen .catan-screen-heading>.catan-island-mark { width:36px; height:36px; }
-  .catan-theme .catan-island-screen>.catan-screen-actions [data-slot=button] { min-height:48px; font-size:1rem; }
-  .catan-island-screen>.catan-screen-actions { padding:8px 10px; }
-  .catan-theme .catan-board-controls [data-slot=button] { width:44px; height:44px; }
-  .catan-island-screen .catan-screen-body { min-height:0; }
-  .catan-island-context { flex:0 0 auto; }
-  .catan-activity-bar { overflow:auto; max-height:100%; }
-  /* Transient notices must stay above a hand enlarged by zoom or larger text. */
-  .catan-play:has(>.catan-activity-bar) { grid-template-rows:auto auto auto minmax(0,1fr); }
-  .catan-play>.catan-activity-bar { grid-column:1/3; grid-row:1; max-height:none; overflow:visible; }
-  .catan-play:has(>.catan-activity-bar)>.catan-status { grid-row:2; }
-  .catan-play:has(>.catan-activity-bar)>.catan-hand-bar { grid-row:3; }
-  .catan-play:has(>.catan-activity-bar)>.catan-tab-panel { grid-row:2/-1; }
-}
 /* Reserved feedback space keeps the five cards still while their counts change. */
 .catan-hand-bar .catan-hand-count { display:inline-block; min-width:1ch; font-variant-numeric:tabular-nums; white-space:nowrap; transform-origin:center; transition:color .2s ease; }
 .catan-hand-bar .catan-hand-gain { position:absolute; top:2px; right:2px; min-width:1.4em; max-width:calc(100% - 4px); padding:1px 3px; border-radius:4px; background:#254c38; color:#baf7cb; font:800 .6875rem/1 Arial,Helvetica,sans-serif; font-variant-numeric:tabular-nums; font-style:normal; text-align:center; white-space:nowrap; pointer-events:none; opacity:1; transition:opacity .2s ease; }
@@ -710,74 +644,219 @@
   .catan-hand-strip>.catan-hand-resource { transition:none; }
 }
 
-/* The same mounted board fills the viewport, including browsers without native fullscreen. */
-body:has(.catan-play.is-board-expanded) { overflow:hidden; }
-.catan-play.is-board-expanded {
-  position:fixed; inset:0; z-index:40; display:flex; flex-direction:column;
-  width:100%; height:100dvh; min-height:0; gap:4px; overflow:hidden; background:#13232b;
-  padding:max(6px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
-}
-.catan-play.is-board-expanded>.catan-status { flex:0 0 auto; flex-wrap:wrap; min-height:44px; padding:0 6px; }
-.catan-play.is-board-expanded .catan-status-main { flex:1 1 6rem; min-height:44px; }
-.catan-status-actions { display:flex; flex:0 0 auto; align-items:center; justify-content:center; gap:4px; }
-.catan-theme .catan-status-actions [data-slot=button] { width:auto; min-height:44px; margin:0; padding:5px 10px; font-size:.8125rem; line-height:1.3; text-align:center; }
-.catan-play.is-board-expanded>.catan-hand-bar { flex:0 0 auto; margin:0; }
-.catan-play.is-board-expanded .catan-hand-strip { grid-template-columns:repeat(auto-fit,minmax(min(100%,3rem),1fr)); }
-.catan-play.is-board-expanded>.catan-tab-insel { position:relative; flex:1 1 0; min-height:0; overflow:hidden; }
-.catan-play.is-board-expanded .catan-island-screen { position:relative; display:block; height:100%; min-height:0; padding:0; background:transparent; }
-.catan-play.is-board-expanded .catan-island-screen>.catan-screen-body { height:100%; min-height:0; gap:0; overflow:hidden; }
-.catan-play.is-board-expanded .catan-island-screen .catan-board-panel { flex:1 1 0; height:100%; min-height:0; border:0; border-radius:10px; }
-.catan-play.is-board-expanded .catan-board-map { flex:1 1 0; min-height:0; }
-.catan-play.is-board-expanded .catan-island-screen>.catan-screen-heading { position:absolute; top:8px; right:8px; z-index:3; min-height:0; padding:0; background:transparent; }
-.catan-play.is-board-expanded .catan-island-screen>.catan-screen-heading>div:not(.catan-island-tools) { display:none; }
-.catan-play.is-board-expanded .catan-island-screen>.catan-screen-heading>.catan-island-mark { display:none; }
-.catan-play.is-board-expanded .catan-island-tools { padding:3px; border:1px solid #456272; border-radius:12px; background:#132a34ed; }
-.catan-play.is-board-expanded .catan-island-tools [data-slot=button] { width:44px; height:44px; min-height:44px; }
-.catan-play.is-board-expanded .catan-island-context { position:absolute; top:8px; left:8px; z-index:2; width:max-content; max-width:min(420px,calc(100% - 168px)); max-height:calc(100% - 80px); padding:0; background:transparent; overflow:auto; pointer-events:none; }
-.catan-play.is-board-expanded .catan-island-context>* { pointer-events:auto; }
-.catan-play.is-board-expanded.is-map-vote .catan-island-context { top:auto; bottom:8px; left:56px; max-width:min(420px,calc(100% - 144px)); }
-.catan-play.is-board-expanded .catan-island-context>p, .catan-play.is-board-expanded .catan-victim-choices { padding:8px 10px; border:1px solid #456272; border-radius:10px; background:#132a34ed; font-size:.8125rem; line-height:1.35; }
+/* Every game menu opens over the same island. The five controls stay below the sheet. */
+.catan-theme, .catan-theme *, .catan-theme *::before, .catan-theme *::after { box-sizing:border-box; }
+.catan-shell-play { min-height:0; }
+.catan-play { position:relative; display:flex; flex-direction:column; min-height:0; gap:8px; padding:0; }
+.catan-play>.catan-status, .catan-play>.catan-hand-bar, .catan-play>.catan-nav { flex:0 0 auto; }
+.catan-menu-stage { position:relative; flex:1 1 0; min-width:0; min-height:0; margin-bottom:-8px; }
+.catan-menu-stage>.catan-tab-insel { display:block; width:100%; height:100%; min-height:0; overflow:hidden; }
+.catan-menu-stage .catan-island-screen { display:block; width:100%; height:100%; min-height:0; border-radius:18px; }
+.catan-menu-stage .catan-island-screen>.catan-screen-body { height:100%; min-height:0; gap:0; overflow:hidden; }
+.catan-menu-stage .catan-island-screen .catan-board-panel { flex:1 1 0; height:100%; min-height:0; border:0; border-radius:0; }
+.catan-menu-stage .catan-board-map { flex:1 1 0; min-height:0; }
+.catan-menu-stage .catan-island-screen>.catan-screen-heading { position:absolute; top:8px; right:8px; z-index:3; display:flex; min-height:0; gap:0; padding:0; background:transparent; }
+.catan-menu-stage .catan-island-screen>.catan-screen-heading>div:not(.catan-island-tools), .catan-menu-stage .catan-island-screen>.catan-screen-heading>.catan-island-mark { display:none; }
+.catan-menu-stage .catan-island-tools { gap:4px; padding:3px; border:1px solid #426779; border-radius:12px; background:#092d3ee8; box-shadow:0 3px 14px #0004; }
+.catan-theme .catan-menu-stage .catan-island-tools [data-slot=button] { width:44px; min-width:44px; height:44px; min-height:44px; padding:10px; border:0; border-radius:8px; box-shadow:none; background:transparent; }
+.catan-menu-stage .catan-island-context { position:absolute; top:8px; left:8px; z-index:2; width:min(420px,calc(100% - 180px)); max-height:calc(100% - 90px); padding:0; overflow:auto; background:transparent; pointer-events:none; }
+.catan-menu-stage .catan-island-context>* { pointer-events:auto; }
+.catan-menu-stage .catan-island-context>p, .catan-menu-stage .catan-victim-choices { padding:8px 10px; border:1px solid #456272; border-radius:10px; background:#092d3eed; font-size:.8125rem; line-height:1.35; }
+.catan-menu-stage .catan-island-screen>.catan-screen-actions { position:absolute; bottom:8px; left:64px; right:8px; z-index:3; width:min(380px,calc(100% - 72px)); margin-inline:auto; flex-wrap:wrap; gap:6px; padding:6px; border:1px solid #426779; border-radius:14px; background:#092d3eed; box-shadow:0 4px 18px #0005; }
+.catan-theme .catan-menu-stage .catan-island-screen>.catan-screen-actions [data-slot=button] { min-height:44px; padding:8px; border-radius:10px; font-size:.875rem; gap:6px; }
+.catan-menu-stage .catan-island-screen>.catan-screen-actions [data-slot=button]>svg { width:20px; height:20px; }
+.catan-play.is-menu-open .catan-island-screen>.catan-screen-actions, .catan-play.is-menu-open .catan-island-context, .catan-play.is-menu-open .catan-board-controls, .catan-play.is-menu-open .catan-board-selection { visibility:hidden; pointer-events:none; }
+.catan-play.is-map-vote .catan-island-context { top:auto; bottom:72px; left:8px; width:min(420px,calc(100% - 16px)); max-height:calc(100% - 140px); }
+.catan-theme .catan-menu-stage .catan-board-field-info { top:66px; max-width:min(360px,calc(100% - 16px)); }
+.catan-menu-stage .catan-board-controls { left:8px; bottom:8px; gap:6px; }
+.catan-theme .catan-menu-stage .catan-board-controls [data-slot=button] { width:44px; height:44px; min-height:44px; padding:10px; border-radius:10px; }
+.catan-theme .catan-menu-stage .catan-board-zoom [data-slot=button] { border-radius:0; }
+.catan-menu-stage .catan-board-controls [data-slot=button]>svg { width:22px; height:22px; }
+
+.catan-menu-stage>.is-game-menu { position:absolute; bottom:0; left:50%; z-index:110; width:min(480px,100%); height:min(72dvh,calc(var(--catan-menu-height,100%) - 64px)); max-height:100%; min-height:0; transform:translateX(-50%); overflow:hidden; border:1px solid #e6be70; border-bottom:0; border-radius:28px 28px 0 0; background:linear-gradient(145deg,#123e50f7,#082b3bf7 70%); box-shadow:0 -8px 30px #0005,inset 0 1px 0 #fff4; }
+.catan-menu-stage>.is-game-menu[data-state=active] { display:block; }
+.catan-menu-stage>.is-game-menu[data-state=inactive] { display:none; }
+.is-game-menu::before { content:""; position:absolute; top:10px; left:50%; z-index:2; width:38px; height:4px; transform:translateX(-50%); border-radius:8px; background:#b9d0d9; pointer-events:none; }
+.is-game-menu>.catan-screen { display:grid; height:100%; min-height:0; grid-template-rows:auto minmax(0,1fr) auto; gap:12px; padding:24px 12px 12px; background:transparent; }
+.is-game-menu>.catan-screen>.catan-screen-heading { min-height:44px; gap:12px; padding-right:42px; }
+.is-game-menu>.catan-screen>.catan-screen-heading>svg { width:36px; height:36px; flex:0 0 36px; color:#f2ce79; }
+.is-game-menu .catan-screen-heading h2 { font-size:1.125rem; line-height:1.25; color:#faf4e8; }
+.is-game-menu .catan-screen-subtitle { margin-top:4px; color:#c4d7df; font-size:.8125rem; line-height:1.4; }
+.is-game-menu>.catan-screen>.catan-screen-body { min-height:0; gap:10px; padding:2px; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#5e8291 transparent; }
+.is-game-menu>.catan-screen>.catan-screen-actions { gap:8px; padding-top:10px; border-color:#3f6577; background:transparent; }
+.catan-theme .is-game-menu .catan-screen-actions [data-slot=button] { min-height:44px; border-radius:12px; }
+.catan-theme .is-game-menu .catan-screen-actions .catan-primary { border-color:#f6d58f; background:linear-gradient(125deg,#f8d992,#efc36b); color:#0b2938; box-shadow:inset 0 1px 0 #fff6; }
+.catan-theme .is-game-menu .catan-screen-actions .catan-primary:disabled { opacity:1; border-color:#64828e; color:#6f97a9; background:#314e5d; box-shadow:none; }
+.catan-theme .catan-menu-close { position:absolute; top:24px; right:12px; z-index:3; display:grid; place-items:center; width:38px; min-width:38px; height:38px; min-height:38px; margin:0; padding:8px; border:1px solid #4b7385; border-radius:12px; background:#0b2c3a80; color:#e4eff0; }
+.catan-menu-close>svg { width:20px; height:20px; }
 .catan-placement-detail>summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:32px; padding:0; cursor:pointer; font-size:.8125rem; font-weight:650; list-style:none; }
 .catan-placement-detail>summary::after { content:none; display:none; }
 .catan-placement-detail>summary::-webkit-details-marker { display:none; }
 .catan-placement-detail>summary>svg { width:16px; height:16px; flex-shrink:0; }
 .catan-placement-detail[open]>summary { margin-bottom:8px; }
 .catan-placement-detail[open]>summary>svg { transform:rotate(180deg); }
-.catan-play.is-board-expanded .catan-island-screen>.catan-screen-actions { position:absolute; bottom:12px; left:56px; right:88px; z-index:3; width:min(360px,calc(100% - 144px)); margin-inline:auto; flex-wrap:nowrap; gap:6px; padding:6px; border:1px solid #456272; border-radius:14px; background:#132a34ed; box-shadow:0 4px 18px #0005; }
-.catan-fullscreen-nav { position:absolute; right:8px; bottom:8px; z-index:5; display:flex; flex-direction:column; gap:4px; width:72px; max-height:calc(100% - 72px); overflow-y:auto; overscroll-behavior:contain; padding:4px; border:1px solid #456272; border-radius:12px; background:#132a34ed; box-shadow:0 4px 18px #0005; }
-.catan-theme .catan-fullscreen-trigger { position:relative; display:flex; flex:0 0 auto; flex-direction:column; align-items:center; justify-content:center; gap:3px; width:100%; min-width:0; min-height:48px; margin:0; padding:5px 1px; border:1px solid transparent; border-radius:8px; color:#dce6e6; background:transparent; font-size:.6875rem; line-height:1.2; }
-.catan-fullscreen-trigger>svg { width:20px; height:20px; flex-shrink:0; }
-.catan-fullscreen-trigger>.catan-nav-label { max-width:100%; text-align:center; }
-.catan-fullscreen-trigger>.catan-nav-badge { top:0; right:0; }
-.catan-theme .catan-fullscreen-trigger[aria-expanded=true] { border-color:#d6b777; background:#efd18a; color:#1c2b31; }
-.catan-theme .catan-fullscreen-trigger:focus-visible { outline-offset:-3px; }
-@media(hover:hover) { .catan-theme .catan-fullscreen-trigger:hover { border-color:#d6b777; background:#efd18a26; color:#ffe2a1; } }
-.catan-play.is-board-expanded>.catan-tab-panel.is-fullscreen-menu { position:absolute; top:var(--catan-fullscreen-menu-top,112px); right:84px; left:auto; z-index:110; width:min(420px,calc(100% - 98px)); height:var(--catan-fullscreen-menu-height,calc(100% - 124px)); max-height:calc(100% - var(--catan-fullscreen-menu-top,112px) - max(8px,env(safe-area-inset-bottom))); min-height:0; overflow:hidden; border:1px solid #c1a167; border-radius:14px; background:#203b49; box-shadow:0 12px 40px #0008; }
-.catan-play.is-board-expanded>.catan-tab-panel.is-fullscreen-menu[data-state=active] { display:block; }
-.catan-play.is-board-expanded>.catan-tab-panel.is-fullscreen-menu[data-state=inactive] { display:none; }
-.is-fullscreen-menu>.catan-screen { height:100%; min-height:0; grid-template-rows:auto minmax(0,1fr) auto; gap:8px; padding:10px; background:#203b49; }
-.is-fullscreen-menu>.catan-screen>.catan-screen-heading { min-height:44px; padding-right:44px; }
-.is-fullscreen-menu>.catan-screen>.catan-screen-body { min-height:0; overflow:auto; overscroll-behavior:contain; }
-.is-fullscreen-menu>.catan-screen>.catan-screen-actions { background:#203b49; }
-.catan-theme .catan-fullscreen-close { position:absolute; top:8px; right:8px; z-index:1; width:44px; height:44px; min-height:44px; margin:0; padding:10px; }
-.is-fullscreen-menu .catan-build-choice:last-child { border-bottom:0; }
-.is-fullscreen-menu .catan-build-choice>span { grid-template-columns:minmax(0,1fr); }
-.is-fullscreen-menu .catan-build-choice .catan-cost { justify-content:flex-start; max-width:none; }
-.catan-play.is-board-expanded>.catan-nav { display:none; }
-.catan-play.is-board-expanded>.catan-activity-bar { position:absolute; bottom:76px; left:50%; z-index:4; transform:translateX(-50%); width:min(580px,calc(100% - 128px)); max-height:35dvh; overflow:auto; }
-.catan-play.is-board-expanded .catan-board-field-info { top:8px; max-width:calc(100% - 168px); }
-@media(max-width:600px) and (orientation:portrait) {
-  .catan-play.is-board-expanded>.catan-status { column-gap:6px; row-gap:0; }
-  .catan-play.is-board-expanded .catan-status-actions { order:1; flex-basis:100%; padding-block:2px 6px; }
-}
-@media(max-height:520px) {
-  .catan-play.is-board-expanded .catan-hand-meta { min-height:18px; margin-bottom:3px; }
-  .catan-play.is-board-expanded .catan-hand-strip>.catan-hand-resource { min-height:64px; padding:18px 4px 6px; gap:4px 6px; }
-  .catan-play.is-board-expanded .catan-hand-resource>svg { width:24px; height:24px; }
-  .catan-play.is-board-expanded .catan-hand-resource b { font-size:1.25rem; }
-  .catan-play.is-board-expanded .catan-hand-strip small { font-size:.6875rem; }
+
+.catan-play>.catan-status { gap:8px; min-height:60px; padding:6px 10px; border-radius:16px; }
+.catan-status-main>.catan-island-mark { display:block; width:38px; height:38px; }
+.catan-theme .catan-status-main { gap:9px; }
+.catan-status-main strong { font-size:.9375rem; }
+.catan-status-copy>span { gap:6px; }
+.catan-status-copy>small { font-size:.6875rem; }
+.catan-status-roll { width:44px; height:44px; border-radius:12px; }
+.catan-status-roll>svg { width:25px; height:25px; }
+.catan-status .catan-dice { font-size:24px; }
+.catan-theme .catan-status-points { font-size:1.125rem; }
+.catan-status-points .catan-status-points-label { font-size:.625rem; }
+.catan-play .catan-hand-meta { min-height:20px; margin-bottom:4px; justify-content:space-between; }
+.catan-hand-meta>span:first-child { display:inline; }
+.catan-play .catan-hand-strip { grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; }
+.catan-play .catan-hand-strip>.catan-hand-resource { min-height:60px; padding:12px 3px 6px; gap:4px 6px; border-radius:10px; }
+.catan-play .catan-hand-resource>svg { width:24px; height:24px; }
+.catan-play .catan-hand-resource b { font-size:1.25rem; }
+.catan-play .catan-hand-strip small { font-size:.6875rem; }
+.catan-play>.catan-nav { position:relative; z-index:120; display:block; width:min(480px,100%); margin:0 auto; border:1px solid #3e697b; border-radius:0 0 18px 18px; background:#072737f5; box-shadow:0 -4px 18px #0002; padding-bottom:env(safe-area-inset-bottom); }
+.catan-nav-list { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); width:100%; height:auto; padding:0 4px; }
+.catan-theme .catan-nav-tab { min-width:0; min-height:62px; gap:4px; padding:6px 2px; border:0; border-radius:8px; background:transparent; color:#c8dbe3; font-size:.6875rem; font-weight:500; }
+.catan-nav-icon { width:34px; height:26px; }
+.catan-nav-icon>svg { width:23px; height:23px; }
+.catan-nav-tab::before { top:auto; bottom:0; height:3px; border-radius:3px; }
+.catan-theme .catan-nav-tab:is([aria-expanded=true],[aria-pressed=true]) { color:#f5cf78; background:transparent; }
+.catan-nav-tab:is([aria-expanded=true],[aria-pressed=true])::before { background:#edc366; box-shadow:0 -2px 9px #efbf5680; }
+.catan-nav-tab:is([aria-expanded=true],[aria-pressed=true]) .catan-nav-icon { background:transparent; }
+.catan-play.is-menu-open>.catan-nav { border-color:#dfb86c; border-top-color:#6b8b98; }
+
+.is-game-menu .catan-build-list { gap:9px; }
+.is-game-menu .catan-build-choice { align-items:center; min-height:82px; gap:12px; padding:11px 12px; border:1px solid #537588; border-radius:14px; background:linear-gradient(120deg,#224959a8,#11354694); box-shadow:inset 0 1px 0 #ffffff05; transition:border-color .15s ease,background .15s ease; }
+.is-game-menu .catan-build-choice>svg { width:32px; height:32px; flex:0 0 32px; margin:0; color:#f1ca72; }
+.is-game-menu .catan-build-choice>svg:last-child { width:18px; height:18px; flex-basis:18px; }
+.is-game-menu .catan-build-choice>span { grid-template-columns:minmax(0,1fr); gap:4px; }
+.is-game-menu .catan-build-choice strong { font-size:.9375rem; }
+.is-game-menu .catan-build-choice .catan-cost { justify-content:flex-start; gap:8px; max-width:none; }
+.is-game-menu .catan-build-choice .catan-cost svg { width:19px; height:19px; }
+.is-game-menu .catan-build-choice .catan-cost b { font-size:.8125rem; font-weight:500; color:#f2ece0; }
+.is-game-menu .catan-build-choice small { font-size:.75rem; line-height:1.4; color:#c5d7df; }
+.is-game-menu .catan-build-choice[aria-disabled=true] { border-color:#395565; color:#8fabb9; background:#173442c4; }
+.is-game-menu .catan-build-choice[aria-disabled=true]>svg { color:#7b9299; }
+.is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost>span { color:#8fa5ae; }
+.is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost svg { opacity:.5; filter:saturate(.35); }
+.is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost b { color:#aab9bf; }
+.is-game-menu .catan-build-choice[aria-disabled=true] small { color:#91a8b2; }
+.is-game-menu .catan-build-choice .catan-cost b.is-missing { color:#ff8c80; font-weight:750; }
+.is-game-menu .catan-build-choice[aria-pressed=true] { border-color:#f4ce7a; background:linear-gradient(120deg,#66513780,#224556); box-shadow:inset 0 0 0 1px #efc86f55; }
+.is-game-menu .catan-build-choice .is-unavailable { font-size:.6875rem; }
+.catan-trade-filters { display:flex; flex-wrap:wrap; gap:5px; }
+.catan-theme .catan-trade-filters button { flex:1 1 auto; min-width:0; min-height:34px; padding:5px 9px; border:1px solid #42677a; border-radius:14px; background:#0b2e3f; color:#d3e3e8; font-size:.6875rem; font-weight:500; }
+.catan-theme .catan-trade-filters button[aria-pressed=true] { border-color:#f1ce7a; background:linear-gradient(120deg,#f9da94,#edc169); color:#123240; font-weight:650; }
+.is-game-menu .catan-development-list { gap:10px; }
+.catan-theme .catan-menu-choice { display:flex; align-items:center; justify-content:flex-start; gap:14px; width:100%; min-height:92px; padding:13px 14px; border:1px solid #537588; border-radius:14px; color:#f3eee0; background:linear-gradient(120deg,#224959bd,#113546a8); text-align:left; }
+.catan-theme .catan-menu-choice>svg:first-child { width:35px; height:35px; flex:0 0 35px; color:#f1cd79; }
+.catan-menu-choice>svg:last-child { width:18px; height:18px; flex-basis:18px; }
+.catan-menu-choice>span { display:grid; gap:4px; flex:1; min-width:0; }
+.catan-menu-choice strong { font-size:.9375rem; }
+.catan-menu-choice small { color:#c9d9df; font-size:.8125rem; font-weight:400; line-height:1.45; }
+.catan-theme .catan-menu-choice:is(:disabled,.is-unavailable) { opacity:1; color:#95acb6; border-color:#395565; background:#173442c4; }
+.catan-theme .catan-menu-choice:is(:disabled,.is-unavailable)>svg:first-child { color:#869a9d; }
+.catan-menu-choice:is(:disabled,.is-unavailable) small { color:#95acb6; }
+.is-game-menu .catan-empty-state { min-height:100%; padding:12px 16px; gap:14px; }
+.catan-card-illustration { position:relative; display:grid; place-items:center; flex:0 0 auto; width:160px; height:160px; margin:6px auto 8px; color:#e7c572; background:radial-gradient(circle,#8db8bf1c 0,transparent 65%); }
+.catan-card-illustration::before { content:""; position:absolute; inset:4px; border:1px solid #a1b5bb20; border-radius:50%; box-shadow:0 0 0 12px #a1b5bb06,0 0 0 24px #a1b5bb04; }
+.catan-card-illustration-stack { position:relative; width:128px; height:128px; color:#99b1bd; stroke-width:1; fill:#11384b; filter:drop-shadow(0 6px 8px #0005); }
+.catan-card-illustration-compass { position:absolute; top:80px; left:76px; width:32px; height:32px; color:#e9c370; stroke-width:1.4; }
+.is-game-menu .catan-empty-state h3 { font-size:1rem; }
+.is-game-menu .catan-empty-state p { max-width:260px; font-size:.875rem; color:#bdced5; }
+@media(hover:hover) {
+  .catan-theme .catan-nav-tab:hover { color:#ffe0a0; background:#efd18a0c; }
+  .is-game-menu .catan-build-choice:not([aria-disabled=true]):hover, .catan-theme .catan-menu-choice:not(:disabled):hover { border-color:#c5aa6e; background:#285262; }
 }
 
+/* The resource hand belongs to the maximized map and takes no space from its canvas. */
+body:has(.catan-play.is-board-expanded) { overflow:hidden; }
+.catan-play.is-board-expanded { position:fixed; inset:0; z-index:40; display:flex; width:100%; height:100dvh; min-height:0; gap:6px; overflow:hidden; background:#0a2938; padding:max(6px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left)); }
+.catan-play.is-board-expanded>.catan-status { min-height:54px; flex-wrap:wrap; padding:4px 8px; }
+.catan-play.is-board-expanded .catan-status-main { flex:1 1 6rem; }
+.catan-status-actions { display:flex; flex:0 0 auto; align-items:center; justify-content:center; gap:4px; }
+.catan-theme .catan-status-actions [data-slot=button] { width:auto; min-height:40px; margin:0; padding:5px 10px; font-size:.8125rem; line-height:1.3; text-align:center; }
+.catan-play.is-board-expanded>.catan-hand-bar { position:absolute; top:var(--catan-hand-top,72px); left:50%; z-index:90; transform:translateX(-50%); width:min(480px,calc(100% - 16px)); margin:0; padding:6px 8px 8px; border:1px solid #436a7d; border-radius:14px; background:linear-gradient(130deg,#0b2e3de8,#123c4de8); box-shadow:0 5px 20px #0004; }
+.catan-play.is-board-expanded .catan-menu-stage { flex:1 1 0; min-height:0; margin-bottom:-6px; }
+.catan-play.is-board-expanded .catan-island-screen { border:0; border-radius:14px; background:transparent; }
+.catan-play.is-board-expanded .catan-island-screen>.catan-screen-heading { top:calc(var(--catan-hand-height,96px) + 16px); }
+.catan-play.is-board-expanded .catan-island-context { top:calc(var(--catan-hand-height,96px) + 16px); max-height:calc(100% - var(--catan-hand-height,96px) - 90px); }
+.catan-play.is-board-expanded.is-map-vote .catan-island-screen>.catan-screen-heading { top:8px; }
+.catan-play.is-board-expanded.is-map-vote .catan-island-context { top:auto; }
+.catan-theme .catan-play.is-board-expanded .catan-board-field-info { top:calc(var(--catan-hand-height,96px) + 72px); }
+.catan-play.is-board-expanded>.catan-activity-bar { position:relative; flex:0 0 auto; top:auto; bottom:auto; left:auto; z-index:95; transform:none; align-self:center; width:min(480px,100%); max-height:25dvh; overflow:auto; }
+@media(min-height:700px) {
+  .catan-play:not(.is-board-expanded) .catan-menu-stage>.is-game-menu { height:min(72dvh,calc(var(--catan-menu-height,100%) - 132px)); }
+}
+@media(max-width:600px) and (orientation:portrait) {
+  .catan-play>.catan-status { flex-wrap:wrap; column-gap:6px; row-gap:0; }
+  .catan-play .catan-status-actions { order:1; flex-basis:100%; padding:3px 0; }
+}
+@media(max-width:360px) {
+  .catan-play>.catan-status { gap:5px; padding-inline:7px; }
+  .catan-status-main>.catan-island-mark { width:30px; height:30px; }
+  .catan-theme .catan-status-main { gap:5px; }
+  .catan-status-main strong { font-size:.8125rem; }
+  .catan-status-copy>small { font-size:.625rem; }
+  .catan-status-roll { width:38px; }
+  .catan-play .catan-hand-strip { gap:4px; }
+  .catan-play .catan-hand-strip>.catan-hand-resource { column-gap:4px; }
+  .catan-play .catan-hand-resource>svg { width:20px; height:20px; }
+  .catan-play .catan-hand-resource b { font-size:1.125rem; }
+  .catan-theme .catan-nav-tab { font-size:.625rem; }
+  .is-game-menu>.catan-screen { gap:8px; padding-inline:9px; }
+  .is-game-menu .catan-build-choice { gap:8px; padding:9px; }
+  .is-game-menu .catan-build-choice>svg { width:25px; height:25px; flex-basis:25px; }
+  .is-game-menu .catan-build-choice>svg:last-child { flex-basis:16px; }
+}
+@media(max-height:600px) {
+  .catan-play { gap:5px; }
+  .catan-play .catan-menu-stage { margin-bottom:-5px; }
+  .catan-play>.catan-status, .catan-play.is-board-expanded>.catan-status { min-height:48px; padding-block:2px; }
+  .catan-status-copy>small { display:none; }
+  .catan-status-main>.catan-island-mark { width:30px; height:30px; }
+  .catan-play .catan-hand-meta { min-height:16px; margin-bottom:2px; font-size:.625rem; }
+  .catan-play .catan-hand-strip>.catan-hand-resource { min-height:46px; padding:8px 3px 4px; row-gap:3px; }
+  .catan-play .catan-hand-resource>svg { width:20px; height:20px; }
+  .catan-play .catan-hand-resource b { font-size:1.125rem; }
+  .catan-play .catan-hand-strip small { font-size:.625rem; }
+  .catan-theme .catan-nav-tab { min-height:48px; gap:2px; padding-block:3px; }
+  .catan-menu-stage>.is-game-menu { height:calc(var(--catan-menu-height,100%) - 60px); border-radius:20px 20px 0 0; }
+  .is-game-menu::before { top:6px; height:3px; width:30px; }
+  .is-game-menu>.catan-screen { gap:5px; padding:14px 10px 7px; }
+  .is-game-menu>.catan-screen>.catan-screen-heading { min-height:34px; gap:8px; padding-right:38px; }
+  .is-game-menu>.catan-screen>.catan-screen-heading>svg { width:27px; height:27px; flex-basis:27px; }
+  .is-game-menu .catan-screen-heading h2 { font-size:1rem; }
+  .is-game-menu .catan-screen-subtitle { display:none; }
+  .catan-theme .catan-menu-close { top:13px; right:9px; width:34px; min-width:34px; height:34px; min-height:34px; }
+  .is-game-menu>.catan-screen>.catan-screen-actions { padding-top:5px; }
+  .catan-theme .is-game-menu .catan-screen-actions [data-slot=button] { min-height:36px; padding-block:6px; }
+  .catan-card-illustration { width:110px; height:110px; margin:0 auto; }
+  .catan-card-illustration-stack { width:100px; height:100px; }
+  .catan-card-illustration-compass { top:56px; left:52px; width:27px; height:27px; }
+  .catan-play.is-board-expanded>.catan-hand-bar { padding-block:3px 5px; }
+}
+@media(min-width:600px) and (max-height:600px) {
+  /* On a wide, shallow map the tools remain beside the centered sheet. */
+  .catan-menu-stage>.is-game-menu { height:var(--catan-menu-height,100%); }
+  .catan-play.is-board-expanded .catan-island-screen>.catan-screen-heading { top:8px; }
+}
+.catan-play .catan-menu-stage[data-catan-short-stage=true]>.is-game-menu { height:var(--catan-menu-height,100%); }
+.catan-menu-stage[data-catan-short-stage=true]>.is-game-menu>.catan-screen { gap:6px; padding:18px 10px 8px; }
+.catan-menu-stage[data-catan-short-stage=true] .is-game-menu .catan-screen-subtitle { display:none; }
+.catan-menu-stage[data-catan-short-stage=true] .is-game-menu .catan-screen-heading { min-height:34px; gap:8px; }
+.catan-menu-stage[data-catan-short-stage=true] .is-game-menu .catan-screen-heading>svg { width:28px; height:28px; flex-basis:28px; }
+.catan-menu-stage[data-catan-short-stage=true] .is-game-menu .catan-screen-body { min-height:48px; padding:0; }
+.catan-menu-stage[data-catan-short-stage=true] .is-game-menu .catan-screen-actions { padding-top:5px; }
+.catan-theme .catan-menu-stage[data-catan-short-stage=true] .catan-menu-close { top:17px; }
+@media(max-width:599px) {
+  .catan-play.is-menu-open .catan-menu-stage[data-catan-short-stage=true] .catan-island-tools { visibility:hidden; pointer-events:none; }
+}
+/* Very short views with enlarged text scroll the complete sheet so every action remains reachable. */
+.catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen { display:flex; flex-direction:column; overflow:auto; overscroll-behavior:contain; }
+.catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen>.catan-screen-heading,
+.catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen>.catan-screen-actions { flex:0 0 auto; }
+.catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen>.catan-screen-body { flex:1 0 48px; min-height:48px; }
 /* SVG construction feedback follows the map camera and never captures input. */
 .catan-construction-effects,
 .catan-construction-effect,

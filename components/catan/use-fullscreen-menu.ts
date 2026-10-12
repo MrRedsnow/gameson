@@ -19,7 +19,7 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
   const panel = useCallback((menu: FullscreenMenu) => nav.current?.closest(".catan-play")?.querySelector<HTMLElement>(`[data-catan-fullscreen-panel="${menu}"]`), []);
   const request = useCallback((menu: FullscreenMenu | null) => { clearTimer(); requested.current = menu; select(menu); }, [clearTimer, select]);
   const close = useCallback((restoreFocus = false) => {
-    const trigger = active && nav.current?.querySelector<HTMLButtonElement>(`[data-catan-fullscreen-trigger="${active}"]`);
+    const trigger = active && nav.current?.querySelector<HTMLButtonElement>(`[data-catan-menu-trigger="${active}"]`);
     pinned.current = false; request(null);
     if (restoreFocus && trigger) trigger.focus();
   }, [active, request]);
@@ -41,9 +41,7 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
   useLayoutEffect(() => {
     const previous = previousPanel.current;
     if (!active && previous?.contains(document.activeElement)) {
-      const trigger = expanded
-        ? nav.current?.querySelector<HTMLButtonElement>(`[data-catan-fullscreen-trigger="${previous.dataset.catanFullscreenPanel}"]`)
-        : board.current?.querySelector<HTMLButtonElement>(".catan-island-tools button[aria-pressed]:last-child");
+      const trigger = nav.current?.querySelector<HTMLButtonElement>(`[data-catan-menu-trigger="${previous.dataset.catanFullscreenPanel}"]`);
       trigger?.focus();
     }
     previousPanel.current = active ? panel(active) ?? null : null;
@@ -59,9 +57,12 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
       if (active) panel(active)?.focus();
     }
     if (!active) pinned.current = false;
-    if (!expanded || !active) return clearTimer;
+    if (!active) return clearTimer;
     const outside = (event: globalThis.PointerEvent) => {
       const target = event.target;
+      // These controls can change the turn or resize the island. Keep them
+      // mounted through their click rather than closing on pointerdown.
+      if (target instanceof Element && target.closest(".catan-status, .catan-island-tools")) return;
       if (target instanceof Node && !nav.current?.contains(target) && !panel(active)?.contains(target)) close();
     };
     document.addEventListener("pointerdown", outside);
@@ -69,21 +70,27 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
   }, [active, expanded, task, clearTimer, close, panel]);
 
   useLayoutEffect(() => {
-    if (!expanded || !board.current) return;
+    if (!board.current) return;
     const island = board.current;
     const play = island.closest<HTMLElement>(".catan-play")!;
+    const hand = play.querySelector<HTMLElement>(".catan-hand-bar");
     const measure = () => {
       const bounds = island.getBoundingClientRect();
       const container = play.getBoundingClientRect();
-      play.style.setProperty("--catan-fullscreen-menu-top", `${bounds.top - container.top + 8}px`);
-      play.style.setProperty("--catan-fullscreen-menu-height", `${Math.max(0, bounds.height - 16)}px`);
+      const handHeight = hand?.getBoundingClientRect().height ?? 0;
+      const menuHeight = Math.max(0, bounds.height - (expanded && hand ? handHeight + 20 : 0));
+      play.style.setProperty("--catan-hand-top", `${bounds.top - container.top + 8}px`);
+      play.style.setProperty("--catan-hand-height", `${handHeight}px`);
+      play.style.setProperty("--catan-menu-height", `${menuHeight}px`);
+      island.dataset.catanShortStage = String(menuHeight < 340);
+      island.dataset.catanTinyStage = String(menuHeight < 180);
     };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(island); observer.observe(play);
+    observer.observe(island); observer.observe(play); if (hand) observer.observe(hand);
     window.addEventListener("resize", measure);
     return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
-  }, [expanded]);
+  }, [expanded, active, task]);
 
   return { bindNav, bindBoard, close, hover, click, leave, enter: clearTimer, pin };
 }

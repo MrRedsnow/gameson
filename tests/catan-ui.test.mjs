@@ -18,7 +18,7 @@ await build({
   absWorkingDir: root, bundle: true, packages: "external", platform: "node", format: "cjs", jsx: "automatic", outfile: output, logLevel: "silent",
 });
 after(() => rm(output, { force: true }));
-const { CatanGameUI, CatanBoard, CardsPanel, OverviewPanel, ResourceAmounts, TradeInventoryPreview, CATAN_TABS, suggestedTab, navigationTask, resolveNavigation, WoodIcon, ResourceIcon, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads, COSTS, RESOURCES, RESOURCE_INFO, emptyResources, buildUnavailable, hasBuildOption, buildingPreview, developmentGroups } = createRequire(import.meta.url)(output);
+const { CatanGameUI, CatanRules, CatanBoard, CardsPanel, OverviewPanel, ResourceAmounts, TradeInventoryPreview, CATAN_TABS, suggestedTab, navigationTask, resolveNavigation, WoodIcon, ResourceIcon, createCatanGame, applyCatanAction, catanView, legalSettlements, legalRoads, COSTS, RESOURCES, RESOURCE_INFO, emptyResources, buildUnavailable, hasBuildOption, buildingPreview, developmentGroups } = createRequire(import.meta.url)(output);
 const render = (component, props) => renderToStaticMarkup(createElement(component, props));
 const send = async () => true;
 const seats = [{ id: "a", name: "Robin" }, { id: "b", name: "Mara" }, { id: "c", name: "Lea" }];
@@ -30,7 +30,7 @@ test("map voting shows the island, progress, immutable own vote and host-only ti
   assert.match(html, /Kartenabstimmung/); assert.match(html, /Karte akzeptieren/); assert.match(html, /Karte ablehnen/);
   assert.match(html, /0 Ja · 0 Nein · 4 offen/); assert.match(html, /Feld ansehen:/);
   assert.doesNotMatch(html, /Siedlung auf Kreuzung|Starthilfe zur Gründung|catan-hand-bar/);
-  assert.equal((html.match(/role="tab"[^>]*disabled=""/g) ?? []).length, 3);
+  assert.equal((html.match(/<button\b[^>]*>/g) ?? []).filter((tag) => /data-catan-menu-trigger="(?:karten|bauen|handel)"/.test(tag) && /disabled=""/.test(tag)).length, 3);
   const mapId = game.mapVote.id;
   game = applyCatanAction(game, "b", { type: "map_vote", mapId, accept: false });
   html = ui(game, "b");
@@ -62,15 +62,41 @@ function labelledButton(html, label) {
   return button;
 }
 function isDisabled(html, label) { return /\bdisabled=""/.test(labelledButton(html, label)); }
+const attribute = (tag, name) => tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
+function menu(html, name) {
+  const tags = (html.match(/<div\b[^>]*>/g) ?? []).filter((tag) => attribute(tag, "data-catan-menu-panel"));
+  const tag = tags.find((element) => attribute(element, "data-catan-menu-panel") === name);
+  assert.ok(tag, `Das montierte Menü ${name} fehlt.`);
+  const start = html.indexOf(tag);
+  const next = tags.map((element) => html.indexOf(element)).filter((index) => index > start).sort((a, b) => a - b)[0];
+  return html.slice(start, next ?? html.indexOf('<nav ', start));
+}
+function buildRow(html, kind) {
+  const label = { road: "Straße", settlement: "Siedlung", city: "Stadt", development: "Entwicklungskarte kaufen" }[kind];
+  const row = (menu(html, "bauen").match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []).find((button) => button.includes(`<strong>${label}</strong>`));
+  assert.ok(row, `Die Bauoption ${label} fehlt.`);
+  return row;
+}
+function costNumber(row, resource) {
+  const entry = row.match(new RegExp(`<span\\b[^>]*data-catan-cost="${resource}"[^>]*>[\\s\\S]*?<b\\b([^>]*)>(\\d+)<\\/b>`));
+  assert.ok(entry, `Die benötigte Menge für ${resource} fehlt.`);
+  return { count: Number(entry[2]), missing: /\bclass="is-missing"/.test(entry[1]) };
+}
 
 test("zeigt fünf angeheftete Menübereiche mit sprechenden Gruppen", () => {
   assert.deepEqual(CATAN_TABS.map((tab) => tab.label), ["Insel", "Karten", "Bauen", "Handel", "Übersicht"]);
   const game = acceptedCatanGame(seats, 12, sequence([0]));
   const html = ui(game, game.players[0].id);
-  assert.match(html, /<nav class="catan-nav" aria-label="Spielmenü">/);
-  assert.equal((html.match(/class="catan-nav-tab"/g) ?? []).length, 5);
-  assert.match(html, /role="tab"[^>]*aria-selected="true"[^>]*data-state="active"[^>]*id="[^"]*-trigger-insel"/);
-  for (const tab of CATAN_TABS) assert.match(html, new RegExp(`role="tabpanel"[^>]*id="[^"]*-content-${tab.id}"[^>]*class="catan-tab-panel`));
+  assert.match(html, /<nav[^>]*class="catan-nav"[^>]*aria-label="Spielmenü"/);
+  const triggers = (html.match(/<button\b[^>]*>/g) ?? []).filter((tag) => attribute(tag, "data-catan-menu-trigger"));
+  assert.equal(triggers.length, 5);
+  for (const trigger of triggers) assert.match(attribute(trigger, "class"), /\bcatan-nav-tab\b/);
+  assert.deepEqual(triggers.map((tag) => attribute(tag, "data-catan-menu-trigger")), CATAN_TABS.map((tab) => tab.id));
+  assert.equal(attribute(triggers[0], "data-state"), "active");
+  assert.match(html, /class="catan-menu-stage"/);
+  const island = (html.match(/<div\b[^>]*>/g) ?? []).find((tag) => attribute(tag, "class") === "catan-tab-panel catan-tab-insel");
+  assert.equal(attribute(island, "data-state"), "active");
+  for (const tab of CATAN_TABS.filter((tab) => tab.id !== "insel")) assert.match(menu(html, tab.id), /role="dialog"/);
   assert.match(html, /Deine Rohstoffe: 0 Holz, 0 Lehm, 0 Wolle, 0 Getreide, 0 Erz/);
   assert.doesNotMatch(html, /Deine Karten öffnen/);
   assert.match(html, /Punktestand öffnen: Du hast 0 von 12 Siegpunkten/);
@@ -249,12 +275,47 @@ test("heftet die eigenen Rohstoffe über alle Menübereiche an", () => {
   assert.match(ui({ ...rich, phase: "discard", discards: { [me]: 4 } }, me), /<div class="catan-hand-bar is-alert">/);
 });
 
-test("Handel startet mit der Wahl zwischen Hafen und Bank oder Mitspielenden", () => {
+test("normale Pflichtmenüs überlagern dieselbe aktive Insel und behalten eine Rohstoffleiste", () => {
+  const game = foundedGame(); const active = game.players[game.currentPlayer].id; const other = game.players.find((player) => player.id !== active).id;
+  game.phase = "main"; game.players[game.currentPlayer].resources.wood = 2;
+  const offered = applyCatanAction(game, active, { type: "offer_trade", toId: other, give: { wood: 1 }, receive: { ore: 1 } });
+  const cases = [
+    { game: { ...game, phase: "discard", discards: { [active]: 4 } }, viewer: active, activeMenu: "karten" },
+    { game: offered, viewer: other, activeMenu: "handel" },
+    { game: { ...game, phase: "finished", winner: active }, viewer: other, activeMenu: "uebersicht" },
+  ];
+  for (const state of cases) {
+    const html = ui(state.game, state.viewer);
+    assert.match(html, /class="catan-play is-menu-open"/);
+    assert.equal((html.match(/class="catan-board"/g) ?? []).length, 1);
+    assert.equal((html.match(/class="catan-hand-bar\b/g) ?? []).length, 1);
+    assert.equal((html.match(/class="catan-hand-strip"/g) ?? []).length, 1);
+    const island = (html.match(/<div\b[^>]*>/g) ?? []).find((tag) => attribute(tag, "class") === "catan-tab-panel catan-tab-insel");
+    assert.equal(attribute(island, "data-state"), "active");
+    const panels = (html.match(/<div\b[^>]*>/g) ?? []).filter((tag) => attribute(tag, "data-catan-menu-panel"));
+    assert.equal(panels.length, 4);
+    assert.deepEqual(panels.filter((tag) => attribute(tag, "data-state") === "active").map((tag) => attribute(tag, "data-catan-menu-panel")), [state.activeMenu]);
+    const trigger = (html.match(/<button\b[^>]*>/g) ?? []).find((tag) => attribute(tag, "data-catan-menu-trigger") === state.activeMenu);
+    const panel = panels.find((tag) => attribute(tag, "data-catan-menu-panel") === state.activeMenu);
+    assert.equal(attribute(trigger, "aria-expanded"), "true");
+    assert.equal(attribute(trigger, "aria-controls"), attribute(panel, "id"));
+    assert.equal(attribute(panel, "role"), "dialog");
+    assert.equal(attribute(panel, "tabindex"), "-1");
+    assert.match(menu(html, state.activeMenu), /aria-label="Menü schließen"/);
+  }
+});
+
+test("Handel startet mit vier Filtern und drei Einstiegskarten", () => {
   let game = foundedGame();
   const active = game.players[game.currentPlayer].id; const other = game.players.find((p) => p.id !== active).id;
   game = applyCatanAction(game, active, { type: "roll" }, sequence([1, 3]));
   const html = ui(game, active);
-  assert.match(html, /class="catan-trade-options">[\s\S]*?Hafen &amp; Bank[\s\S]*?Fester Kurs ab [234]:1[\s\S]*?Mitspielende[\s\S]*?Angebot an eine Person am Tisch/);
+  const trade = menu(html, "handel");
+  assert.match(trade, /<h2>Handeln<\/h2>/);
+  assert.match(trade, /class="catan-trade-options">[\s\S]*?Hafen &amp; Bank[\s\S]*?Fester Kurs ab [234]:1[\s\S]*?Mitspielende[\s\S]*?Handle direkt mit einer anderen Person am Tisch[\s\S]*?Eigene Angebote/);
+  assert.equal((trade.match(/class="catan-trade-option\b/g) ?? []).length, 3);
+  assert.match(trade, /class="catan-trade-filters" role="group" aria-label="Handelsbereiche filtern"/);
+  for (const label of ["Alle", "Bank &amp; Hafen", "Mitspielende", "Meine Angebote"]) assert.match(trade, new RegExp(`<button[^>]*aria-pressed="${label === "Alle"}"[^>]*>${label}<\\/button>`));
   // Erst nach der Wahl folgen die Fragen nach Person, Gabe und Wunsch.
   assert.doesNotMatch(html, /Schritt \d von 3|catan-trade-partner|catan-resource-picker|catan-two-fields/);
   assert.match(ui(game, other), new RegExp(`Angebot an ${game.players[game.currentPlayer].name} senden`));
@@ -294,15 +355,73 @@ test("Bauentscheidungen erklären Kosten, Zugphase, leeren Vorrat und fehlende P
 test("das Baumenü erklärt allgemeine Einschränkungen einmal und behält jede Kostenzeile", () => {
   const game = foundedGame(); const active = game.players[game.currentPlayer].id;
   const html = ui(game, active);
-  const build = html.slice(html.indexOf('-content-bauen"'), html.indexOf('-content-handel"'));
+  const build = menu(html, "bauen");
   assert.equal((build.match(/Würfle zuerst\./g) ?? []).length, 1);
-  assert.equal((build.match(/class="catan-build-choice"/g) ?? []).length, 4);
+  assert.equal((build.match(/class="catan-build-choice\b/g) ?? []).length, 4);
   assert.equal((build.match(/aria-disabled="true"/g) ?? []).length, 4);
+  assert.equal((build.match(/aria-pressed="false"/g) ?? []).length, 4);
+  assert.match(build, /<h2>Bauen<\/h2>/);
+  assert.match(build, /disabled=""[^>]*>[\s\S]*?Auswählen<\/button>/);
   assert.doesNotMatch(build, /Fehlende Rohstoffe ertauschen/);
-  for (const footer of html.match(/<footer class="catan-screen-actions">[\s\S]*?<\/footer>/g) ?? []) assert.match(footer, /Würfeln/);
+  const island = html.slice(html.indexOf('class="catan-tab-panel catan-tab-insel"'), html.indexOf('data-catan-menu-panel="karten"'));
+  assert.match(island, /class="catan-screen-actions"[\s\S]*?Würfeln/);
   const local = ui(game, active, { local: true, onHide() {} });
   assert.equal((local.match(/aria-label="Handkarten verdecken"/g) ?? []).length, 1);
   assert.doesNotMatch(local, />Hand verdecken<\/button>/);
+});
+
+test("Baukosten markieren nur unzureichende Rohstoffe und zeigen benötigte Gesamtmengen", () => {
+  const game = foundedGame(); const active = game.players[game.currentPlayer].id;
+  game.phase = "main";
+  game.players[game.currentPlayer].resources = { wood: 1, brick: 0, wool: 1, grain: 1, ore: 2 };
+  const html = ui(game, active);
+  const road = buildRow(html, "road"); const city = buildRow(html, "city"); const development = buildRow(html, "development");
+  assert.deepEqual(costNumber(road, "wood"), { count: 1, missing: false });
+  assert.deepEqual(costNumber(road, "brick"), { count: 1, missing: true });
+  assert.deepEqual(costNumber(city, "grain"), { count: 2, missing: true });
+  assert.deepEqual(costNumber(city, "ore"), { count: 3, missing: true });
+  assert.match(city, /Dir fehlen 1 Getreide, 1 Erz/);
+  assert.match(road, /aria-disabled="true"/);
+  assert.match(city, /aria-disabled="true"/);
+  assert.match(development, /aria-disabled="false"/);
+  for (const resource of ["wool", "grain", "ore"]) assert.deepEqual(costNumber(development, resource), { count: 1, missing: false });
+  assert.match(road, /<span class="sr-only"> Lehm benötigt, 0 vorhanden<\/span>/);
+  assert.match(menu(html, "bauen"), /disabled=""[^>]*>[\s\S]*?Auswählen<\/button>/, "Verfügbare Bauoptionen allein dürfen keine Aktion bestätigen.");
+});
+
+test("exakt erfüllte Kosten bleiben neutral; Phase und Beschäftigung sperren unabhängig vom Bestand", () => {
+  const game = foundedGame(); const active = game.players[game.currentPlayer].id;
+  game.phase = "main";
+  game.players[game.currentPlayer].resources = { wood: 1, brick: 1, wool: 1, grain: 2, ore: 3 };
+  for (const kind of Object.keys(COSTS)) {
+    const row = buildRow(ui(game, active), kind);
+    assert.equal(attribute(row, "aria-disabled"), buildUnavailable(catanView(game, active), kind) ? "true" : "false");
+    assert.match(row, /aria-pressed="false"/);
+    for (const resource of RESOURCES.filter((resource) => COSTS[kind][resource])) assert.deepEqual(costNumber(row, resource), { count: COSTS[kind][resource], missing: false });
+    assert.match(buildRow(ui(game, active, { busy: true }), kind), /aria-disabled="true"/);
+  }
+  game.phase = "roll";
+  const build = menu(ui(game, active), "bauen");
+  assert.equal((build.match(/aria-disabled="true"/g) ?? []).length, 4);
+  assert.equal((build.match(/Würfle zuerst\./g) ?? []).length, 1);
+  assert.doesNotMatch(build, /class="is-missing"/);
+});
+
+test("Vorrat, Kartenstapel und fehlende Bauplätze sperren Optionen bei neutralen erfüllten Kosten", () => {
+  const game = foundedGame(); const active = game.players[game.currentPlayer].id;
+  game.phase = "main"; game.players[game.currentPlayer].resources = emptyResources(5);
+  const view = catanView(game, active);
+  view.players[view.currentPlayer].pieces.road = 15;
+  view.players[view.currentPlayer].pieces.settlement = 5;
+  view.deckCount = 0;
+  for (const vertex of view.board.vertices) if (vertex.owner === active) vertex.building = "city";
+  const build = menu(render(CatanGameUI, { game: view, send, busy: false, local: false }), "bauen");
+  assert.equal((build.match(/aria-disabled="true"/g) ?? []).length, 4);
+  assert.match(build, /Keine Straßen mehr im Vorrat/);
+  assert.match(build, /Keine Siedlungen mehr im Vorrat/);
+  assert.match(build, /eigene Siedlung zum Ausbauen/);
+  assert.match(build, /Kartenstapel ist leer/);
+  assert.doesNotMatch(build, /class="is-missing"/);
 });
 
 test("Bauplatzvorschau erklärt angrenzende Zahlen, Häfen und Startrohstoffe", () => {
@@ -438,14 +557,17 @@ test("Karten öffnen unmittelbar die gruppierten Entwicklungskarten und zählen 
     { id: "point", type: "victory", boughtOnTurn: 4 },
   ];
   const cards = render(CardsPanel, { game: catanView(game, me), busy: false, send });
-  assert.match(cards, /<h2>Entwicklungskarten<\/h2>/);
-  assert.equal((cards.match(/class="catan-development-choice"/g) ?? []).length, 2);
+  assert.match(cards, /<h2>Karten<\/h2>/);
+  assert.match(cards, /class="catan-screen-subtitle">Deine Entwicklungskarten/);
+  assert.equal((cards.match(/class="catan-development-choice\b/g) ?? []).length, 2);
   assert.match(cards, /Spielbar · 1 neu gekauft/);
   assert.match(cards, /aria-label="2 Karten">2×/);
   assert.doesNotMatch(cards, /Deine Rohstoffe|catan-resource-hand|catan-card-links|Bankbestand|Rohstoffkarten|Einen Schritt zurück/);
   assert.match(ui(game, me), /class="catan-nav-badge " aria-hidden="true">3<\/span><\/span><span class="catan-nav-label">Karten<\/span><span class="sr-only">, 3 Entwicklungskarten/);
   const empty = render(CardsPanel, { game: catanView(foundedGame(), me), busy: false, send });
   assert.match(empty, /Noch keine Entwicklungskarten/);
+  assert.match(empty, /class="catan-card-illustration" aria-hidden="true"/);
+  assert.match(empty, /disabled=""[^>]*>[\s\S]*?Karte spielen<\/button>/);
   assert.doesNotMatch(empty, /catan-resource-hand|Bankbestand|Einen Schritt zurück/);
 });
 
@@ -459,7 +581,7 @@ test("die Abgabe ersetzt Entwicklungskarten nur für betroffene Personen", () =>
   for (const resource of RESOURCES) assert.equal(isDisabled(html, `Abgeben: weniger ${RESOURCE_INFO[resource].label}`), true);
   assert.match(html, /disabled=""[^>]*>Abgabe bestätigen<\/button>/);
   const waiting = render(CardsPanel, { game: catanView(game, other), busy: false, send });
-  assert.match(waiting, /<h2>Entwicklungskarten<\/h2>/);
+  assert.match(waiting, /<h2>Karten<\/h2>/);
   assert.doesNotMatch(waiting, /<h2>Rohstoffe abgeben<\/h2>/);
 });
 
@@ -528,12 +650,20 @@ test("Regeln öffnen alle Themen als Akkordeon mit aktuellen Baukosten am Anfang
   assert.equal((html.match(/class="catan-rule-section"/g) ?? []).length, 11);
   assert.doesNotMatch(html, /catan-pager|Seite wechseln/);
   const costs = html.slice(html.indexOf('class="catan-rule-costs"'), html.indexOf('</details>'));
+  assert.doesNotMatch(costs, /class="is-missing"/, "Allgemeine Regelkosten haben keinen persönlichen Bestandsvergleich.");
   for (const label of ["Straße", "Siedlung", "Stadt", "Entwicklungskarte"]) assert.match(costs, new RegExp(`<strong>${label}<\\/strong>`));
   for (const [kind, cost] of Object.entries(COSTS)) {
     const index = Object.keys(COSTS).indexOf(kind);
     const row = costs.split(/<div><strong>/)[index + 1]?.split('</div>')[0];
     assert.ok(row, `Die Baukosten für ${kind} fehlen.`);
     for (const resource of RESOURCES.filter((resource) => cost[resource])) assert.match(row, new RegExp(`title="${RESOURCE_INFO[resource].label}"[\\s\\S]*?>${cost[resource]}<span class="sr-only"> ${RESOURCE_INFO[resource].label}`));
+  }
+  const generalRules = render(CatanRules, {});
+  assert.doesNotMatch(generalRules, /class="is-missing"/);
+  const generalCosts = generalRules.slice(generalRules.indexOf('class="catan-rule-costs"'), generalRules.indexOf('class="catan-rule-legend"'));
+  for (const [index, kind] of Object.keys(COSTS).entries()) {
+    const row = generalCosts.split(/<div><strong>/)[index + 1]?.split('</div>')[0];
+    for (const resource of RESOURCES.filter((resource) => COSTS[kind][resource])) assert.deepEqual(costNumber(row, resource), { count: COSTS[kind][resource], missing: false });
   }
 });
 

@@ -20,11 +20,11 @@ const hold = integerOption("CATAN_DEMO_HOLD_MS", 15000, 0, 3600000);
 const waitForAudio = process.env.CATAN_DEMO_WAIT_FOR_AUDIO !== "0";
 
 async function tab(page, label) {
-  const control = page.getByRole("tab", { name: new RegExp(`^${label}`) });
-  if (await control.getAttribute("aria-selected") !== "true") await control.click();
+  const control = page.locator(".catan-nav-tab").filter({ hasText: new RegExp(`^${label}`) });
+  if (await control.getAttribute("data-state") !== "active") await control.click();
 }
 function button(page, name) {
-  // Tabs are force-mounted; only the active panel's actions are visible.
+  // Menus share the mounted island; only visible actions may be selected.
   return page.locator('.catan-tab-panel[data-state="active"]').getByRole("button", { name, exact: true });
 }
 async function caption(page, text) {
@@ -69,6 +69,7 @@ async function perform(page, game, action) {
       if (game.phase === "main") {
         await tab(page, "Bauen");
         await page.locator(".catan-build-choice").filter({ has: page.locator("strong", { hasText: new RegExp(`^${labels[action.building]}$`) }) }).click();
+        await button(page, "Auswählen").click();
       } else await tab(page, "Insel");
       const name = action.building === "road" ? `Straße auf Weg ${action.position + 1} bauen` : `${labels[action.building]} auf Kreuzung ${action.position + 1} bauen`;
       const place = page.getByRole("button", { name, exact: true });
@@ -88,6 +89,7 @@ async function perform(page, game, action) {
     case "buy_development":
       await tab(page, "Bauen");
       await page.locator(".catan-build-choice").filter({ hasText: "Entwicklungskarte kaufen" }).click();
+      await button(page, "Auswählen").click();
       break;
     case "bank_trade": {
       await tab(page, "Handel");

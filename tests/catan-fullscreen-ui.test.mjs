@@ -37,7 +37,7 @@ test("fullscreen map voting keeps ballots reachable above the map and blocks gam
   const html = ui(game, "a");
   assert.match(html, /is-map-vote is-board-expanded/);
   assert.equal((html.match(/class="catan-board-panel"/g) ?? []).length, 1);
-  const status = html.slice(html.indexOf('class="catan-status '), html.indexOf('class="catan-tab-panel'));
+  const status = html.slice(html.indexOf('class="catan-status '), html.indexOf('class="catan-menu-stage'));
   assert.match(status, /Karte akzeptieren/); assert.match(status, /Karte ablehnen/);
   assert.match(html, /class="catan-map-vote"/); assert.doesNotMatch(html, /Starthilfe zur Gründung|Siedlung auf Kreuzung/);
   for (const name of ["karten", "bauen", "handel"]) {
@@ -64,11 +64,11 @@ function panel(html, name) {
   assert.ok(tag, `Das montierte Vollbildmenü ${name} fehlt.`);
   const start = html.indexOf(tag);
   const next = panelTags(html).map((element) => html.indexOf(element)).filter((index) => index > start).sort((a, b) => a - b)[0];
-  return html.slice(start, next ?? html.indexOf('<nav class="catan-nav"', start));
+  return html.slice(start, next ?? html.indexOf('<nav ', start));
 }
 
 function assertMountedIsland(html, activeMenu) {
-  assert.match(html, /class="catan-play is-board-expanded"/);
+  assert.match(html, /class="catan-play is-board-expanded(?: is-menu-open)?"/);
   const island = (html.match(/<div\b[^>]*>/g) ?? []).find((tag) => attribute(tag, "class") === "catan-tab-panel catan-tab-insel");
   assert.ok(island, "Die Insel fehlt im Vollbild.");
   assert.equal(attribute(island, "data-state"), "active", "Ein offenes Menü darf die Insel nicht deaktivieren.");
@@ -79,12 +79,16 @@ function assertMountedIsland(html, activeMenu) {
   assert.deepEqual(panelTags(html).filter((tag) => attribute(tag, "data-state") === "active").map((tag) => attribute(tag, "data-catan-fullscreen-panel")), activeMenu ? [activeMenu] : []);
 }
 
-test("Vollbild hält Insel und Hand einmal montiert und verknüpft alle vier Menüpunkte mit Dialogen", () => {
+test("Vollbild hält Insel und Hand einmal montiert und zeigt fünf Navigationseinträge mit vier Dialogen", () => {
   const game = foundedGame();
   for (const local of [false, true]) {
     const html = ui(game, game.players[game.currentPlayer].id, { local, onHide() {} });
     assertMountedIsland(html, null);
-    assert.match(html, /<nav[^>]*class="catan-fullscreen-nav"[^>]*aria-label="Vollbild-Spielmenü"/);
+    assert.match(html, /<nav[^>]*class="catan-nav"[^>]*aria-label="Vollbild-Spielmenü"/);
+    const allTriggers = (html.match(/<button\b[^>]*>/g) ?? []).filter((tag) => attribute(tag, "data-catan-menu-trigger"));
+    assert.deepEqual(allTriggers.map((tag) => attribute(tag, "data-catan-menu-trigger")), ["insel", "karten", "bauen", "handel", "uebersicht"]);
+    assert.equal(attribute(allTriggers[0], "data-state"), "active");
+    assert.equal(attribute(allTriggers[0], "aria-pressed"), "true");
     const triggers = (html.match(/<button\b[^>]*>/g) ?? []).filter((tag) => attribute(tag, "data-catan-fullscreen-trigger"));
     assert.deepEqual(triggers.map((tag) => attribute(tag, "data-catan-fullscreen-trigger")), ["karten", "bauen", "handel", "uebersicht"]);
     for (const trigger of triggers) {
@@ -95,9 +99,9 @@ test("Vollbild hält Insel und Hand einmal montiert und verknüpft alle vier Men
       assert.equal(attribute(trigger, "aria-controls"), attribute(dialog, "id"));
       assert.equal(attribute(dialog, "role"), "dialog");
       assert.equal(attribute(dialog, "tabindex"), "-1");
-      assert.match(panel(html, name), /aria-label="Vollbildmenü schließen"/);
+      assert.match(panel(html, name), /aria-label="Menü schließen"/);
     }
-    assert.match(panel(html, "bauen"), /<h2>Was möchtest du bauen\?<\/h2>/);
+    assert.match(panel(html, "bauen"), /<h2>Bauen<\/h2>/);
   }
 });
 
