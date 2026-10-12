@@ -38,7 +38,8 @@ export type DevCard = { id: string; type: Development; boughtOnTurn: number };
 export type CatanPlayer = { id: string; name: string; color: number; resources: Resources; development: DevCard[]; knights: number };
 export type CatanPhase = "map_vote" | "setup_settlement" | "setup_road" | "roll" | "main" | "discard" | "robber" | "steal" | "free_roads" | "finished";
 export type CatanMapVote = { id: string; hostPlayerId: string; votes: Record<string, boolean> };
-export type TradeOffer = { id: number; fromId: string; toId: string; give: Resources; receive: Resources };
+// A null recipient offers the same trade to everyone; old direct offers stay valid.
+export type TradeOffer = { id: number; fromId: string; toId: string | null; give: Resources; receive: Resources; declinedBy?: string[] };
 export type CatanResourceOrigin = { hexId: number; resource: Resource; amount: number };
 export type CatanNotification = {
   id: number; actionId?: number; playerId: string | null; kind: "resources" | "card" | "award" | "robber" | "roll";
@@ -70,13 +71,16 @@ export type CatanAction =
   | { type: "discard"; resources: Partial<Resources> }
   | { type: "move_robber"; hex: number } | { type: "steal"; victimId: string }
   | { type: "bank_trade"; give: Resource; receive: Resource }
-  | { type: "offer_trade"; toId: string; give: Partial<Resources>; receive: Partial<Resources> }
+  | { type: "offer_trade"; toId: string | null; give: Partial<Resources>; receive: Partial<Resources> }
   | { type: "accept_trade"; offerId: number } | { type: "cancel_trade"; offerId: number }
   | { type: "play_development"; cardId: string; resource?: Resource; resources?: Partial<Resources> };
 
 export function emptyResources(value = 0): Resources { return { wood: value, brick: value, wool: value, grain: value, ore: value }; }
 export function resourceCount(resources: Partial<Resources>) { return RESOURCES.reduce((n, key) => n + (resources[key] ?? 0), 0); }
 export function canAfford(resources: Resources, cost: Partial<Resources>) { return RESOURCES.every((r) => resources[r] >= (cost[r] ?? 0)); }
+export function isTradeRecipient(offer: TradeOffer | null, playerId: string): boolean {
+  return Boolean(offer && offer.fromId !== playerId && (offer.toId === null || offer.toId === playerId) && !offer.declinedBy?.includes(playerId));
+}
 export function validateTargetPoints(value: unknown): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < MIN_TARGET_POINTS || value > MAX_TARGET_POINTS) throw new Error(`Wählt ${MIN_TARGET_POINTS} bis ${MAX_TARGET_POINTS} Siegpunkte.`);
   return value;
@@ -589,25 +593,32 @@ export function applyCatanAction(original: CatanGame, actorId: string, action: C
     }
     case "offer_trade": {
       main(); const to = game.players.find((p) => p.id === action.toId);
-      assert(to && to.id !== actorId && (active.id === actorId || active.id === to.id), "Ein Handel muss die Person am Zug einschließen.");
-      assert(!game.trade || game.trade.fromId === actorId || game.trade.toId === actorId, "Warte, bis der laufende Handel beendet ist.");
+      assert(action.toId === null ? active.id === actorId : to && to.id !== actorId && (active.id === actorId || active.id === to.id), "Ein Handel muss die Person am Zug einschließen.");
+      assert(!game.trade || game.trade.fromId === actorId || isTradeRecipient(game.trade, actorId), "Warte, bis der laufende Handel beendet ist.");
       const give = readResources(action.give); const receive = readResources(action.receive);
       assert(resourceCount(give) > 0 && resourceCount(receive) > 0, "Beide Seiten müssen Rohstoffe tauschen.");
       assert(RESOURCES.every((r) => !give[r] || !receive[r]), "Gleiche Rohstoffarten dürfen nicht auf beiden Seiten stehen.");
       assert(canAfford(player.resources, give), "Du besitzt die angebotenen Rohstoffe nicht.");
-      addLog(game, `${player.name} bietet ${to.name} einen Handel an.`);
-      game.trade = { id: game.sequence, fromId: actorId, toId: to.id, give, receive }; break;
+      addLog(game, `${player.name} bietet ${to ? to.name : "allen Mitspielenden"} einen Handel an.`);
+      game.trade = { id: game.sequence, fromId: actorId, toId: action.toId, give, receive }; break;
     }
     case "accept_trade": {
       main(); const offer = game.trade;
-      assert(offer && offer.id === action.offerId && offer.toId === actorId, "Dieses Angebot ist nicht mehr für dich verfügbar.");
+      assert(offer && offer.id === action.offerId && isTradeRecipient(offer, actorId), "Dieses Angebot ist nicht mehr für dich verfügbar.");
       const from = game.players.find((p) => p.id === offer.fromId)!;
       assert(canAfford(from.resources, offer.give) && canAfford(player.resources, offer.receive), "Mindestens einer Seite fehlen inzwischen die Rohstoffe.");
       transfer(from.resources, player.resources, offer.give); transfer(player.resources, from.resources, offer.receive);
       addLog(game, `${from.name} und ${player.name} handeln miteinander.`); game.trade = null; break;
     }
     case "cancel_trade": {
-      main(); assert(game.trade && game.trade.id === action.offerId && [game.trade.fromId, game.trade.toId, active.id].includes(actorId), "Dieses Angebot kannst du nicht schließen.");
+      main(); const offer = game.trade;
+      assert(offer && offer.id === action.offerId && (offer.fromId === actorId || isTradeRecipient(offer, actorId) || active.id === actorId), "Dieses Angebot kannst du nicht schließen.");
+      if (offer.toId === null && offer.fromId !== actorId) {
+        offer.declinedBy = [...(offer.declinedBy ?? []), actorId];
+        addLog(game, `${player.name} lehnt das Handelsangebot ab.`);
+        if (!game.players.some((p) => isTradeRecipient(offer, p.id))) game.trade = null;
+        break;
+      }
       addLog(game, `${player.name} beendet das Handelsangebot.`); game.trade = null; break;
     }
     case "buy_development": {
@@ -668,6 +679,6 @@ export function localActorId(game: Pick<CatanGame, "phase" | "players" | "discar
     return [...mapVoteProgress(game).pending].sort((a, b) => a.color - b.color)[0]?.id ?? game.mapVote.hostPlayerId;
   }
   if (game.phase === "discard") return game.players.find((p) => game.discards[p.id] > 0)!.id;
-  if (game.trade) return game.trade.toId;
+  if (game.trade) return game.players.find((p) => isTradeRecipient(game.trade, p.id))?.id ?? game.players[game.currentPlayer].id;
   return game.players[game.currentPlayer].id;
 }

@@ -73,6 +73,39 @@ try {
         await expect(nav(page, id)).toBeFocused();
       }
     }
+    await scenario(page, "rich");
+    await nav(page, "handel").click();
+    const trade = menu(page, "handel");
+    await trade.locator(".catan-trade-option").filter({ hasText: "Mitspielende" }).click();
+    const recipients = trade.locator(".catan-person-choice");
+    await expect(recipients).toHaveCount(4);
+    await expect(recipients.first()).toContainText("An alle schicken");
+    await page.screenshot({ path: `${output}${width}x${height}-trade-recipients.png` });
+    await recipients.first().click();
+    await expect(trade.getByRole("heading", { name: "Was bietest du allen an?", exact: true })).toBeVisible();
+    await trade.getByRole("button", { name: "Ich gebe: mehr Holz", exact: true }).click();
+    await trade.getByRole("button", { name: /^Weiter: Was möchtest du/ }).click();
+    await trade.getByRole("button", { name: "Ich möchte: mehr Erz", exact: true }).click();
+    await trade.getByRole("button", { name: /^Angebot prüfen/ }).click();
+    await expect(trade.getByRole("heading", { name: "Dein Angebot an alle", exact: true })).toBeVisible();
+    await trade.getByRole("button", { name: "Handel anbieten", exact: true }).click();
+    await trade.getByRole("button", { name: /^Eigene Angebote/ }).click();
+    await expect(trade.getByRole("heading", { name: "Angebot an alle", exact: true })).toBeVisible();
+    await expect(trade.getByText(/Benjamin Alexander, Clara, Dominik Maximilian können dein Angebot annehmen/)).toBeVisible();
+    await qa(page, () => page.getByLabel("Perspektive").selectOption("qa-1"));
+    await expect(trade.getByRole("heading", { name: "Angebot von Anna", exact: true })).toBeVisible();
+    await trade.getByRole("button", { name: "Ablehnen", exact: true }).click();
+    await expect(trade.getByText(/Du hast dieses Angebot abgelehnt/)).toBeVisible();
+    await expect(trade.getByRole("button", { name: "Annehmen", exact: true })).toHaveCount(0);
+    await qa(page, () => page.getByLabel("Perspektive").selectOption("qa-2"));
+    await expect(trade.getByRole("heading", { name: "Angebot von Anna", exact: true })).toBeVisible();
+    await trade.getByRole("button", { name: "Annehmen", exact: true }).click();
+    await expect(trade.getByRole("heading", { name: "Angebot von Anna", exact: true })).toHaveCount(0);
+    await qa(page, () => page.getByLabel("Perspektive").selectOption("qa-3"));
+    await nav(page, "handel").click();
+    await trade.locator(".catan-trade-option").filter({ hasText: "Mitspielende" }).click();
+    await expect(trade.locator(".catan-person-choice")).toHaveCount(1);
+    await expect(trade.getByText("An alle schicken", { exact: true })).toHaveCount(0);
     await page.close();
   }
 

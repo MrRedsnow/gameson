@@ -551,6 +551,30 @@ test("ein neues eingehendes Angebot lenkt zum Handel, dieselbe offene Aufgabe nu
   assert.equal(resolveNavigation(catanView(finished, other), manual).tab, "uebersicht");
 });
 
+test("Angebote an alle zeigen jedem Empfänger Antwortaktionen und lassen abgelehnte Personen aus", () => {
+  const game = foundedGame(); game.phase = "main"; game.players[0].resources.wood = 3;
+  const offered = applyCatanAction(game, "a", { type: "offer_trade", toId: null, give: { wood: 1 }, receive: { ore: 1 } });
+  assert.equal(navigationTask(catanView(offered, "a")), null);
+  for (const id of ["b", "c"]) {
+    assert.equal(suggestedTab(catanView(offered, id)), "handel");
+    assert.deepEqual(navigationTask(catanView(offered, id)), { key: `offer:${offered.trade.id}`, tab: "handel" });
+    const html = ui(offered, id); const trade = menu(html, "handel");
+    assert.match(trade, /<h2>Angebot von Robin<\/h2>/);
+    assert.match(trade, /Ablehnen/); assert.match(trade, /Gegenangebot/); assert.match(trade, /Annehmen/);
+    assert.match(trade, /Du gibst[\s\S]*1 Erz[\s\S]*Du erhältst[\s\S]*1 Holz/);
+    assert.match(trade, /bleibt das Angebot für die anderen offen/);
+    assert.match(html, /Ein Handelsangebot wartet auf deine Antwort/);
+  }
+  const declined = applyCatanAction(offered, "b", { type: "cancel_trade", offerId: offered.trade.id });
+  assert.equal(navigationTask(catanView(declined, "b")), null);
+  assert.equal(suggestedTab(catanView(declined, "b")), "insel");
+  const rejectedHTML = ui(declined, "b"); const trade = menu(rejectedHTML, "handel");
+  assert.match(trade, /Du hast dieses Angebot abgelehnt/);
+  assert.doesNotMatch(trade, />Annehmen<|>Ablehnen<|>Gegenangebot</);
+  assert.doesNotMatch(rejectedHTML, /Ein Handelsangebot wartet auf deine Antwort/);
+  assert.match(ui(declined, "c"), /Ein Handelsangebot wartet auf deine Antwort/);
+});
+
 test("Karten öffnen unmittelbar die gruppierten Entwicklungskarten und zählen nur diese im Tab", () => {
   const game = foundedGame(); const me = game.players[game.currentPlayer].id;
   game.turn = 4; game.phase = "main";

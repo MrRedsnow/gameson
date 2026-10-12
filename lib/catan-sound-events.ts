@@ -1,4 +1,4 @@
-import { RESOURCES, type CatanView } from "./catan";
+import { RESOURCES, isTradeRecipient, type CatanView } from "./catan";
 import { constructionBatch } from "./catan-construction";
 import { resourceGainBatch } from "./catan-resource-gains";
 import { RESOURCE_SOUNDS, type CatanSoundId } from "./catan-sounds";
@@ -18,7 +18,7 @@ export function catanSoundEvents(previous: CatanView | null, current: CatanView)
     sounds.add(event.kind === "road" ? "build_road" : event.kind === "city" ? "build_city" : "build_settlement");
   }
   if (current.robberHex !== previous.robberHex || notices.some((notice) => notice.kind === "robber")) sounds.add("robber_move");
-  if (current.trade?.toId === me && current.trade.id !== previous.trade?.id) sounds.add("trade_offer_received");
+  if (current.trade && isTradeRecipient(current.trade, me) && current.trade.id !== previous.trade?.id) sounds.add("trade_offer_received");
   for (const notice of notices) {
     if (notice.kind === "card") {
       if (notice.playerId === me && notice.tone === "gain") sounds.add("development_draw");

@@ -20,7 +20,7 @@ import { TradePanel } from "./trade-panel";
 import { useIslandFullscreen } from "./use-island-fullscreen";
 import { useFullscreenMenu, type FullscreenMenu } from "./use-fullscreen-menu";
 import { IslandMark } from "./island-mark";
-import { COSTS, MAX_TARGET_POINTS, MIN_TARGET_POINTS, PLAYER_COLORS, RESOURCES, RESOURCE_INFO, canAfford, legalCities, legalRoads, legalSettlements, mapVoteProgress, victoryPoints, type CatanView, type Resources } from "@/lib/catan";
+import { COSTS, MAX_TARGET_POINTS, MIN_TARGET_POINTS, PLAYER_COLORS, RESOURCES, RESOURCE_INFO, canAfford, isTradeRecipient, legalCities, legalRoads, legalSettlements, mapVoteProgress, victoryPoints, type CatanView, type Resources } from "@/lib/catan";
 import { buildingPreview, buildPhaseUnavailable, buildUnavailable, missingResources, type BuildKind } from "@/lib/catan-ux";
 export { TradePanel } from "./trade-panel";
 
@@ -70,7 +70,7 @@ export const CATAN_TABS: { id: CatanTab; label: string; Icon: LucideIcon }[] = [
 export function suggestedTab(game: CatanView): CatanTab {
   if (game.phase === "finished") return "uebersicht";
   if (game.phase === "discard" && game.discards[game.me!.id] > 0) return "karten";
-  if (game.trade && [game.trade.toId, game.trade.fromId].includes(game.me!.id)) return "handel";
+  if (game.trade && (game.trade.fromId === game.me!.id || isTradeRecipient(game.trade, game.me!.id))) return "handel";
   // Rolling never replaces the island with a screen of unavailable buildings.
   return "insel";
 }
@@ -79,7 +79,7 @@ export function navigationTask(game: CatanView): { key: string; tab: CatanTab } 
   if (game.phase === "map_vote") return { key: `map:${game.mapVote!.id}:${Object.keys(game.mapVote!.votes).length === game.players.length ? "tie" : "vote"}`, tab: "insel" };
   if (game.phase === "finished") return { key: "finished", tab: "uebersicht" };
   if (game.phase === "discard" && game.discards[game.me!.id] > 0) return { key: `discard:${game.turn}`, tab: "karten" };
-  if (game.trade?.toId === game.me!.id) return { key: `offer:${game.trade.id}`, tab: "handel" };
+  if (game.trade && isTradeRecipient(game.trade, game.me!.id)) return { key: `offer:${game.trade.id}`, tab: "handel" };
   if (own && (game.phase.startsWith("setup") || ["robber", "steal", "free_roads"].includes(game.phase))) return { key: `${game.turn}:${game.phase}:${game.setupIndex}`, tab: "insel" };
   return null;
 }
@@ -226,7 +226,7 @@ export function CatanGameUI({ game, send: sendAction, busy, local, offline = fal
     : mode ? `${mode === "robber" ? "Räuber" : BUILDING_NAMES[mode]} platzieren` : own && game.phase === "steal" ? "Wen möchtest du bestehlen?" : "Eure Insel";
   const badges: Partial<Record<CatanTab, { text?: string; tone: string; description: string }>> = {
     karten: needsDiscard ? { text: String(game.discards[me.id]), tone: "is-alert", description: `${game.discards[me.id]} Rohstoffkarten abgeben` } : me.development.length ? { text: String(me.development.length), tone: "", description: `${me.development.length} Entwicklungskarten` } : undefined,
-    handel: game.trade?.toId === me.id ? { text: "1", tone: "is-alert", description: "Ein Handelsangebot wartet auf deine Antwort" } : game.trade?.fromId === me.id ? { tone: "is-dot", description: "Dein Angebot ist noch offen" } : undefined,
+    handel: isTradeRecipient(game.trade, me.id) ? { text: "1", tone: "is-alert", description: "Ein Handelsangebot wartet auf deine Antwort" } : game.trade?.fromId === me.id ? { tone: "is-dot", description: "Dein Angebot ist noch offen" } : undefined,
     insel: mode || (own && game.phase === "steal") ? { tone: "is-dot", description: "Die Insel wartet auf deine Auswahl" } : undefined,
     uebersicht: activity.unread.length ? { text: String(activity.unread.length), tone: "", description: "Neue Meldungen" } : undefined,
   };

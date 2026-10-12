@@ -1,7 +1,7 @@
 import { acceptMap, terrainGroups } from "./catan-helpers.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RESOURCES, COSTS, DEFAULT_TARGET_POINTS, createBoard, createCatanGame, applyCatanAction, legalSettlements, legalRoads, legalCities, pieceCounts, longestRoadLength, victoryPoints, tradeRatio, resourceCount, emptyResources, canAfford, catanView, localActorId } from "../lib/catan.ts";
+import { RESOURCES, COSTS, DEFAULT_TARGET_POINTS, createBoard, createCatanGame, applyCatanAction, legalSettlements, legalRoads, legalCities, pieceCounts, longestRoadLength, victoryPoints, tradeRatio, resourceCount, emptyResources, canAfford, isTradeRecipient, catanView, localActorId } from "../lib/catan.ts";
 
 const seats = ["Anna", "Ben", "Clara", "David"].map((name, i) => ({ id: `p${i}`, name }));
 function rng(seed = 19) { return (n) => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return Math.floor(seed / 4294967296 * n); }; }
@@ -209,6 +209,69 @@ test("Spielerhandel braucht beide Seiten, kann gekontert werden und erlaubt kein
   assert.throws(() => applyCatanAction(g, b.id, { type: "accept_trade", offerId: oldId }), /verfügbar/);
   g = act(g, { type: "accept_trade", offerId: g.trade.id });
   assert.equal(g.trade, null); assert.equal(active(g).resources.wood, 1); assert.equal(active(g).resources.ore, 1); invariant(g);
+});
+
+test("Angebote an alle erlauben jedem Empfänger genau einen gemeinsamen Tausch", () => {
+  for (const count of [3, 4]) for (let recipient = 1; recipient < count; recipient++) {
+    const before = fresh(count); before.phase = "main"; before.turn = 1;
+    const [from] = before.players; fund(before, from.id, { wood: 2 });
+    for (const player of before.players.slice(1)) fund(before, player.id, { ore: 2 });
+    const offered = act(before, { type: "offer_trade", toId: null, give: { wood: 1 }, receive: { ore: 1 } });
+    assert.equal(offered.trade.toId, null); assert.deepEqual(offered.players, before.players);
+    assert.equal(isTradeRecipient(offered.trade, from.id), false);
+    assert.ok(offered.players.slice(1).every((p) => isTradeRecipient(offered.trade, p.id)));
+    assert.throws(() => act(offered, { type: "accept_trade", offerId: offered.trade.id }), /verfügbar/);
+    const accepted = applyCatanAction(offered, before.players[recipient].id, { type: "accept_trade", offerId: offered.trade.id });
+    assert.equal(accepted.trade, null);
+    assert.deepEqual(accepted.players[0].resources, { ...emptyResources(), wood: 1, ore: 1 });
+    assert.deepEqual(accepted.players[recipient].resources, { ...emptyResources(), wood: 1, ore: 1 });
+    for (const player of accepted.players.slice(1).filter((p) => p.id !== before.players[recipient].id)) {
+      assert.deepEqual(player.resources, before.players.find((p) => p.id === player.id).resources);
+      assert.throws(() => applyCatanAction(accepted, player.id, { type: "accept_trade", offerId: offered.trade.id }), /verfügbar/);
+    }
+    invariant(accepted);
+  }
+});
+
+test("Ablehnen eines Angebots an alle lässt die anderen antworten und gibt das Gerät weiter", () => {
+  let game = fresh(); game.phase = "main"; game.turn = 1;
+  const [a, b, c, d] = game.players; fund(game, a.id, { wood: 2 }); fund(game, c.id, { ore: 1 });
+  game = act(game, { type: "offer_trade", toId: null, give: { wood: 1 }, receive: { ore: 1 } });
+  const offerId = game.trade.id; const resources = game.players.map((p) => p.resources);
+  assert.equal(localActorId(game), b.id);
+  assert.throws(() => applyCatanAction(game, b.id, { type: "accept_trade", offerId }), /Rohstoffe/);
+  game = applyCatanAction(game, b.id, { type: "cancel_trade", offerId });
+  assert.equal(game.trade.id, offerId); assert.equal(localActorId(game), c.id);
+  assert.equal(isTradeRecipient(game.trade, b.id), false); assert.equal(isTradeRecipient(game.trade, d.id), true);
+  assert.throws(() => applyCatanAction(game, b.id, { type: "accept_trade", offerId }), /verfügbar/);
+  assert.throws(() => applyCatanAction(game, b.id, { type: "cancel_trade", offerId }), /schließen/);
+  assert.throws(() => applyCatanAction(game, b.id, { type: "offer_trade", toId: a.id, give: { ore: 1 }, receive: { wood: 1 } }), /laufende/);
+  const accepted = applyCatanAction(game, c.id, { type: "accept_trade", offerId });
+  assert.equal(accepted.trade, null); assert.equal(localActorId(accepted), a.id); invariant(accepted);
+  game = applyCatanAction(game, c.id, { type: "cancel_trade", offerId }); assert.equal(localActorId(game), d.id);
+  game = applyCatanAction(game, d.id, { type: "cancel_trade", offerId });
+  assert.equal(game.trade, null); assert.equal(localActorId(game), a.id);
+  assert.deepEqual(game.players.map((p) => p.resources), resources); invariant(game);
+});
+
+test("Angebote an alle halten Zugregeln und Rohstoffprüfung ein und können zurückgezogen oder gekontert werden", () => {
+  const game = fresh(); game.phase = "main"; game.turn = 1;
+  const [a, b] = game.players; fund(game, a.id, { wood: 3 }); fund(game, b.id, { ore: 2 });
+  const action = { type: "offer_trade", toId: null, give: { wood: 1 }, receive: { ore: 1 } };
+  assert.throws(() => applyCatanAction(game, b.id, { ...action, give: { ore: 1 }, receive: { wood: 1 } }), /am Zug/);
+  assert.throws(() => act({ ...game, phase: "roll" }, action), /Würfle/);
+  assert.throws(() => act(game, { ...action, give: { wood: 4 } }), /besitzt/);
+  assert.throws(() => act(game, { ...action, receive: {} }), /Beide/);
+  assert.throws(() => act(game, { ...action, receive: { wood: 1 } }), /Gleiche/);
+  const offered = act(game, action); const offerId = offered.trade.id;
+  assert.equal(act(offered, { type: "cancel_trade", offerId }).trade, null);
+  const changed = act(offered, { ...action, give: { wood: 2 } });
+  assert.notEqual(changed.trade.id, offerId);
+  assert.throws(() => applyCatanAction(changed, b.id, { type: "accept_trade", offerId }), /verfügbar/);
+  const counter = applyCatanAction(offered, b.id, { type: "offer_trade", toId: a.id, give: { ore: 1 }, receive: { wood: 2 } });
+  assert.equal(localActorId(counter), a.id); assert.equal(counter.trade.toId, a.id);
+  const accepted = act(counter, { type: "accept_trade", offerId: counter.trade.id });
+  assert.equal(accepted.trade, null); assert.equal(accepted.players[0].resources.wood, 1); invariant(accepted);
 });
 
 test("Entwicklungskarten: nicht neu, höchstens eine; Ritter vor dem Würfeln kehrt zum Würfeln zurück", () => {

@@ -111,6 +111,19 @@ test("incoming offers notify the recipient; completed trades use private confirm
   assert.ok(sounds(bank, bought).includes("trade_complete"));
 });
 
+test("offers to everyone notify all recipients once and a decline leaves the others' offer unchanged", () => {
+  const before = game(); fund(before, "a", { wood: 1 }); fund(before, "c", { grain: 1 });
+  const offered = apply(before, { type: "offer_trade", toId: null, give: { wood: 1 }, receive: { grain: 1 } });
+  assert.deepEqual(sounds(before, offered), []);
+  for (const recipient of ["b", "c"]) assert.deepEqual(sounds(before, offered, recipient), ["trade_offer_received"]);
+  const declined = apply(offered, { type: "cancel_trade", offerId: offered.trade.id }, "b");
+  for (const actor of ["a", "b", "c"]) assert.deepEqual(sounds(offered, declined, actor), []);
+  const traded = apply(declined, { type: "accept_trade", offerId: declined.trade.id }, "c");
+  assert.deepEqual(sounds(declined, traded), ["trade_complete", "resource_grain_gain"]);
+  assert.deepEqual(sounds(declined, traded, "b"), []);
+  assert.deepEqual(sounds(declined, traded, "c"), ["trade_complete", "resource_wood_gain"]);
+});
+
 test("robber movement and theft notify the participants without leaking stolen resource sounds", () => {
   const before = game(); before.phase = "robber";
   const hex = before.board.hexes.find((hex) => hex.id !== before.robberHex && hex.resource !== "desert");

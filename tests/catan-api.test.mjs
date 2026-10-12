@@ -181,6 +181,48 @@ test("Lobby verlassen übergibt die Leitung und entfernte Tokens verlieren ihren
   assert.equal(publications.at(-1).lobby, null, "Deleting the last seat revokes every subscription.");
 });
 
+test("online offers reach everyone, survive individual declines and accept simultaneous responses only once", async () => {
+  const a = await create("Handel an alle"); const players = [a];
+  for (const name of ["Ben", "Clara", "David"]) players.push((await join(a.session.lobbyId, name)).body);
+  await command(a.session, "start");
+  const game = JSON.parse(db.prepare("SELECT game FROM catan_lobbies WHERE id = ?").get(a.session.lobbyId).game);
+  game.phase = "main"; game.turn = 1; delete game.mapVote;
+  game.currentPlayer = game.players.findIndex((p) => p.id === a.state.me.id);
+  for (const player of game.players) {
+    const resource = player.id === a.state.me.id ? "wood" : "ore";
+    player.resources[resource] = 2; game.bank[resource] -= 2;
+  }
+  db.prepare("UPDATE catan_lobbies SET game = ? WHERE id = ?").run(JSON.stringify(game), a.session.lobbyId);
+  const offered = await command(a.session, "move", { move: { type: "offer_trade", toId: null, give: { wood: 1 }, receive: { ore: 1 } } });
+  assert.equal(offered.status, 200); const offer = offered.body.state.game.trade;
+  for (const person of players) {
+    const snapshot = (await get(person.session)).body;
+    assert.deepEqual(snapshot.game.trade, offer);
+    assert.ok(snapshot.game.players.every((p) => p.resources === undefined));
+  }
+  assert.equal((await command(players[1].session, "move", { move: { type: "cancel_trade", offerId: offer.id } })).status, 200);
+  const pending = (await get(a.session)).body;
+  assert.equal(pending.game.trade.id, offer.id); assert.deepEqual(pending.game.trade.declinedBy, [players[1].state.me.id]);
+  assert.equal((await command(players[1].session, "move", { move: { type: "accept_trade", offerId: offer.id } })).status, 400);
+  const revision = pending.lobby.revision; const publishedBefore = publications.length;
+  const outcomes = await Promise.all(players.slice(2).map((person) => post({
+    action: "move", lobbyId: a.session.lobbyId, revision, move: { type: "accept_trade", offerId: offer.id },
+  }, person.session)));
+  assert.deepEqual(outcomes.map((r) => r.status).sort(), [200, 409]);
+  const acceptedBy = players.slice(2)[outcomes.findIndex((r) => r.status === 200)];
+  const after = (await get(a.session)).body;
+  assert.equal(after.game.trade, null); assert.equal(after.lobby.revision, revision + 1);
+  assert.equal(after.game.me.resources.wood, 1); assert.equal(after.game.me.resources.ore, 1);
+  assert.equal(publications.length, publishedBefore + 1);
+  for (const person of players.slice(1)) {
+    const own = (await get(person.session)).body.game.me;
+    assert.equal(own.resources.wood, person === acceptedBy ? 1 : 0);
+    assert.equal(own.resources.ore, person === acceptedBy ? 1 : 2);
+  }
+  const loser = players.slice(2).find((person) => person !== acceptedBy);
+  assert.equal((await command(loser.session, "move", { move: { type: "accept_trade", offerId: offer.id } })).status, 400);
+});
+
 test("a live transport failure preserves a confirmed HTTP action and retries its revision", async () => {
   const a = await create("Push-Ausfall", 12);
   const before = (await get(a.session)).body;
