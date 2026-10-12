@@ -642,7 +642,7 @@
   --catan-glass-text:#fff7ec;
   --catan-glass-muted:#d9e5e7;
 }
-.catan-world-sea { position:absolute; inset:0; z-index:0; overflow:hidden; background:#254650 url("/catan/sea-v3.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); pointer-events:none; }
+.catan-world-sea { position:absolute; inset:0; z-index:0; overflow:hidden; border-radius:var(--catan-glass-button-radius) var(--catan-glass-button-radius) 0 0; background:#254650 url("/catan/sea-v3.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); pointer-events:none; }
 .catan-world-sea>.catan-sea-surface { z-index:0; }
 .catan-world>.catan-hand-bar { position:relative; z-index:1; }
 .catan-world :is(button,summary,[role=button]) { min-height:44px; }
@@ -748,7 +748,7 @@
 .catan-theme .catan-status-points { font-size:1.125rem; }
 .catan-status-points .catan-status-points-label { font-size:.625rem; }
 .catan-play .catan-hand-strip { grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
-.catan-world .catan-hand-strip>.catan-hand-resource { min-height:60px; padding:12px 4px 8px; gap:4px 8px; border-radius:18px; }
+.catan-world .catan-hand-strip>.catan-hand-resource { min-height:60px; padding:12px 4px 8px; gap:4px 8px; border-radius:var(--catan-glass-button-radius); }
 .catan-play .catan-hand-resource>svg { width:24px; height:24px; }
 .catan-play .catan-hand-resource b { font-size:1.25rem; }
 .catan-play .catan-hand-strip small { font-size:.6875rem; }
