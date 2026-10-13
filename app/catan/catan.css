@@ -577,12 +577,6 @@
 .catan-activity-entry .is-gain { color:#c0efc7; }
 .catan-activity-entry .is-loss { color:#ffd0b5; }
 .catan-theme .catan-rule-page { font-size:1rem; line-height:1.6; }
-.catan-setup-guide { padding:10px; border:1px solid #9a8457; border-radius:10px; background:#263d3b; }
-.catan-setup-guide small { color:#edcf89; font-size:.75rem; }
-.catan-setup-guide h3 { font-size:.9375rem; margin:3px 0 5px; }
-.catan-setup-guide p { font-size:.8125rem; line-height:1.4; color:#d4e0df; }
-.catan-guide-actions { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; margin-top:6px; }
-.catan-theme .catan-guide-actions [data-slot=button] { font-size:.8125rem; padding:6px 8px; }
 @media(max-width:360px) {
   .catan-theme .catan-hand-strip { gap:5px; }
   .catan-hand-strip>.catan-hand-resource { column-gap:4px; padding-inline:3px; }
@@ -707,10 +701,6 @@
 .catan-placement-heading>div { flex:1; min-width:0; }
 .catan-theme .catan-placement-heading h2 { font-size:1rem; color:#f4eddc; overflow-wrap:anywhere; }
 .catan-theme .catan-placement-heading p { margin-top:4px; font-size:.8125rem; line-height:1.4; color:#bdd0d8; overflow-wrap:anywhere; }
-.catan-robber-preview>strong { display:flex; align-items:center; gap:8px; font-size:.875rem; }
-.catan-world .catan-robber-preview { display:grid; gap:8px; padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
-.catan-robber-preview p { font-size:.8125rem; line-height:1.4; color:#c8d5ce; }
-.catan-robber-preview>strong>svg { width:22px; height:22px; flex-shrink:0; }
 .catan-world .catan-island-toolbar>.catan-screen-actions { flex-wrap:wrap; align-items:flex-end; justify-content:center; gap:8px; min-width:0; margin:0; padding:8px 0 0; border:0; background:transparent; }
 .catan-theme .catan-world .catan-island-toolbar>.catan-screen-actions [data-slot=button] { min-height:44px; margin:0; padding:8px 12px; border-radius:var(--catan-glass-button-radius); font-size:.875rem; pointer-events:auto; }
 .catan-theme .catan-island-toolbar>.catan-screen-actions .catan-end-turn { flex:1; }
@@ -833,9 +823,9 @@
 .catan-world .is-game-menu .catan-exchange p:last-child { border-color:rgba(192,239,199,.2); background:rgba(192,239,199,.06); }
 .is-game-menu .catan-exchange :is(span,strong) { overflow-wrap:anywhere; }
 .is-game-menu .catan-player-card summary { gap:8px; padding:12px; }
-.catan-world .is-game-menu :is(.catan-overview-link,.catan-log-entry,.catan-trade-bag,.catan-activity-entry,.catan-setup-guide,.catan-map-vote,.catan-section,.catan-trade-preview) { padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
+.catan-world .is-game-menu :is(.catan-overview-link,.catan-log-entry,.catan-trade-bag,.catan-activity-entry,.catan-map-vote,.catan-section,.catan-trade-preview) { padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-world .is-game-menu .catan-player-card>div { border-top:0; }
-.catan-world :is(.is-game-menu,.catan-island-context) :is(.catan-section,.catan-development-card,.catan-rule-section,.catan-activity-item,.catan-setup-guide,.catan-map-vote) :is(.catan-trade-preview,.catan-trade-bag,.catan-amount-controls,.catan-resource-hand>div) { border:0; border-top:1px solid var(--catan-glass-inner-edge); border-radius:0; background:transparent; box-shadow:none; }
+.catan-world :is(.is-game-menu,.catan-island-context) :is(.catan-section,.catan-development-card,.catan-rule-section,.catan-activity-item,.catan-map-vote) :is(.catan-trade-preview,.catan-trade-bag,.catan-amount-controls,.catan-resource-hand>div) { border:0; border-top:1px solid var(--catan-glass-inner-edge); border-radius:0; background:transparent; box-shadow:none; }
 .catan-world .is-game-menu .catan-amount-controls { padding:12px; gap:8px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-theme .catan-world .is-game-menu :is(.catan-stepper,.catan-pager,.catan-card-links,.catan-overview-exit) [data-slot=button] { min-height:44px; min-width:44px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-inner); color:var(--catan-glass-text); }
 .catan-world .is-game-menu .catan-resource-choices>div { gap:8px; }
@@ -846,8 +836,7 @@
 .catan-world .is-game-menu .catan-trade-result .is-gain { background:rgba(58,113,80,var(--catan-glass-alpha)); }
 .catan-world .is-game-menu .catan-trade-result .is-loss { background:rgba(137,86,53,var(--catan-glass-alpha)); }
 .catan-world .is-game-menu .catan-inline-hint { color:var(--catan-glass-muted); }
-.catan-world .catan-island-context :is(.catan-setup-guide,.catan-map-vote,.catan-section) { border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
-.catan-theme .catan-world .catan-guide-actions [data-slot=button] { border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-inner); color:var(--catan-glass-text); }
+.catan-world .catan-island-context :is(.catan-map-vote,.catan-section) { border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-theme .catan-resource-choices button[aria-pressed=true]::after { content:"✓"; position:absolute; top:4px; right:6px; color:#f6d589; font-size:.875rem; }
 .catan-resource-choices button { position:relative; }
 @media(min-width:600px) { .is-game-menu .catan-exchange { grid-template-columns:repeat(2,minmax(0,1fr)); } }

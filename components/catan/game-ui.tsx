@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ArrowRightLeft, BookOpen, Castle, Check, ChevronRight, CircleHelp, Dices, Flag, Hammer, Map as MapIcon, Maximize2, Minimize2, Route, Shield, Users, Volume2, VolumeX, WalletCards, WifiOff, type LucideIcon } from "lucide-react";
+import { ArrowRightLeft, BookOpen, Castle, Check, ChevronRight, Dices, Flag, Hammer, Map as MapIcon, Maximize2, Minimize2, Route, Shield, Users, Volume2, VolumeX, WalletCards, WifiOff, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CatanBoard, ResourceIcon, boardAction, type BoardMode } from "./board";
 import { CatanDice } from "./dice";
@@ -14,7 +14,6 @@ import { CatanEventNotice } from "./event-notice";
 import { CardsPanel } from "./cards-panel";
 import { OverviewPanel, type OverviewPage } from "./overview-panel";
 import { Screen, type Send } from "./play-primitives";
-import { SetupGuide } from "./setup-guide";
 import { MapVoteActions, MapVotePanel } from "./map-vote";
 import { TradePanel } from "./trade-panel";
 import { useIslandFullscreen } from "./use-island-fullscreen";
@@ -107,14 +106,6 @@ function BuildChoices({ game, busy, selected, onBuild }: { game: CatanView; busy
   </>;
 }
 
-function RobberFieldPreview({ game, selected }: { game: CatanView; selected: number }) {
-  const hex = game.board.hexes[selected];
-  return <aside className="catan-robber-preview" aria-label="Vorschau des gewählten Räuberfelds" aria-live="polite">
-    <strong>{hex.resource === "desert" ? "Wüste · kein Ertrag" : <><ResourceIcon resource={hex.resource} />{RESOURCE_INFO[hex.resource].terrain} · Zahl {hex.number}</>}</strong>
-    <p>{hex.resource === "desert" ? "Auf der Wüste wird kein Rohstoffertrag blockiert." : "Dieses Feld liefert keinen Ertrag, solange der Räuber hier steht."}</p>
-  </aside>;
-}
-
 export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local, offline = false, onHide, onRematch, afterNotificationSequence, onActivityRead, animationBaseline = 0 }: {
   game: CatanView; send: Send; busy: boolean; local: boolean; offline?: boolean; onHide?: () => void; onRematch?: () => void;
   afterNotificationSequence?: number; onActivityRead?: (sequence: number) => void;
@@ -126,8 +117,6 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
   const busy = externalBusy || inFlight;
   const [build, setBuild] = useState<{ mode: BoardMode; context: string } | null>(null);
   const [buildChoice, setBuildChoice] = useState<{ context: string; kind: BuildKind } | null>(null);
-  const [guideDismissed, setGuideDismissed] = useState(false);
-  const [guideRequested, setGuideRequested] = useState(false);
   const [selection, setSelection] = useState<{ mode: BoardMode; id: number; context: string } | null>(null);
   const [victimChoice, setVictimChoice] = useState<{ id: string; context: string } | null>(null);
   const [choice, setChoice] = useState(() => ({ task: navigationTask(game)?.key ?? null, tab: suggestedTab(game) }));
@@ -183,8 +172,6 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
   const finished = game.phase === "finished"; const needsDiscard = game.phase === "discard" && game.discards[me.id] > 0;
   const statusTitle = voting ? "Kartenabstimmung" : finished ? `${game.players.find((p) => p.id === game.winner)!.name} gewinnt!` : own ? "Du bist am Zug" : `${active.name} ist am Zug`;
   const setup = own && game.phase.startsWith("setup");
-  const guideOpen = setup && (guideRequested || (!guideDismissed && game.players.find((p) => p.id === me.id)!.pieces.settlement === 0));
-  const closeGuide = () => { setGuideDismissed(true); setGuideRequested(false); };
   let mode: BoardMode = null;
   if (own) {
     if (game.phase === "setup_settlement") mode = "settlement";
@@ -195,7 +182,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
   const choices = mode === "road" ? legalRoads(game, me.id, game.phase === "setup_road" ? game.setupVertex : null) : mode === "settlement" ? legalSettlements(game, me.id, game.phase === "setup_settlement") : mode === "city" ? legalCities(game, me.id) : mode === "robber" ? game.board.hexes.filter((h) => h.id !== game.robberHex).map((h) => h.id) : [];
   const selected = selection && selection.mode === mode && selection.context === buildContext && choices.includes(selection.id) ? selection.id : null;
   if (selection && selected === null) setSelection(null);
-  const selectPlace = (id: number) => { if (!busy) { closeGuide(); setSelection({ mode, id, context: buildContext }); } };
+  const selectPlace = (id: number) => { if (!busy) setSelection({ mode, id, context: buildContext }); };
   const canBuild = game.phase !== "main" || (mode && mode !== "robber" && canAfford(me.resources, COSTS[mode]));
   const cancelBuild = () => {
     if (busy) return;
@@ -281,9 +268,8 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
         <section className={`catan-island-dock${own && game.phase === "steal" ? " is-steal" : ""}`} aria-label={islandTitle} data-menu-hidden={activeMenu ? "true" : undefined} aria-hidden={activeMenu ? true : undefined} inert={activeMenu !== null}>
           <div className="catan-island-context">
             {voting && <MapVotePanel game={game} />}
-            {mode && <div className="catan-placement-controls">
-              <header className="catan-placement-heading"><div><h2>{mode === "robber" ? "Räuber versetzen" : islandTitle}</h2><p role="status">{selected === null ? mode === "robber" ? "Tippe ein anderes Feld auf der Karte an." : "Wähle einen markierten Bauplatz auf der Karte." : "Auswahl bereit · Bestätige deinen Zug."}</p></div>{setup && <Button variant="ghost" size="icon" aria-label="Starthilfe zur Gründung" aria-expanded={guideOpen} onClick={() => guideOpen ? closeGuide() : setGuideRequested(true)}><CircleHelp /></Button>}</header>
-              {mode === "robber" && selected !== null && <RobberFieldPreview game={game} selected={selected} />}
+            {mode && mode !== "robber" && !setup && <div className="catan-placement-controls">
+              <header className="catan-placement-heading"><div><h2>{islandTitle}</h2><p role="status">{selected === null ? "Wähle einen markierten Bauplatz auf der Karte." : "Auswahl bereit · Bestätige deinen Zug."}</p></div></header>
             </div>}
             {own && game.phase === "steal" && <div className="catan-steal-panel">
               <header className="catan-placement-heading"><div><h2>Wen möchtest du bestehlen?</h2><p>Wähle eine Person. Du stiehlst eine zufällige Rohstoffkarte.</p></div></header>
@@ -295,7 +281,6 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
               })}</div>
             </div>}
             {game.phase === "discard" && !needsDiscard && <p className="catan-inline-hint">Andere geben Rohstoffe ab. Danach geht es weiter.</p>}
-            {guideOpen && <SetupGuide onClose={closeGuide} />}
             {!canBuild && mode && mode !== "robber" && <p className="catan-inline-hint" role="status">{buildUnavailable(game, mode)}</p>}
           </div>
           <div className="catan-island-toolbar">
@@ -303,7 +288,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
             <footer className={`catan-screen-actions${mode ? " catan-placement-actions" : ""}`}>{islandActions}</footer>
             <div className="catan-island-tools">
               <Button variant="ghost" size="icon" className="catan-sound-toggle" aria-label={sounds.enabled ? "Soundeffekte ausschalten" : "Soundeffekte einschalten"} aria-pressed={sounds.enabled} title="Soundeffekte für Rohstoffe, Würfeln, Bauen, Handel und Spielaktionen" onClick={() => void sounds.toggle()}>{sounds.enabled ? <Volume2 /> : <VolumeX />}</Button>
-              <Button variant="outline" size="icon" aria-label={expanded ? "Vollbild der Insel schließen" : "Insel im Vollbild öffnen"} aria-pressed={expanded} title={expanded ? "Zurück zur Spielansicht (Esc)" : "Insel maximieren"} onClick={() => { if (!expanded) closeGuide(); fullscreen.toggle(); }}>{expanded ? <Minimize2 /> : <Maximize2 />}</Button>
+              <Button variant="outline" size="icon" aria-label={expanded ? "Vollbild der Insel schließen" : "Insel im Vollbild öffnen"} aria-pressed={expanded} title={expanded ? "Zurück zur Spielansicht (Esc)" : "Insel maximieren"} onClick={() => fullscreen.toggle()}>{expanded ? <Minimize2 /> : <Maximize2 />}</Button>
             </div>
           </div>
         </section>

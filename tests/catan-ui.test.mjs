@@ -831,7 +831,7 @@ test("Räuber werden ausschließlich über Kartenfelder ausgewählt und unter de
   }
   const html = ui(game, viewer);
   assert.match(html, /class="catan-island-dock"/);
-  assert.match(html, /Tippe ein anderes Feld auf der Karte an/);
+  assert.doesNotMatch(html, /catan-placement-controls|catan-robber-preview|Tippe ein anderes Feld auf der Karte an/);
   assert.match(html, /<button[^>]*disabled=""[^>]*>Räuber versetzen<\/button>/);
   assert.doesNotMatch(html, /Vorheriger Bauplatz|Nächster Bauplatz|catan-board-selection/);
   assert.ok(html.indexOf('class="catan-island-canvas"') < html.indexOf('class="catan-island-dock"'));
