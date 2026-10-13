@@ -49,7 +49,13 @@ async function auditFrame(page) {
       .filter((element) => element.scrollWidth > element.clientWidth + 1).map((element) => element.className || element.tagName);
     const panel = play.querySelector('.is-game-menu[data-state="active"]');
     const dock = play.querySelector(".catan-island-dock");
-    return { controls, overflow, width:innerWidth, height:innerHeight, nav:box(play.querySelector(".catan-nav")), hand:box(play.querySelector(".catan-hand-bar")), stage:box(play.querySelector(".catan-menu-stage")), panel:panel && box(panel), dock:dock && box(dock), canvas:box(play.querySelector(".catan-island-canvas")), world:box(play.querySelector(".catan-world")), viewport:box(play.querySelector(".catan-board-viewport")) };
+    const toolbar = play.querySelector(".catan-island-toolbar");
+    const toolbarVisible = toolbar && getComputedStyle(toolbar).visibility !== "hidden";
+    const leftButtons = [...play.querySelectorAll(".catan-board-controls button")].map(box);
+    const rightButtons = [...play.querySelectorAll(".catan-island-tools button")].map(box);
+    const actions = toolbar?.querySelector(".catan-screen-actions");
+    const islandContext = play.querySelector(".catan-island-context:not(:empty)");
+    return { controls, overflow, width:innerWidth, height:innerHeight, nav:box(play.querySelector(".catan-nav")), hand:box(play.querySelector(".catan-hand-bar")), stage:box(play.querySelector(".catan-menu-stage")), panel:panel && box(panel), dock:dock && box(dock), canvas:box(play.querySelector(".catan-island-canvas")), world:box(play.querySelector(".catan-world")), viewport:box(play.querySelector(".catan-board-viewport")), toolbar:toolbarVisible && box(toolbar), leftButtons, rightButtons, actions:actions && actions.children.length && box(actions), islandContext:islandContext && box(islandContext) };
   });
   const context = `${result.width}×${result.height}`;
   assert.equal(result.overflow.length, 0, `Horizontal overflow: ${context}: ${result.overflow.join(", ")}`);
@@ -66,7 +72,24 @@ async function auditFrame(page) {
   if (result.dock) {
     assert.ok(result.canvas.bottom <= result.dock.top + 1, `Map controls need dock clearance: ${context}`);
     assert.ok(result.dock.bottom <= result.nav.top + 1, `Dock overlaps navigation: ${context}`);
-    assert.ok(result.canvas.height >= 40, `Map collapsed: ${context}`);
+    assert.ok(result.viewport.height >= 40, `Map collapsed: ${context}`);
+  }
+  if (result.toolbar) {
+    const baseline = result.toolbar.bottom - 8;
+    assert.ok(result.toolbar.top >= result.hand.bottom, `Toolbar overlaps resources: ${context}`);
+    assert.ok(result.toolbar.bottom <= result.nav.top + 1, `Toolbar overlaps navigation: ${context}`);
+    for (const buttons of [result.leftButtons, result.rightButtons]) {
+      assert.ok(Math.abs(buttons.at(-1).bottom - baseline) <= 1, `Toolbar button columns need a shared bottom edge: ${context}`);
+      for (let i = 1; i < buttons.length; i++) {
+        assert.ok(buttons[i].top >= buttons[i - 1].bottom, `Toolbar buttons must stack vertically: ${context}`);
+        assert.ok(Math.abs(buttons[i].left - buttons[i - 1].left) <= 1, `Toolbar button columns need a shared horizontal position: ${context}`);
+      }
+    }
+    if (result.actions) {
+      assert.ok(Math.abs(result.actions.bottom - baseline) <= 1, `Turn actions need the shared toolbar bottom edge: ${context}`);
+      assert.ok(result.actions.left >= result.leftButtons[0].right + 7 && result.actions.right <= result.rightButtons[0].left - 7, `Turn actions must stay between button columns: ${context}`);
+    }
+    if (result.islandContext) assert.ok(result.islandContext.bottom <= result.toolbar.top + 1, `Island context must stay above toolbar: ${context}`);
   }
   for (const control of result.controls) {
     assert.ok(!control.covered, `Control covered: ${context}: ${control.label}`);
@@ -96,6 +119,36 @@ export async function auditLayout(page, observe) {
   throw failure;
 }
 
+async function selectRobberField(page, field, observe) {
+  const border = field.locator(".catan-hex-border");
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const point = await border.evaluate((polygon) => {
+      const rect = polygon.getBoundingClientRect();
+      const inverse = polygon.getScreenCTM().inverse();
+      for (const fy of [.5,.2,.8,.05,.95]) for (const fx of [.5,.2,.8,.05,.95]) {
+        const x = rect.left + rect.width * fx; const y = rect.top + rect.height * fy;
+        const hit = document.elementFromPoint(x,y);
+        if (hit?.closest(".catan-board-viewport") && polygon.isPointInFill(new DOMPoint(x,y).matrixTransform(inverse))) return {x,y};
+      }
+      return null;
+    });
+    if (point) { await page.mouse.click(point.x,point.y); await observe?.(); return; }
+    // Enlarged context text can cover the fitted target. The shared toolbar
+    // leaves a map gap where real zoom and pan gestures can expose it again.
+    await page.getByRole("button", { name:"Insel vergrößern", exact:true }).click();
+    await observe?.();
+    const geometry = await border.evaluate((polygon) => {
+      const rect = polygon.getBoundingClientRect();
+      const toolbar = polygon.closest(".catan-play").querySelector(".catan-island-toolbar").getBoundingClientRect();
+      return {x:toolbar.left + toolbar.width / 2,y:toolbar.top + 4,dx:toolbar.left + toolbar.width / 2 - rect.left - rect.width / 2,dy:toolbar.top + 4 - rect.top - rect.height / 2};
+    });
+    await page.mouse.move(geometry.x,geometry.y); await page.mouse.down();
+    await page.mouse.move(geometry.x + geometry.dx,geometry.y + geometry.dy,{steps:6}); await page.mouse.up();
+    await observe?.();
+  }
+  assert.fail("Robber field needs an exposed pointer target after zooming and panning");
+}
+
 export async function checkRobber(page, { expanded, largeText, failureCases = false, scenario = "robber", observe }) {
   await fixture(page, scenario, largeText);
   if (expanded) await page.getByRole("button", { name:"Insel im Vollbild öffnen", exact:true }).click();
@@ -106,9 +159,7 @@ export async function checkRobber(page, { expanded, largeText, failureCases = fa
   const before = await page.locator(".catan-robber-layer").getAttribute("data-catan-robber");
   const sequence = await page.locator(".catan-play").getAttribute("data-catan-sequence");
   const field = page.getByRole("button", { name:/^Räuber auf Feld 5:/ });
-  // Larger building hit areas can overlap this hex; the real pointer tap is
-  // intentionally routed through the board's shared selection handler.
-  await field.locator(".catan-hex-border").click({ force:true });
+  await selectRobberField(page,field,observe);
   await observe?.();
   assert.equal(await field.getAttribute("aria-pressed"), "true");
   assert.equal(await commit.isEnabled(), true);
@@ -231,7 +282,7 @@ async function checkMapUnderHud(page, { expanded, largeText, observe }) {
   const points = await page.locator(".catan-play").evaluate((play) => {
     const resources = play.querySelectorAll(".catan-hand-resource");
     const first = resources[0].getBoundingClientRect(); const second = resources[1].getBoundingClientRect();
-    const actions = play.querySelector(".catan-island-dock>.catan-screen-actions").getBoundingClientRect();
+    const actions = play.querySelector(".catan-island-toolbar>.catan-screen-actions").getBoundingClientRect();
     return [
       { label:"resource gap", x:(first.right + second.left) / 2, y:(first.top + first.bottom) / 2, dy:24 },
       { label:"action gap", x:(actions.left + actions.right) / 2, y:actions.top + 2, dy:-24 },
@@ -265,7 +316,7 @@ if (typeof process !== "undefined" && process.argv[1] && import.meta.url === pat
     }
     const page = await browser.newPage({viewport:{width:390,height:844}, reducedMotion:"reduce"});
     await page.goto(process.env.CATAN_QA_URL ?? "http://127.0.0.1:3002");
-    await checkTransitions(page);
+    await checkTransitions(page, { observe:() => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve()))) });
     console.log("Catan layout checks passed: four sizes, normal/fullscreen, 200% text, map panning behind the HUD, menu controls, map selection and confirmed theft.");
   } finally { await browser.close(); }
 }

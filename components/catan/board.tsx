@@ -41,9 +41,9 @@ function HexNumber({ artId, hex, blocked = false }: { artId: string; hex: Hex; b
   </> : null;
 }
 
-export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, islandVisible = true, animationBaseline = 0, ambientEnabled = true, waterEnabled = true, seaTarget, ambientPreviewKind, ambientPreviewAtmosphere = false }: {
+export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, islandVisible = true, animationBaseline = 0, ambientEnabled = true, waterEnabled = true, seaTarget, controlsTarget, ambientPreviewKind, ambientPreviewAtmosphere = false }: {
   game: CatanView; mode: BoardMode; choices: number[]; selected: number | null;
-  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number; ambientEnabled?: boolean; waterEnabled?: boolean; seaTarget?: HTMLElement | null;
+  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number; ambientEnabled?: boolean; waterEnabled?: boolean; seaTarget?: HTMLElement | null; controlsTarget?: HTMLElement | null;
   ambientPreviewKind?: AmbientKind; ambientPreviewAtmosphere?: boolean;
 }) {
   const artId = `catan-${useId().replace(/:/g, "")}`;
@@ -199,6 +199,15 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!disabled) { if (run) run(null); else activateFromTap(id, null); } } },
   });
   const seaSurface = <CatanSeaBackground ref={seaRef} width={seaViewport.width} height={seaViewport.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && seaViewport.measured} interacting={interactionActive} ambientEnabled={ambientEnabled} waterEnabled={waterEnabled} />;
+  // Only the controls move into the shared toolbar; the camera and map stay mounted.
+  const controls = <div className="catan-board-controls">
+    <div className="catan-board-zoom" role="group" aria-label="Kartenzoom">
+      <Button type="button" variant="outline" size="icon" aria-label="Insel vergrößern" title="Vergrößern" disabled={camera.zoom >= MAX_BOARD_ZOOM} onClick={() => zoomBy(1.35)}><Plus /></Button>
+      <Button type="button" variant="outline" size="icon" aria-label="Insel verkleinern" title="Verkleinern" disabled={camera.zoom <= MIN_BOARD_ZOOM} onClick={() => zoomBy(1 / 1.35)}><Minus /></Button>
+    </div>
+    <Button type="button" variant="outline" size="icon" className="catan-map-overview" aria-label="Ganze Insel anzeigen und zentrieren" title="Ganze Insel zentrieren" onClick={() => { reset(); setInspect(null); }}><LocateFixed /></Button>
+    <span className="sr-only" id={`${artId}-navigation-hint`}>Insel verschieben und mit zwei Fingern zoomen.</span>
+  </div>;
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
     <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" role="presentation" style={seaStyle} data-interacting={interactionActive} {...viewportProps} onClick={() => setInspect(null)}>
       {seaTarget ? createPortal(seaSurface, seaTarget) : seaTarget === undefined ? seaSurface : null}
@@ -311,14 +320,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
       </svg>
       {inspectedBuilding?.building && inspectedOwner && <p ref={infoRef} id={infoId} className="catan-board-field-info" style={{ top: "var(--catan-inspection-top,8px)" }} role="status" aria-atomic="true">{inspectedBuilding.building === "city" ? "Stadt" : "Siedlung"} · {inspectedOwner.name}</p>}
     </div>
-    <div className="catan-board-controls">
-      <div className="catan-board-zoom" role="group" aria-label="Kartenzoom">
-      <Button type="button" variant="outline" size="icon" aria-label="Insel vergrößern" title="Vergrößern" disabled={camera.zoom >= MAX_BOARD_ZOOM} onClick={() => zoomBy(1.35)}><Plus /></Button>
-      <Button type="button" variant="outline" size="icon" aria-label="Insel verkleinern" title="Verkleinern" disabled={camera.zoom <= MIN_BOARD_ZOOM} onClick={() => zoomBy(1 / 1.35)}><Minus /></Button>
-      </div>
-      <Button type="button" variant="outline" size="icon" className="catan-map-overview" aria-label="Ganze Insel anzeigen und zentrieren" title="Ganze Insel zentrieren" onClick={() => { reset(); setInspect(null); }}><LocateFixed /></Button>
-      <span className="sr-only" id={`${artId}-navigation-hint`}>Insel verschieben und mit zwei Fingern zoomen.</span>
-    </div></div>
+    {controlsTarget ? createPortal(controls, controlsTarget) : controls}</div>
   </section>;
 }
 

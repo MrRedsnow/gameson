@@ -133,6 +133,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
   const [choice, setChoice] = useState(() => ({ task: navigationTask(game)?.key ?? null, tab: suggestedTab(game) }));
   const menuId = useId();
   const [seaTarget, setSeaTarget] = useState<HTMLDivElement | null>(null);
+  const [controlsTarget, setControlsTarget] = useState<HTMLDivElement | null>(null);
   const [overviewChoice, setOverviewChoice] = useState<{ finished: boolean; page: OverviewPage }>({ finished: game.phase === "finished", page: "menu" });
   const overviewPage = overviewChoice.finished === (game.phase === "finished") ? overviewChoice.page : "menu";
   const setOverviewPage = (page: OverviewPage) => setOverviewChoice({ finished: game.phase === "finished", page });
@@ -275,13 +276,9 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
     <div data-state="active" className="catan-tab-panel catan-tab-insel">
       <section className="catan-screen catan-island-screen" inert={activeMenu !== null}>
         <div className="catan-island-canvas">
-          <CatanBoard key={game.mapVote?.id ?? "accepted"} game={game} mode={mode} choices={choices} selected={selected} onSelect={selectPlace} disabled={busy} onInspect={sounds.preview} islandVisible animationBaseline={animationBaseline} ambientEnabled={ambient.enabled} waterEnabled={water.enabled} seaTarget={seaTarget} />
-          <div className="catan-island-tools">
-            <Button variant="ghost" size="icon" className="catan-sound-toggle" aria-label={sounds.enabled ? "Soundeffekte ausschalten" : "Soundeffekte einschalten"} aria-pressed={sounds.enabled} title="Soundeffekte für Rohstoffe, Würfeln, Bauen, Handel und Spielaktionen" onClick={() => void sounds.toggle()}>{sounds.enabled ? <Volume2 /> : <VolumeX />}</Button>
-            <Button variant="outline" size="icon" aria-label={expanded ? "Vollbild der Insel schließen" : "Insel im Vollbild öffnen"} aria-pressed={expanded} title={expanded ? "Zurück zur Spielansicht (Esc)" : "Insel maximieren"} onClick={() => { if (!expanded) closeGuide(); fullscreen.toggle(); }}>{expanded ? <Minimize2 /> : <Maximize2 />}</Button>
-          </div>
+          <CatanBoard key={game.mapVote?.id ?? "accepted"} game={game} mode={mode} choices={choices} selected={selected} onSelect={selectPlace} disabled={busy} onInspect={sounds.preview} islandVisible animationBaseline={animationBaseline} ambientEnabled={ambient.enabled} waterEnabled={water.enabled} seaTarget={seaTarget} controlsTarget={controlsTarget} />
         </div>
-        {(islandActions || mode || voting || (game.phase === "discard" && !needsDiscard)) && <section className={`catan-island-dock${own && game.phase === "steal" ? " is-steal" : ""}`} aria-label={islandTitle} data-menu-hidden={activeMenu ? "true" : undefined} aria-hidden={activeMenu ? true : undefined} inert={activeMenu !== null}>
+        <section className={`catan-island-dock${own && game.phase === "steal" ? " is-steal" : ""}`} aria-label={islandTitle} data-menu-hidden={activeMenu ? "true" : undefined} aria-hidden={activeMenu ? true : undefined} inert={activeMenu !== null}>
           <div className="catan-island-context">
             {voting && <MapVotePanel game={game} />}
             {mode && <div className="catan-placement-controls">
@@ -301,8 +298,15 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
             {guideOpen && <SetupGuide onClose={closeGuide} />}
             {!canBuild && mode && mode !== "robber" && <p className="catan-inline-hint" role="status">{buildUnavailable(game, mode)}</p>}
           </div>
-          {islandActions && <footer className={`catan-screen-actions${mode ? " catan-placement-actions" : ""}`}>{islandActions}</footer>}
-        </section>}
+          <div className="catan-island-toolbar">
+            <div ref={setControlsTarget} className="catan-island-map-controls" />
+            <footer className={`catan-screen-actions${mode ? " catan-placement-actions" : ""}`}>{islandActions}</footer>
+            <div className="catan-island-tools">
+              <Button variant="ghost" size="icon" className="catan-sound-toggle" aria-label={sounds.enabled ? "Soundeffekte ausschalten" : "Soundeffekte einschalten"} aria-pressed={sounds.enabled} title="Soundeffekte für Rohstoffe, Würfeln, Bauen, Handel und Spielaktionen" onClick={() => void sounds.toggle()}>{sounds.enabled ? <Volume2 /> : <VolumeX />}</Button>
+              <Button variant="outline" size="icon" aria-label={expanded ? "Vollbild der Insel schließen" : "Insel im Vollbild öffnen"} aria-pressed={expanded} title={expanded ? "Zurück zur Spielansicht (Esc)" : "Insel maximieren"} onClick={() => { if (!expanded) closeGuide(); fullscreen.toggle(); }}>{expanded ? <Minimize2 /> : <Maximize2 />}</Button>
+            </div>
+          </div>
+        </section>
       </section>
     </div>
     <div className="catan-tab-panel is-game-menu" {...panelProps("karten")}><CardsPanel onClose={() => closeMenu(true)} game={game} send={send} busy={busy} /></div>
