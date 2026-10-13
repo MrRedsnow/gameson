@@ -232,7 +232,6 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           <path className="catan-hex-seam-light" d={seamPath} fill="none" vectorEffect="non-scaling-stroke" />
         </g>
         <CatanAmbientIsland game={game} artId={artId} viewBox={viewBox} boardBounds={boardBounds} scale={scale} active={islandVisible} interacting={interactionActive} enabled={ambientEnabled} effectsBusy={effectsBusy} cleanPasture={pastureReady} externalPedestrians previewKind={ambientPreviewKind} previewAtmosphere={ambientPreviewAtmosphere} />
-        {board.hexes.filter((hex) => hex.resource === "desert" && hex.id !== game.robberHex).map((hex) => <text key={`desert-${hex.id}`} x={hex.x} y={hex.y + 32} fill="#283132" fontSize="13" textAnchor="middle" pointerEvents="none" aria-hidden="true">Wüste</text>)}
         {board.hexes.filter((hex) => hex.id !== game.robberHex).map((hex) => <HexNumber key={hex.id} artId={artId} hex={hex} />)}
         {mode === "robber" && board.hexes.filter((hex) => choices.includes(hex.id) && hex.id !== selected).map((hex) => <circle key={`robber-choice-${hex.id}`} cx={hex.x} cy={hex.y} r="46" fill="none" stroke="#fff5c3" strokeDasharray="4 6" strokeWidth="2" pointerEvents="none" aria-hidden="true" />)}
         {selectedHex && <polygon className="catan-hex-selection" points={selectedHex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} fill="none" stroke="#fff5c3" strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" pointerEvents="none" aria-hidden="true" />}
@@ -308,7 +307,6 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
         <g className="catan-robber-layer" data-catan-robber={robberHex.id} role="img" aria-label={`Räuber auf Feld ${robberHex.id + 1} – blockiert den Ertrag`} pointerEvents="none">
           <RobberPiece id={artId} x={robberHex.x} y={robberHex.y} />
           <HexNumber artId={artId} hex={robberHex} blocked />
-          {robberHex.resource === "desert" && <text className="catan-blocked-desert-label" x={robberHex.x} y={robberHex.y + 29} fontSize="13" textAnchor="middle" aria-hidden="true">Wüste</text>}
         </g>
       </svg>
       {inspectedBuilding?.building && inspectedOwner && <p ref={infoRef} id={infoId} className="catan-board-field-info" style={{ top: "var(--catan-inspection-top,8px)" }} role="status" aria-atomic="true">{inspectedBuilding.building === "city" ? "Stadt" : "Siedlung"} · {inspectedOwner.name}</p>}

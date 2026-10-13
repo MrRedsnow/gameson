@@ -232,14 +232,13 @@ test("der gemalte Räuber bleibt auf allen 19 Feldern über Gebäuden und Baueff
       assert.ok(html.indexOf(layer) > html.indexOf('class="catan-construction-effects"'));
       assert.match(html, /Räuber blockiert den Ertrag/);
       assert.doesNotMatch(html, />R<\/text>/);
+      assert.doesNotMatch(html, />Wüste<\/text>/);
       if (hex.number) {
         assert.ok(layer.includes(`x="${hex.x}" y="${hex.y + 36}" text-anchor="middle" aria-hidden="true">${hex.number}</text>`));
         assert.match(layer, /class="catan-number-label[^"]* is-blocked"/);
         assert.doesNotMatch(layer, /on-grain/, "Auch auf ausgegrautem Acker muss die Zahl hell sein.");
       } else {
         assert.doesNotMatch(layer, /catan-number-label/);
-        assert.match(layer, /class="catan-blocked-desert-label"[^>]*>Wüste<\/text>/);
-        assert.equal((html.match(/>Wüste<\/text>/g) ?? []).length, 1);
       }
     }
   }
