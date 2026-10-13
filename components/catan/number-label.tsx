@@ -31,5 +31,5 @@ export function NumberLabel({ number, resource, x, y, hexId, blocked = false }: 
     }
     setBaseline(offset);
   }, [number, blocked]);
-  return <text ref={ref} className={`catan-number-label${blocked ? " is-blocked" : ""}`} data-catan-number={hexId} data-resource={resource} x={x} y={y + (blocked ? 36 : baseline)} textAnchor="middle" aria-hidden="true">{number}</text>;
+  return <text ref={ref} className={`catan-number-label${blocked ? " is-blocked" : ""}`} data-catan-number={hexId} data-resource={resource} data-catan-number-hot={number === 6 || number === 8} x={x} y={y + (blocked ? 36 : baseline)} textAnchor="middle" aria-hidden="true">{number}</text>;
 }

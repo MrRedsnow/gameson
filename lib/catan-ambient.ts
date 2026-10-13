@@ -77,7 +77,7 @@ export function preloadAmbientArtwork(onReady: (ready: boolean) => void, createI
   images.forEach((image, index) => {
     image.onload = () => { loaded[index] = true; if (!disposed && !failed && loaded.every(Boolean)) onReady(true); };
     image.onerror = () => { failed = true; if (!disposed) onReady(false); };
-    image.src = index ? "/catan/ambient-atlas-v1.png" : "/catan/pasture-v1.png";
+    image.src = index ? "/catan/ambient-atlas-v1.png" : "/catan/pasture-v2.png";
   });
   return () => { disposed = true; images.forEach((image) => { image.onload = null; image.onerror = null; }); };
 }

@@ -142,7 +142,7 @@ export function CatanSeaBackground({ ref, ...props }: SeaLayout & { ref?: Ref<Ca
         else if (!image) {
           image = new Image(); image.onload = upload;
           image.onerror = () => { failed = true; stop(); release(); };
-          image.src = "/catan/sea-v3.jpg";
+          image.src = "/catan/sea-v4.jpg";
         }
       } catch {
         failed = true; stop(); release();

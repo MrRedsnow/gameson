@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Anchor, LocateFixed, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAYER_COLORS, RESOURCE_INFO, type CatanAction, type CatanView, type Hex, type Resource } from "@/lib/catan";
 import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM, type BoardCamera } from "@/lib/catan-camera";
 import { pointInPolygon, type AmbientPoint } from "@/lib/catan-geometry";
+import { coastlinePath } from "@/lib/catan-coastline";
 import { seaParallax } from "@/lib/catan-parallax";
 import { BuildingPiece, HarborIllustration, HarborSeaClip, Landscape, LandscapeDefinitions, RobberPiece } from "./landscape";
 import { HARBOR_BOAT_CLEARANCE, harborLayout } from "@/lib/catan-harbor";
@@ -24,6 +25,14 @@ import { NumberLabel } from "./number-label";
 export { ResourceIcon, WoodIcon } from "./resource-icon";
 export type BoardMode = "road" | "settlement" | "city" | "robber" | null;
 type BoardInspection = { id: number; gameId: string };
+
+// Compute the four matte paints once; ownership and camera updates reuse them.
+const ROAD_PAINTS = PLAYER_COLORS.map((base) => {
+  const tint = (target: string, amount: number) => `#${[1, 3, 5].map((offset) => Math.round(
+    parseInt(base.slice(offset, offset + 2), 16) * (1 - amount) + parseInt(target.slice(offset, offset + 2), 16) * amount,
+  ).toString(16).padStart(2, "0")).join("")}`;
+  return { base, light: tint("#fff1d7", .16), shade: tint("#263c37", .14) };
+});
 
 function HexNumber({ artId, hex, blocked = false }: { artId: string; hex: Hex; blocked?: boolean }) {
   return hex.number ? <>
@@ -48,6 +57,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
   const seaRef = useRef<CatanSeaHandle>(null);
   const infoRef = useRef<HTMLParagraphElement>(null);
   const { board } = game;
+  const shoreline = useMemo(() => coastlinePath({ vertices: board.vertices, edges: board.edges }), [board.vertices, board.edges]);
   const inspection = inspect?.gameId === game.id ? inspect : null;
   const inspectedBuilding = inspection ? board.vertices[inspection.id] : null;
   const inspectedOwner = game.players.find((player) => player.id === inspectedBuilding?.owner);
@@ -197,12 +207,15 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
         <defs>
           <LandscapeDefinitions id={artId} cleanPasture={pastureReady} />
           <HarborSeaClip id={artId} board={board} bounds={seaClipBounds} />
+          {ROAD_PAINTS.map((paint, index) => <linearGradient key={index} id={`${artId}-road-${index}`} gradientUnits="userSpaceOnUse" x1="0" y1={top} x2="0" y2={top + height}>
+            <stop offset="0%" stopColor={paint.light} /><stop offset="50%" stopColor={paint.base} /><stop offset="100%" stopColor={paint.shade} />
+          </linearGradient>)}
           {board.hexes.map((hex) => <clipPath key={hex.id} id={`${artId}-hex-${hex.id}`}><polygon points={hex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} /></clipPath>)}
         </defs>
-        <g aria-hidden="true" className="catan-shoreline">{board.edges.filter((edge) => edge.hexes.length === 1).map((edge) => {
-          const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
-          return <line key={edge.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#bad0c3" strokeOpacity=".3" strokeWidth="7" strokeLinecap="round" />;
-        })}</g>
+        <g aria-hidden="true" className="catan-shoreline" pointerEvents="none">
+          <path data-catan-coast="shallows" d={shoreline} fill="none" stroke="#79b9ac" strokeOpacity=".23" strokeWidth="12" strokeLinejoin="round" />
+          <path data-catan-coast="sand" d={shoreline} fill="none" stroke="#d5c196" strokeOpacity=".58" strokeWidth="5" strokeLinejoin="round" />
+        </g>
         {board.hexes.map((hex) => {
           const enabled = mode === "robber" && choices.includes(hex.id);
           const name = hex.resource === "desert" ? "Wüste" : RESOURCE_INFO[hex.resource].terrain;
@@ -251,9 +264,10 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
         })}
         {board.edges.filter((e) => e.owner).map((edge) => {
           const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
-          return <g key={edge.id} data-catan-road={edge.id}><title>{`${game.players.find((p) => p.id === edge.owner)!.name}: Straße ${edge.id + 1}`}</title>
-            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#1d2926" strokeOpacity=".8" strokeWidth="6" strokeLinecap="round" />
-            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color(edge.owner!)} strokeWidth="4" strokeLinecap="round" />
+          const owner = game.players.find((player) => player.id === edge.owner)!;
+          return <g key={edge.id} data-catan-road={edge.id}><title>{`${owner.name}: Straße ${edge.id + 1}`}</title>
+            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#26352e" strokeOpacity=".65" strokeWidth="6" strokeLinecap="round" />
+            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={`url(#${artId}-road-${owner.color})`} strokeWidth="4" strokeLinecap="round" />
           </g>;
         })}
         <use className="catan-ambient-pedestrians" href={`#${artId}-ambient-pedestrians`} pointerEvents="none" aria-hidden="true" />

@@ -19,6 +19,11 @@ async function qa(page, change) {
 async function scenario(page, name) {
   await qa(page, () => page.getByLabel("Prüfsituation").selectOption(name));
 }
+async function loadPreview(page) {
+  await page.goto(baseURL);
+  await expect(page.locator(".catan-board")).toBeVisible();
+  await expect(page.locator(".catan-nav .sr-only").first()).toHaveCSS("position","absolute");
+}
 async function assertDisplayOnlyStatus(page) {
   const status = page.locator(".catan-status");
   await expect(status).toBeVisible();
@@ -35,13 +40,18 @@ try {
     page.on("pageerror", (error) => errors.push(error.message));
     // Exercise the supported expanded layout even without native fullscreen.
     await page.addInitScript(() => Object.defineProperty(document, "fullscreenEnabled", { value: false }));
-    await page.goto(baseURL);
+    await loadPreview(page);
     await expect(page.locator(".catan-board")).toBeVisible();
     await page.evaluate(() => { window.qaBoard = document.querySelector(".catan-board"); window.qaHand = document.querySelector(".catan-hand-bar"); });
     for (const expanded of [false, true]) {
       if (expanded) await page.getByRole("button", { name: "Insel im Vollbild öffnen", exact: true }).click();
       const endTurn = page.getByRole("button", { name: "Zug beenden", exact: true });
       await visibleInViewport(endTurn, width, height);
+      await page.mouse.move(1, 1);
+      await expect(endTurn).toHaveCSS("background-color", "rgb(239, 209, 138)");
+      await expect(endTurn).toHaveCSS("color", "rgb(28, 43, 49)");
+      await expect(endTurn).toHaveCSS("border-radius", "12px");
+      await expect(page.locator(".catan-board-panel")).toHaveCSS("border-radius", "18px");
       await expect(page.locator(".catan-status .catan-end-turn")).toHaveCount(0);
       const endTurnBox = await endTurn.boundingBox();
       const dockBox = await page.locator(".catan-island-dock").boundingBox();
@@ -62,6 +72,21 @@ try {
         await visibleInViewport(panel.locator(".catan-menu-close"), width, height);
         const footer = panel.locator(".catan-screen-actions");
         if (await footer.count()) await visibleInViewport(footer, width, height);
+        if (id === "bauen") {
+          await expect(panel.locator(".catan-build-choice").first()).toHaveCSS("border-radius", "16px");
+          await expect(panel.locator(".catan-build-choice").first()).toHaveCSS("box-shadow", "none");
+        }
+        if (width >= 1024) {
+          const fitting = await panel.evaluate((element) => {
+            const body = element.querySelector(".catan-screen-body");
+            const heading = element.querySelector(".catan-screen-heading");
+            const footer = element.querySelector(".catan-screen-actions");
+            return { height:element.getBoundingClientRect().height, cap:parseFloat(getComputedStyle(element).maxHeight), bodyHeight:body.clientHeight, contentHeight:body.scrollHeight, headingHeight:heading.getBoundingClientRect().height, footerHeight:footer?.getBoundingClientRect().height ?? 0 };
+          });
+          assert.ok(fitting.height <= fitting.cap + 1, "Desktop menu respects its existing height budget");
+          assert.ok(fitting.bodyHeight <= fitting.contentHeight + 1, "Short desktop menu does not inflate its content area");
+          if (id === "bauen" || id === "handel") assert.ok(fitting.height < fitting.cap - 20, "Short desktop menu fits its content instead of filling the height cap");
+        }
         if (id === "bauen") assert.ok(await panel.evaluate((element, isExpanded) => {
           const box = element.getBoundingClientRect(); const x = box.left + 25; const y = box.top + 35;
           const overlay = document.createElement("div"); overlay.className = "catan-resource-flights";
@@ -118,10 +143,47 @@ try {
     await page.close();
   }
 
-  console.log("Catan menu layouts passed at four viewport sizes.");
+  const desktop = await browser.newPage({ viewport:{width:1440,height:1000}, reducedMotion:"reduce" });
+  desktop.on("pageerror", (error) => errors.push(error.message));
+  await loadPreview(desktop);
+  for (const expanded of [false,true]) {
+    await scenario(desktop,"rich");
+    await scenario(desktop,"history");
+    if (expanded) await desktop.getByRole("button", { name:"Insel im Vollbild öffnen", exact:true }).click();
+    const board = desktop.locator(".catan-island-canvas"); const boardBox = await board.boundingBox();
+    await nav(desktop,"uebersicht").click();
+    const overview = menu(desktop,"uebersicht");
+    await overview.getByRole("button", {name:"Spielverlauf",exact:true}).click();
+    const body = overview.locator(".catan-screen-body");
+    assert.ok(await body.evaluate((element) => element.scrollHeight > element.clientHeight + 100), "Long desktop histories scroll inside the capped menu");
+    const heading = overview.locator(".catan-screen-heading"); const headingBox = await heading.boundingBox();
+    const footer = overview.locator(".catan-screen-actions"); const footerBox = await footer.count() ? await footer.boundingBox() : null;
+    await body.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    assert.deepEqual(await heading.boundingBox(),headingBox,"Scrolling long desktop history keeps its heading fixed");
+    if (footerBox) assert.deepEqual(await footer.boundingBox(),footerBox,"Scrolling keeps the footer fixed");
+    assert.deepEqual(await board.boundingBox(),boardBox,"A long desktop menu preserves island dimensions");
+    await visibleInViewport(heading,1440,1000);
+    if (footerBox) await visibleInViewport(footer,1440,1000);
+    await desktop.screenshot({path:`${output}1440x1000-${expanded ? "expanded" : "normal"}-history.png`});
+    await qa(desktop, () => desktop.getByLabel("Text 200%").check());
+    await nav(desktop,"bauen").click();
+    const build = menu(desktop,"bauen"); const buildBody = build.locator(".catan-screen-body");
+    assert.ok(await buildBody.evaluate((element) => element.scrollHeight > element.clientHeight + 10), "Enlarged desktop build options scroll at the cap");
+    const buildHeading = build.locator(".catan-screen-heading"); const buildFooter = build.locator(".catan-screen-actions");
+    const buildHeadingBox = await buildHeading.boundingBox(); const buildFooterBox = await buildFooter.boundingBox();
+    await buildBody.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    assert.deepEqual(await buildHeading.boundingBox(),buildHeadingBox,"Enlarged-text desktop heading stays fixed");
+    assert.deepEqual(await buildFooter.boundingBox(),buildFooterBox,"Enlarged-text desktop confirmation stays fixed");
+    await visibleInViewport(buildFooter,1440,1000);
+    await desktop.screenshot({path:`${output}1440x1000-${expanded ? "expanded" : "normal"}-build-text200.png`});
+    await qa(desktop, () => desktop.getByLabel("Text 200%").uncheck());
+  }
+  await desktop.close();
+
+  console.log("Catan menu layouts passed at four viewport sizes, including compact desktop sheets and scrolling histories.");
   const statusPage = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
   statusPage.on("pageerror", (error) => errors.push(error.message));
-  await statusPage.goto(baseURL);
+  await loadPreview(statusPage);
   for (const expanded of [false, true]) for (const name of ["map-vote", "map-waiting", "map-tie", "map-tie-guest", "setup", "setup-road", "roll", "rich", "discard", "robber", "steal", "free-roads", "incoming", "outgoing", "waiting", "finished"]) {
     await scenario(statusPage, name);
     await nav(statusPage, "insel").click();
@@ -196,15 +258,22 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => Object.defineProperty(document, "fullscreenEnabled", { value: false }));
-  await page.goto(baseURL);
+  await loadPreview(page);
   const build = menu(page, "bauen");
   const road = build.locator(".catan-build-choice").filter({ has: page.locator("strong", { hasText: /^Straße$/ }) });
   const development = build.locator(".catan-build-choice").filter({ hasText: "Entwicklungskarte kaufen" });
   await nav(page, "bauen").click();
   await expect(build.getByRole("button", { name: "Auswählen", exact: true })).toBeDisabled();
+  await expect(build.getByRole("button", { name: "Auswählen", exact: true })).toHaveCSS("opacity", "1");
+  await road.hover();
+  await expect(road).toHaveCSS("background-color", "rgba(255, 255, 255, 0.07)");
   const sequence = await page.locator(".catan-play").getAttribute("data-catan-sequence");
   await road.click();
   await expect(road).toHaveAttribute("aria-pressed", "true");
+  await expect(road).toHaveCSS("background-color", "rgba(242, 211, 139, 0.12)");
+  await page.mouse.move(1, 1);
+  await expect(build.getByRole("button", { name: "Auswählen", exact: true })).toHaveCSS("background-color", "rgb(239, 209, 138)");
+  await expect(build.getByRole("button", { name: "Auswählen", exact: true })).toHaveCSS("color", "rgb(28, 43, 49)");
   await expect(page.locator(".catan-play")).toHaveAttribute("data-catan-sequence", sequence);
   await expect(build).toBeVisible();
   await nav(page, "karten").click();

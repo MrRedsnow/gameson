@@ -7,7 +7,7 @@ type Backdrops = Partial<Record<Terrain, string>>;
 const RADIUS = 22;
 const SCALE = 2;
 const TERRAIN_SIZE = 108;
-const TINT = "#252727";
+const TINT = "#273331";
 const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
 const backdropCache = new Map<string, Promise<string | null>>();
 
@@ -30,7 +30,7 @@ function loadImage(src: string) {
 
 function rasterBackdrop(resource: Terrain, cell: readonly [number, number], cleanPasture: boolean) {
   const pasture = resource === "wool" && cleanPasture;
-  const src = pasture ? "/catan/pasture-v1.png" : "/catan/terrain-atlas-v3.jpg";
+  const src = pasture ? "/catan/pasture-v2.png" : "/catan/terrain-atlas-v4.jpg";
   const key = `${src}:${cell.join(",")}`;
   const saved = backdropCache.get(key);
   if (saved) return saved;
@@ -49,7 +49,7 @@ function rasterBackdrop(resource: Terrain, cell: readonly [number, number], clea
     // pan subsequently paint a small static PNG, without any live filter.
     context.drawImage(image, pasture ? 0 : cell[0] * cellWidth, pasture ? 0 : cell[1] * cellHeight, cellWidth, cellHeight, 0, 0, terrain.width, terrain.height);
     context.filter = "none";
-    context.globalAlpha = .64;
+    context.globalAlpha = .88;
     context.fillStyle = TINT;
     context.fillRect(0, 0, terrain.width, terrain.height);
 
@@ -64,6 +64,13 @@ function rasterBackdrop(resource: Terrain, cell: readonly [number, number], clea
     result.arc(center, center, center, 0, Math.PI * 2);
     result.clip();
     result.drawImage(terrain, offset, offset, diameter, diameter, 0, 0, diameter, diameter);
+    // Matte stone mottling is baked into the same small PNG, never a live filter.
+    const light = result.createLinearGradient(0, 0, diameter, diameter);
+    light.addColorStop(0, "rgba(235,229,207,.09)");
+    light.addColorStop(.48, "rgba(235,229,207,0)");
+    light.addColorStop(1, "rgba(9,24,24,.13)");
+    result.fillStyle = light;
+    result.fillRect(0, 0, diameter, diameter);
     return output.toDataURL("image/png");
   })().catch(() => null);
   backdropCache.set(key, pending);
@@ -85,8 +92,8 @@ export function NumberBackdropDefinitions({ id, cleanPasture = false, cells }: {
     {Object.keys(cells).map((resource) => <g key={resource} id={`${id}-number-backdrop-${resource}`}>
       {images[resource as Terrain]
         ? <image href={images[resource as Terrain]} x={-RADIUS} y={-RADIUS} width={RADIUS * 2} height={RADIUS * 2} />
-        : <circle r={RADIUS} fill={TINT} fillOpacity=".64" />}
-      <circle r={RADIUS} fill="none" stroke="#91a79b" strokeOpacity=".55" strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
+        : <circle r={RADIUS} fill={TINT} fillOpacity=".94" />}
+      <circle r={RADIUS} fill="none" stroke="#b4b6a1" strokeOpacity=".42" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
     </g>)}
   </>;
 }

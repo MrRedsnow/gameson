@@ -614,7 +614,7 @@ test("clean meadow requires both images, keeps the painted fallback on either fa
   const setup = () => {
     const images = []; const ready = [];
     const dispose = preloadAmbientArtwork((value) => ready.push(value), () => { const image = { src: "", onload: null, onerror: null }; images.push(image); return image; });
-    assert.deepEqual(images.map((image) => image.src), ["/catan/pasture-v1.png", "/catan/ambient-atlas-v1.png"]);
+    assert.deepEqual(images.map((image) => image.src), ["/catan/pasture-v2.png", "/catan/ambient-atlas-v1.png"]);
     return { images, ready, dispose };
   };
   const complete = setup(); complete.images[0].onload(); assert.deepEqual(complete.ready, []);

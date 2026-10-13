@@ -14,12 +14,12 @@ const TERRAIN_FALLBACKS = { wood: "#3d5431", wool: "#78904e", grain: "#c6a264", 
 export function LandscapeDefinitions({ id, cleanPasture = false }: { id: string; cleanPasture?: boolean }) {
   return <>
     <NumberBackdropDefinitions id={id} cleanPasture={cleanPasture} cells={TERRAIN_CELLS} />
-    <image id={`${id}-terrain-atlas`} href="/catan/terrain-atlas-v3.jpg" width="324" height="216" preserveAspectRatio="none" />
-    <image id={`${id}-buildings-atlas`} href="/catan/buildings-v3.png" width="400" height="200" preserveAspectRatio="none" />
+    <image id={`${id}-terrain-atlas`} href="/catan/terrain-atlas-v4.jpg" width="324" height="216" preserveAspectRatio="none" />
+    <image id={`${id}-buildings-atlas`} href="/catan/buildings-v4.png" width="400" height="200" preserveAspectRatio="none" />
     <image id={`${id}-harbor-atlas`} href="/catan/harbor-atlas-v3.png" width="200" height="100" preserveAspectRatio="none" />
     <clipPath id={`${id}-boat-sprite-clip`} clipPathUnits="userSpaceOnUse"><rect x={-HARBOR_BOAT_SIZE / 2} y={-HARBOR_BOAT_SIZE / 2} width={HARBOR_BOAT_SIZE} height={HARBOR_BOAT_SIZE} /></clipPath>
     <image id={`${id}-robber`} href="/catan/robber-v2.png" width="40" height="40" />
-    <image id={`${id}-pasture`} href="/catan/pasture-v1.png" width="108" height="108" preserveAspectRatio="none" />
+    <image id={`${id}-pasture`} href="/catan/pasture-v2.png" width="108" height="108" preserveAspectRatio="none" />
     {Object.entries(TERRAIN_CELLS).map(([resource, [column, row]]) => <g key={resource} id={`${id}-${resource}`}>
       <rect x="-54" y="-54" width="108" height="108" fill={TERRAIN_FALLBACKS[resource as Resource | "desert"]} />
       <svg x="-54" y="-54" width="108" height="108" viewBox={resource === "wool" && cleanPasture ? "0 0 108 108" : `${column * 108} ${row * 108} 108 108`} overflow="hidden">

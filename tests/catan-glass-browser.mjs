@@ -35,7 +35,13 @@ async function capture(page, name) {
     const original = baseline[name][region]; const current = snapshot[region];
     assert.equal(current.length, original.length, `${name}: protected ${region} structure changed`);
     for (let i = 0; i < current.length; i++) {
-      assert.deepEqual(current[i].styles, original[i].styles, `${name}: protected ${region} styles changed at ${i}`);
+      // The planned quieter nav changes only its decorative border color.
+      const currentStyles = { ...current[i].styles }; const originalStyles = { ...original[i].styles };
+      if (region === "nav" && i === 0) {
+        currentStyles.border = currentStyles.border.replace(/rgba?\([^)]+\)/g, "<nav-edge>");
+        originalStyles.border = originalStyles.border.replace(/rgba?\([^)]+\)/g, "<nav-edge>");
+      }
+      assert.deepEqual(currentStyles, originalStyles, `${name}: protected ${region} styles changed at ${i}`);
       for (const dimension of ["x","y","width","height"]) assert.ok(Math.abs(current[i].rect[dimension] - original[i].rect[dimension]) < .1, `${name}: protected ${region} ${dimension} changed at ${i}`);
     }
   }
@@ -47,7 +53,7 @@ async function auditWorld(page, activeMenu = null) {
     const rect = (element) => { if (!element) return null; const box = element.getBoundingClientRect(); return {left:box.left,top:box.top,right:box.right,bottom:box.bottom,width:box.width,height:box.height}; };
     const sea = world.querySelector(".catan-world-sea");
     const active = world.querySelector('.is-game-menu[data-state="active"]');
-    return { sea:rect(sea), world:rect(world), hand:rect(world.querySelector(".catan-hand-bar")), stage:rect(world.querySelector(".catan-menu-stage")), dock:rect(world.querySelector(".catan-island-dock")), canvases:world.querySelectorAll(".catan-sea-surface").length, canvasInHost:Boolean(sea.querySelector(".catan-sea-surface")), seaPointerEvents:getComputedStyle(sea).pointerEvents, viewportBackground:getComputedStyle(world.querySelector(".catan-board-viewport")).backgroundImage, active:active && {opacity:getComputedStyle(active).opacity,radius:getComputedStyle(active).borderTopLeftRadius,filter:getComputedStyle(active).backdropFilter}, disabledOpacity:[...world.querySelectorAll('.is-game-menu[data-state="active"] :is(button:disabled,[aria-disabled="true"],.is-unavailable)')].map((element) => getComputedStyle(element).opacity) };
+    return { sea:rect(sea), world:rect(world), hand:rect(world.querySelector(".catan-hand-bar")), stage:rect(world.querySelector(".catan-menu-stage")), dock:rect(world.querySelector(".catan-island-dock")), canvases:world.querySelectorAll(".catan-sea-surface").length, canvasInHost:Boolean(sea.querySelector(".catan-sea-surface")), seaPointerEvents:getComputedStyle(sea).pointerEvents, viewportBackground:getComputedStyle(world.querySelector(".catan-board-viewport")).backgroundImage, active:active && {opacity:getComputedStyle(active).opacity,radius:getComputedStyle(active).borderTopLeftRadius,filter:getComputedStyle(active).backdropFilter,background:getComputedStyle(active).backgroundColor,border:getComputedStyle(active).borderTopColor,innerFilters:[...active.querySelectorAll(".catan-screen-body *")].map((element) => getComputedStyle(element).backdropFilter)}, disabledOpacity:[...world.querySelectorAll('.is-game-menu[data-state="active"] :is(button:disabled,[aria-disabled="true"],.is-unavailable)')].map((element) => getComputedStyle(element).opacity) };
   });
   assert.equal(result.canvases, 1, "World must keep one sea canvas");
   assert.equal(result.canvasInHost, true, "Sea canvas belongs to the shared background host");
@@ -62,6 +68,9 @@ async function auditWorld(page, activeMenu = null) {
     assert.equal(result.active.opacity, "1", "Panel opacity must not dim content");
     assert.equal(result.active.radius, "28px", "Menus share the 28px glass radius");
     assert.match(result.active.filter, /blur\(20px\)/, "Only the shell owns the main blur");
+    assert.equal(result.active.background, "rgba(7, 30, 42, 0.72)", "Menus own one dark 72% base");
+    assert.equal(result.active.border, "rgba(219, 247, 245, 0.22)", "Decorative outer borders stay quiet");
+    assert.ok(result.active.innerFilters.every((value) => value === "none"), "Inner menu cards never add background filters");
     assert.ok(result.disabledOpacity.every((value) => value === "1"), "Unavailable options retain sharp, undimmed content");
   }
   return auditLayout(page, () => observe(page));
@@ -82,11 +91,12 @@ async function preparePage(width, height, reducedMotion = "reduce") {
   const page = await browser.newPage({viewport:{width,height},reducedMotion});
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(baseURL); await expect(page.locator(".catan-board")).toBeVisible(); await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator(".catan-nav .sr-only").first()).toHaveCSS("position","absolute");
   return page;
 }
 
 try {
-  for (const [width,height] of [[360,800],[390,844],[1440,1000]]) {
+  for (const [width,height] of [[320,568],[390,844],[844,390],[1440,1000]]) {
     const page = await preparePage(width,height);
     for (const expanded of [false,true]) {
       if (expanded) await page.getByRole("button", {name:"Insel im Vollbild öffnen",exact:true}).click();
@@ -180,7 +190,7 @@ try {
   await expect(page.locator(".catan-play")).toHaveAttribute("data-catan-sequence",ambientSequence);
   const ambientCard = overview.locator(".catan-ambient-preference");
   await ambientCard.scrollIntoViewIfNeeded();
-  assert.equal(await ambientCard.evaluate((element) => getComputedStyle(element).borderRadius),"20px","Ambient preference shares the inner glass card material");
+  assert.equal(await ambientCard.evaluate((element) => getComputedStyle(element).borderRadius),"16px","Ambient preference shares the inner glass card material");
   await capture(page,"390x844-overview-ambient-preference");
   await overview.getByRole("button",{name:"Spielverlauf",exact:true}).click();
   assert.ok(await overview.locator(".catan-log-entry").count() >= 60, "History fixture retains every long log entry");
@@ -191,7 +201,7 @@ try {
   await overview.locator(".catan-rule-section").filter({hasText:"Die ersten Siedlungen"}).locator("summary").click();
   await auditWorld(page,"uebersicht"); await capture(page,"390x844-overview-rules");
 
-  for (const [width,height] of [[390,844],[844,390]]) for (const expanded of [false,true]) {
+  for (const [width,height] of [[320,568],[390,844],[844,390],[1440,1000]]) for (const expanded of [false,true]) {
     await page.setViewportSize({width,height}); await fixture(page,"cards",true);
     if (expanded) await page.getByRole("button",{name:"Insel im Vollbild öffnen",exact:true}).click();
     for (const id of ["karten","bauen","handel","uebersicht"]) {
@@ -231,8 +241,9 @@ try {
   assert.equal(await fallback.locator(".catan-world-sea").getAttribute("data-catan-sea-ready"),"true","Confirmed loss/gain feedback retains the active sea");
   await auditWorld(fallback,"handel"); await capture(fallback,"390x844-glass-active-gain-loss");
   await trigger(fallback,"bauen").click();
-  await fallback.addStyleTag({content:'.catan-world { --catan-glass-background:rgba(12,48,63,.86)!important; } .catan-world .is-game-menu { --catan-glass-background:rgba(7,30,42,.94)!important; } .catan-world :is(.is-game-menu,.catan-island-dock) { backdrop-filter:none!important; -webkit-backdrop-filter:none!important; }'});
+  await fallback.addStyleTag({content:'.catan-world { --catan-glass-background:#0c303f!important; } .catan-world .is-game-menu { --catan-glass-background:#071e2a!important; } .catan-world :is(.is-game-menu,.catan-island-dock) { backdrop-filter:none!important; -webkit-backdrop-filter:none!important; }'});
   assert.equal(await panel(fallback,"bauen").evaluate((element) => getComputedStyle(element).backdropFilter), "none");
+  assert.equal(await panel(fallback,"bauen").evaluate((element) => getComputedStyle(element).backgroundColor), "rgb(7, 30, 42)", "Filter fallback uses an opaque dark surface");
   await auditLayout(fallback,()=>observe(fallback)); await capture(fallback,"390x844-glass-no-filter");
   await fallback.emulateMedia({reducedMotion:"reduce"}); await observe(fallback);
   assert.ok(await panel(fallback,"bauen").evaluate((element) => [element,...element.querySelectorAll("button")].every((node) => getComputedStyle(node).transitionDuration.split(",").every((value) => parseFloat(value) <= .01))), "Reduced motion removes menu transitions");

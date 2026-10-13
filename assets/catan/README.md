@@ -1,14 +1,14 @@
 # Catan artwork
 
-The current v3 terrain, sea, building and harbor artwork was generated with the built-in ImageGen tool on 2026-10-01. The v1 robber was generated with the same tool on 2026-10-02, using the building atlas as its style reference. The v2 robber is an ImageGen edit of v1 from the same day, with a bright gold sack and warm highlights for contrast against its grayed field. The artwork uses gouache illustration with natural proportions and visible brushwork, between flat vector art and photorealism. No external stock assets are used. The original generation prompts below document the requested designs; the table lists the actual files and dimensions.
+The current v4 terrain, sea and buildings and v2 clean pasture are built-in ImageGen edits made on 2026-10-13. They retain the previous atlas layouts and production dimensions, with calmer terrain/water, clearer building silhouettes and stronger player-colored roofs. The [refinement prompts](REFINEMENT-PROMPTS.md) and [visual/performance QA](REFINEMENT-QA.md) document this update. The original v3 terrain, sea, building and harbor artwork was generated with the same tool on 2026-10-01. The v1 robber was generated on 2026-10-02, using the building atlas as its style reference. The v2 robber is an ImageGen edit of v1 from the same day, with a bright gold sack and warm highlights for contrast against its grayed field. The artwork uses gouache illustration with natural proportions and visible brushwork, between flat vector art and photorealism. No external stock assets are used. The original generation prompts below document the requested designs; the table lists the actual files and dimensions.
 
 ## Current assets
 
 | Asset | File | Dimensions | Layout and use |
 | --- | --- | --- | --- |
-| Terrain | [terrain-atlas-v3.jpg](../../public/catan/terrain-atlas-v3.jpg) | 1536 × 1024 | Six square cells in a 3 × 2 grid: wood, wool, grain / brick, ore, desert. |
-| Sea | [sea-v3.jpg](../../public/catan/sea-v3.jpg) | 1254 × 1254 | One square texture covering the map viewport, shared by the animated sea and static fallback. |
-| Buildings | [buildings-v3.png](../../public/catan/buildings-v3.png) | 1774 × 887 | Transparent 4 × 2 atlas: settlements above cities; columns are coral, blue, ivory and purple. |
+| Terrain | [terrain-atlas-v4.jpg](../../public/catan/terrain-atlas-v4.jpg) | 1536 × 1024 | Six square cells in a 3 × 2 grid: wood, wool, grain / brick, ore, desert. |
+| Sea | [sea-v4.jpg](../../public/catan/sea-v4.jpg) | 1254 × 1254 | One square texture covering the map viewport, shared by the animated sea and static fallback. |
+| Buildings | [buildings-v4.png](../../public/catan/buildings-v4.png) | 1774 × 887 | Transparent 4 × 2 atlas: settlements above cities; columns are coral, blue, ivory and purple. |
 | Harbor piers | [harbor-atlas-v3.png](../../public/catan/harbor-atlas-v3.png) | 1774 × 887 | The left transparent cell supplies the weathered T-shaped pier; the original right-hand boat remains a source reference. |
 | Directional boats | [boats-directions-v1.png](../../public/catan/boats-directions-v1.png) | 1536 × 1024 | Transparent 3 × 2 atlas: newly painted views facing right, lower-right, lower-left / left, upper-left, upper-right. |
 | Clouds and shadows | [clouds-atlas-v1.png](../../public/catan/clouds-atlas-v1.png) | 1254 × 1254 | Transparent 2 × 2 atlas: two wispy ivory clouds above their matching soft slate-blue shadow silhouettes. |
@@ -18,9 +18,9 @@ The current v3 terrain, sea, building and harbor artwork was generated with the 
 | Ambient sprites | [ambient-atlas-v1.png](../../public/catan/ambient-atlas-v1.png) | 1448 × 1086 | Transparent 4 × 3 atlas; two poses each for gull, woodland bird, butterfly, dolphin, sheep and pedestrian. |
 | Wildlife | [wildlife-atlas-v1.png](../../public/catan/wildlife-atlas-v1.png) | 1254 × 1254 | Transparent 4 × 4 atlas: paired doe, stag, fox, boar, fire salamander, common toad and newt poses; the last two cells are empty. |
 | Field and forest wildlife | [field-forest-wildlife-v1.png](../../public/catan/field-forest-wildlife-v1.png) | 1254 × 1254 | Transparent 4 × 4 atlas: paired hare, field mouse, pheasant, red squirrel, badger and hedgehog poses; the last row is empty. |
-| Clean pasture | [pasture-v1.png](../../public/catan/pasture-v1.png) | 1254 × 1254 | Sheep-free meadow matching the v3 pasture; independent sheep sprites are added on top. |
+| Clean pasture | [pasture-v2.png](../../public/catan/pasture-v2.png) | 1254 × 1254 | Sheep-free meadow matching the v4 pasture; independent sheep sprites are added on top. |
 
-Terrain and sea were encoded as JPEG at quality 85, retaining their source dimensions. Buildings and harbors retain PNG alpha for compositing over the board. The terrain and sea are painterly edits of the v2 images; buildings used the v3 terrain as a style reference, and harbors used the building atlas.
+Terrain and sea are encoded as JPEG at quality 85 with MozJPEG, retaining their source dimensions. Buildings and harbors retain PNG alpha for compositing over the board. The clean pasture is lossless RGB PNG. Earlier versions remain as edit references; the active versions alone are precached. Their combined compressed size is checked against the originals by the artwork regression tests.
 
 [landscape.tsx](../../components/catan/landscape.tsx) selects atlas cells with native SVG view boxes. [board.tsx](../../components/catan/board.tsx) clips terrain to hexagons, places buildings and aligns harbors with the coastline. Roof colors identify ownership; a native SVG mooring line joins each boat to its pier. Resource pictograms are original filled SVG in [resource-icon.tsx](../../components/catan/resource-icon.tsx), shared by inventory, cards, costs, trading, placement previews and harbor badges: stacked logs, terracotta bricks, a sheep, wheat ears and mineral rocks.
 

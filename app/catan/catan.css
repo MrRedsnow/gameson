@@ -388,7 +388,7 @@
 .catan-nav-label { max-width:100%; overflow-wrap:anywhere; }
 .catan-nav-icon { height:clamp(26px,3.5vw,38px); }
 .catan-nav-icon>svg { width:clamp(24px,3.5vw,34px); height:clamp(24px,3.5vw,34px); }
-.catan-island-screen { position:relative; isolation:isolate; min-height:0; padding:0; gap:0; border:1px solid #356377; border-radius:clamp(16px,2.2vw,24px); background:#103b4d url("/catan/sea-v3.jpg") center / cover no-repeat; overflow:hidden; }
+.catan-island-screen { position:relative; isolation:isolate; min-height:0; padding:0; gap:0; border:1px solid #356377; border-radius:clamp(16px,2.2vw,24px); background:#103b4d url("/catan/sea-v4.jpg") center / cover no-repeat; overflow:hidden; }
 .catan-island-screen>.catan-screen-heading { gap:clamp(8px,1.5vw,18px); min-height:clamp(64px,8vw,84px); padding:clamp(10px,1.4vw,16px); background:linear-gradient(#082c3be6,#082c3b80); }
 .catan-island-screen .catan-screen-heading h2 { font-size:clamp(1.0625rem,2.8vw,1.875rem); }
 .catan-island-screen .catan-screen-subtitle { margin-top:4px; color:#b5ceda; font-size:clamp(.6875rem,1.8vw,1.125rem); line-height:1.3; }
@@ -422,17 +422,13 @@
 .catan-hex-seam-shadow { stroke:#1d302c; stroke-width:2.15px; stroke-opacity:.66; }
 .catan-hex-seam-light { stroke:#dbc89b; stroke-width:.65px; stroke-opacity:.35; }
 .catan-number-label { font-family:Georgia,"Times New Roman",serif; font-size:29px; font-weight:700; fill:#fff1d7; stroke:#1c2922; stroke-width:1.2px; paint-order:stroke; stroke-linejoin:round; }
-.catan-number-label[data-resource=wood] { fill:#d2e3ca; }
-.catan-number-label[data-resource=wool] { fill:#d8ecbe; }
-.catan-number-label[data-resource=grain] { fill:#ffe9bd; }
-.catan-number-label[data-resource=brick] { fill:#f1cfb5; }
-.catan-number-label[data-resource=ore] { fill:#d9e4ea; }
-.catan-number-label.is-blocked { stroke-width:2.5px; }
+.catan-number-label[data-catan-number-hot=true] { fill:#f3a08a; }
+.catan-number-label.is-blocked { fill:#fff1d7; stroke-width:2.5px; }
 .catan-blocked-desert-label { fill:#fff1d7; stroke:#1c2922; stroke-width:2.5px; paint-order:stroke; stroke-linejoin:round; }
 .catan-theme .catan-map-instruction { font-size:.875rem; line-height:1.3; color:#d5e1e2; }
 .catan-board-panel { flex:1 0 auto; min-height:12rem; flex-direction:column; border-radius:10px; }
 .catan-board-map { position:relative; display:flex; flex-direction:column; flex:1 0 156px; min-width:0; min-height:156px; }
-.catan-board-viewport { position:relative; isolation:isolate; flex:1 1 0; min-height:0; overflow:hidden; touch-action:none; overscroll-behavior:contain; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:grab; background:#254650 url("/catan/sea-v3.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); }
+.catan-board-viewport { position:relative; isolation:isolate; flex:1 1 0; min-height:0; overflow:hidden; touch-action:none; overscroll-behavior:contain; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:grab; background:#254650 url("/catan/sea-v4.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); }
 .catan-sea-surface { position:absolute; inset:0; z-index:-1; width:100%; height:100%; opacity:0; pointer-events:none; }
 @media(prefers-reduced-motion:reduce) { .catan-board-viewport { background-size:cover; background-position:center; } .catan-sea-surface { display:none; } }
 .catan-board-viewport[data-interacting=true], .catan-board-viewport[data-interacting=true] .catan-map-target { cursor:grabbing; }
@@ -614,35 +610,38 @@
 .catan-world {
   --catan-glass-alpha:.6;
   --catan-glass-tint:rgba(12,48,63,var(--catan-glass-alpha));
-  --catan-glass-background:rgba(12,48,63,.86);
+  --catan-glass-background:#0c303f;
   --catan-glass-opal:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.04) 62%);
   --catan-glass-filter:blur(20px) saturate(118%);
   --catan-glass-control-filter:blur(7px) saturate(60%);
-  --catan-glass-edge:rgba(219,247,245,.36);
-  --catan-glass-inner-edge:rgba(219,247,245,.22);
-  --catan-glass-inner:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.025)),rgba(9,43,58,var(--catan-glass-alpha));
-  --catan-glass-selected:linear-gradient(135deg,rgba(242,211,139,.19),rgba(255,255,255,.04)),rgba(12,48,63,var(--catan-glass-alpha));
-  --catan-glass-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -1px 0 rgba(15,42,52,.16),0 10px 32px rgba(4,32,43,.22);
+  --catan-glass-edge:rgba(219,247,245,.22);
+  --catan-glass-inner-edge:rgba(219,247,245,.12);
+  --catan-glass-inner:rgba(9,43,58,.14);
+  --catan-glass-selected:rgba(242,211,139,.12);
+  --catan-glass-hover:rgba(255,255,255,.07);
+  --catan-glass-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 32px rgba(4,32,43,.22);
   --catan-glass-text:#f4f6ef;
   --catan-glass-muted:#030404;
   --catan-glass-menu-radius:28px;
-  --catan-glass-inner-radius:20px;
-  --catan-glass-button-radius:18px;
+  --catan-glass-inner-radius:16px;
+  --catan-glass-button-radius:12px;
+  --catan-island-radius:18px;
   --catan-glass-space:16px;
   position:relative; flex:1 1 0; display:flex; flex-direction:column; gap:8px; min-width:0; min-height:0;
 }
-/* A darker menu palette keeps text clear over bright terrain without changing the island HUD. */
+/* Menus own the dark base; their quieter cards never stack another glass layer. */
 .catan-world .is-game-menu {
+  --catan-glass-alpha:.72;
   --catan-glass-tint:rgba(7,30,42,var(--catan-glass-alpha));
-  --catan-glass-background:rgba(7,30,42,.94);
+  --catan-glass-background:#071e2a;
   --catan-glass-opal:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.015) 62%);
-  --catan-glass-inner-edge:rgba(219,247,245,.28);
-  --catan-glass-inner:linear-gradient(135deg,rgba(255,255,255,.045),rgba(255,255,255,.01)),rgba(3,21,30,var(--catan-glass-alpha));
-  --catan-glass-selected:linear-gradient(135deg,rgba(242,211,139,.23),rgba(255,255,255,.025)),rgba(7,30,42,var(--catan-glass-alpha));
+  --catan-glass-inner-edge:rgba(219,247,245,.12);
+  --catan-glass-inner:rgba(3,21,30,.14);
+  --catan-glass-selected:rgba(242,211,139,.12);
   --catan-glass-text:#fff7ec;
   --catan-glass-muted:#d9e5e7;
 }
-.catan-world-sea { position:absolute; inset:0; z-index:0; overflow:hidden; border-radius:var(--catan-glass-button-radius); background:#254650 url("/catan/sea-v3.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); pointer-events:none; }
+.catan-world-sea { position:absolute; inset:0; z-index:0; overflow:hidden; border-radius:var(--catan-island-radius); background:#254650 url("/catan/sea-v4.jpg") center / cover no-repeat; background-size:var(--catan-sea-size,cover); background-position:calc(50% + var(--catan-sea-x,0px)) calc(50% + var(--catan-sea-y,0px)); pointer-events:none; }
 .catan-world-sea>.catan-sea-surface { z-index:0; }
 .catan-world>.catan-hand-bar { position:relative; z-index:1; pointer-events:none; }
 .catan-world :is(button,summary,[role=button]) { min-height:44px; }
@@ -650,11 +649,11 @@
 .catan-world :is(button,a,summary,input,[role=button]):focus-visible { outline:3px solid #ffe2a0; outline-offset:3px; }
 .catan-world .is-game-menu .catan-screen-body :is(button,a,summary,input,[role=button]):focus-visible { outline-offset:-3px; }
 .catan-world :is(button,[role=button]) { transition:background-color .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease; }
-.catan-world .catan-hand-resource[data-catan-resource=wood] { --resource-bg:rgba(71,55,33,var(--catan-glass-alpha)); --resource-border:rgba(206,167,101,.6); }
-.catan-world .catan-hand-resource[data-catan-resource=brick] { --resource-bg:rgba(100,53,45,var(--catan-glass-alpha)); --resource-border:rgba(231,144,116,.6); }
-.catan-world .catan-hand-resource[data-catan-resource=wool] { --resource-bg:rgba(43,77,54,var(--catan-glass-alpha)); --resource-border:rgba(179,213,157,.58); }
-.catan-world .catan-hand-resource[data-catan-resource=grain] { --resource-bg:rgba(100,83,27,var(--catan-glass-alpha)); --resource-border:rgba(240,208,111,.6); }
-.catan-world .catan-hand-resource[data-catan-resource=ore] { --resource-bg:rgba(34,66,88,var(--catan-glass-alpha)); --resource-border:rgba(177,212,230,.58); }
+.catan-world .catan-hand-resource[data-catan-resource=wood] { --resource-bg:rgba(71,55,33,var(--catan-glass-alpha)); --resource-border:rgba(206,167,101,.32); }
+.catan-world .catan-hand-resource[data-catan-resource=brick] { --resource-bg:rgba(100,53,45,var(--catan-glass-alpha)); --resource-border:rgba(231,144,116,.32); }
+.catan-world .catan-hand-resource[data-catan-resource=wool] { --resource-bg:rgba(43,77,54,var(--catan-glass-alpha)); --resource-border:rgba(179,213,157,.32); }
+.catan-world .catan-hand-resource[data-catan-resource=grain] { --resource-bg:rgba(100,83,27,var(--catan-glass-alpha)); --resource-border:rgba(240,208,111,.32); }
+.catan-world .catan-hand-resource[data-catan-resource=ore] { --resource-bg:rgba(34,66,88,var(--catan-glass-alpha)); --resource-border:rgba(177,212,230,.32); }
 .catan-world .catan-hand-strip>.catan-hand-resource { background:var(--catan-glass-opal),var(--resource-bg); box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 3px 12px rgba(4,32,43,.12); }
 @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
   .catan-world { --catan-glass-background:var(--catan-glass-tint); }
@@ -668,7 +667,7 @@
 .catan-world .catan-menu-stage .catan-island-screen { display:flex; flex-direction:column; width:100%; height:100%; min-height:0; padding:0; gap:0; border:0; border-radius:0; background:transparent; overflow:visible; }
 .catan-island-canvas { position:relative; flex:1 1 0; min-height:64px; overflow:visible; }
 /* Keep toolbar space in the flow while extending the board to the world edges. */
-.catan-menu-stage .catan-island-canvas .catan-board-panel { position:absolute; inset:var(--catan-map-top,0px) 0 var(--catan-map-bottom,0px); display:flex; flex-direction:column; height:auto; min-height:0; border:0; border-radius:var(--catan-glass-button-radius); }
+.catan-menu-stage .catan-island-canvas .catan-board-panel { position:absolute; inset:var(--catan-map-top,0px) 0 var(--catan-map-bottom,0px); display:flex; flex-direction:column; height:auto; min-height:0; border:0; border-radius:var(--catan-island-radius); }
 .catan-menu-stage .catan-board-map { flex:1 1 0; min-height:0; }
 .catan-menu-stage .catan-board-viewport { height:100%; min-height:0; }
 .catan-world :is(.catan-board-panel,.catan-board-map,.catan-board-viewport,.catan-board) { background:transparent; }
@@ -734,9 +733,9 @@
 .catan-menu-close>svg { width:20px; height:20px; }
 .is-game-menu>.catan-screen>.catan-screen-body { flex:1 1 0; min-height:0; gap:12px; padding:2px; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#5e8291 transparent; }
 .catan-world .is-game-menu>.catan-screen>.catan-screen-actions { flex:0 0 auto; flex-wrap:wrap; gap:8px; padding-top:8px; border:0; background:transparent; }
-.catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions [data-slot=button] { border:1px solid var(--catan-glass-edge); background:var(--catan-glass-opal),rgba(27,92,108,var(--catan-glass-alpha)); color:var(--catan-glass-text); box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 3px 12px rgba(4,32,43,.12); }
-.catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions .catan-primary { border-color:rgba(239,207,140,.8); background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(238,211,151,.06)),rgba(98,111,93,var(--catan-glass-alpha)); color:#fff3d6; }
-.catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions [data-slot=button]:disabled { opacity:1; border-color:var(--catan-glass-inner-edge); color:#c1d0d5; background:var(--catan-glass-inner); box-shadow:inset 0 1px 0 rgba(255,255,255,.08); }
+.catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions [data-slot=button] { border:1px solid var(--catan-glass-edge); background:rgba(12,48,63,var(--catan-glass-alpha)); color:var(--catan-glass-text); box-shadow:none; }
+.catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions :is(.catan-primary,.catan-end-turn) { border-color:#efd18a; background:#efd18a; color:#1c2b31; box-shadow:none; }
+.catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions [data-slot=button]:disabled { opacity:1; border-color:var(--catan-glass-inner-edge); color:#c1d0d5; background:var(--catan-glass-inner); box-shadow:none; }
 .catan-theme .catan-world .is-game-menu .catan-screen-actions [data-slot=button] { min-width:0; min-height:44px; margin:0; padding:8px 12px; border-radius:var(--catan-glass-button-radius); }
 
 .catan-play>.catan-status { gap:8px; min-height:60px; padding:8px 12px; border-radius:16px; }
@@ -753,7 +752,7 @@
 .catan-play .catan-hand-resource>svg { width:24px; height:24px; }
 .catan-play .catan-hand-resource b { font-size:1.25rem; }
 .catan-play .catan-hand-strip small { font-size:.6875rem; }
-.catan-play>.catan-nav { position:relative; z-index:120; display:block; width:min(560px,100%); margin:0 auto; border:1px solid #3e697b; border-radius:12px 12px 0 0; background:#0b2939; padding-bottom:env(safe-area-inset-bottom); }
+.catan-play>.catan-nav { position:relative; z-index:120; display:block; width:min(560px,100%); margin:0 auto; border:1px solid #3e697b66; border-radius:12px 12px 0 0; background:#0b2939; padding-bottom:env(safe-area-inset-bottom); }
 .catan-nav-list { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); width:100%; height:auto; padding:0 4px; }
 .catan-theme .catan-nav-tab { min-width:0; min-height:62px; gap:4px; padding:8px 2px; border:0; border-radius:8px; background:transparent; color:#bdd1dd; font-size:.6875rem; font-weight:500; }
 .catan-nav-icon { width:34px; height:26px; }
@@ -764,7 +763,7 @@
 .catan-nav-tab:is([aria-expanded=true],[aria-pressed=true]) .catan-nav-icon { background:transparent; }
 
 .catan-world .is-game-menu .catan-build-list { gap:10px; }
-.catan-world .is-game-menu .catan-build-choice { align-items:center; min-height:82px; gap:12px; padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); box-shadow:inset 0 1px 0 rgba(255,255,255,.1); }
+.catan-world .is-game-menu .catan-build-choice { align-items:center; min-height:82px; gap:12px; padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); box-shadow:none; }
 .is-game-menu .catan-build-choice>svg { width:32px; height:32px; flex:0 0 32px; margin:0; color:#f1ca72; }
 .is-game-menu .catan-build-choice>svg:last-child { width:18px; height:18px; flex-basis:18px; }
 .is-game-menu .catan-build-choice>span { grid-template-columns:minmax(0,1fr); gap:4px; }
@@ -773,7 +772,7 @@
 .is-game-menu .catan-build-choice .catan-cost svg { width:19px; height:19px; }
 .is-game-menu .catan-build-choice .catan-cost b { font-size:.8125rem; font-weight:500; color:#f2ece0; }
 .catan-world .is-game-menu .catan-build-choice small { font-size:.75rem; line-height:1.4; color:var(--catan-glass-muted); }
-.catan-world .is-game-menu .catan-build-choice[aria-disabled=true] { border-color:rgba(219,247,245,.16); color:#c1d0d5; background:linear-gradient(135deg,rgba(255,255,255,.035),transparent),rgba(12,48,63,var(--catan-glass-alpha)); }
+.catan-world .is-game-menu .catan-build-choice[aria-disabled=true] { border-color:var(--catan-glass-inner-edge); color:#c1d0d5; background:var(--catan-glass-inner); }
 .catan-world .is-game-menu .catan-build-choice[aria-disabled=true]>svg { color:#a8bcc2; }
 .catan-world .is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost>span { color:#c1d0d5; }
 .catan-world .is-game-menu .catan-build-choice[aria-disabled=true] .catan-cost svg { opacity:1; filter:saturate(.75); }
@@ -793,7 +792,7 @@
 .catan-menu-choice>span { display:grid; gap:4px; flex:1; min-width:0; }
 .catan-menu-choice strong { font-size:.9375rem; }
 .catan-world .catan-menu-choice small { color:var(--catan-glass-muted); font-size:.8125rem; font-weight:400; line-height:1.45; }
-.catan-theme .catan-world .catan-menu-choice:is(:disabled,.is-unavailable) { opacity:1; color:#c1d0d5; border-color:rgba(219,247,245,.16); background:linear-gradient(135deg,rgba(255,255,255,.035),transparent),rgba(12,48,63,var(--catan-glass-alpha)); }
+.catan-theme .catan-world .catan-menu-choice:is(:disabled,.is-unavailable) { opacity:1; color:#c1d0d5; border-color:var(--catan-glass-inner-edge); background:var(--catan-glass-inner); }
 .catan-theme .catan-world .catan-menu-choice:is(:disabled,.is-unavailable)>svg:first-child { color:#a8bcc2; }
 .catan-world .catan-menu-choice:is(:disabled,.is-unavailable) small { color:var(--catan-glass-muted); }
 .is-game-menu .catan-empty-state { min-height:100%; padding:12px 16px; gap:12px; }
@@ -805,7 +804,10 @@
 .is-game-menu .catan-empty-state p { max-width:260px; font-size:.875rem; color:#bdced5; }
 @media(hover:hover) {
   .catan-theme .catan-nav-tab:hover { color:#ffe0a0; background:#efd18a0c; }
-  .catan-world .is-game-menu .catan-build-choice:not([aria-disabled=true]):hover, .catan-theme .catan-world .catan-menu-choice:not(:disabled):hover { border-color:#ddc185; background:var(--catan-glass-selected); }
+  .catan-world .is-game-menu .catan-build-choice:not([aria-disabled=true]):not([aria-pressed=true]):hover, .catan-theme .catan-world .catan-menu-choice:not(:disabled):not(.is-unavailable):hover { border-color:var(--catan-glass-edge); background:var(--catan-glass-hover); }
+  .catan-theme .catan-world :is(.catan-victim-choice,.catan-person-choice,.catan-overview-link,.catan-development-choice,.catan-trade-filters button,.catan-resource-choices button,.catan-board-controls button,.catan-island-tools button):not(:disabled):not([aria-disabled=true]):not([aria-pressed=true]):hover { border-color:var(--catan-glass-edge); background:var(--catan-glass-hover); }
+  .catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions [data-slot=button]:not(:disabled):hover { background:var(--catan-glass-hover); }
+  .catan-theme .catan-world :is(.is-game-menu,.catan-island-dock) .catan-screen-actions :is(.catan-primary,.catan-end-turn):not(:disabled):hover { background:#ffe2a1; }
 }
 
 /* Public inventories and exchange sides use the same quiet card surfaces. */
@@ -815,11 +817,12 @@
 .catan-theme .is-game-menu .catan-person-choice { padding:12px; gap:12px; min-height:64px; }
 .is-game-menu .catan-exchange { grid-template-columns:minmax(0,1fr); gap:12px; }
 .catan-world .is-game-menu .catan-exchange p { min-width:0; padding:12px; border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); border:1px solid var(--catan-glass-inner-edge); }
-.catan-world .is-game-menu .catan-exchange p:last-child { border-color:rgba(192,239,199,.35); background:linear-gradient(135deg,rgba(192,239,199,.07),transparent),rgba(12,48,63,var(--catan-glass-alpha)); }
+.catan-world .is-game-menu .catan-exchange p:last-child { border-color:rgba(192,239,199,.2); background:rgba(192,239,199,.06); }
 .is-game-menu .catan-exchange :is(span,strong) { overflow-wrap:anywhere; }
 .is-game-menu .catan-player-card summary { gap:8px; padding:12px; }
 .catan-world .is-game-menu :is(.catan-overview-link,.catan-log-entry,.catan-trade-bag,.catan-activity-entry,.catan-setup-guide,.catan-map-vote,.catan-section,.catan-trade-preview) { padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-world .is-game-menu .catan-player-card>div { border-top:0; }
+.catan-world :is(.is-game-menu,.catan-island-context) :is(.catan-section,.catan-development-card,.catan-rule-section,.catan-activity-item,.catan-setup-guide,.catan-map-vote) :is(.catan-trade-preview,.catan-trade-bag,.catan-amount-controls,.catan-resource-hand>div) { border:0; border-top:1px solid var(--catan-glass-inner-edge); border-radius:0; background:transparent; box-shadow:none; }
 .catan-world .is-game-menu .catan-amount-controls { padding:12px; gap:8px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-theme .catan-world .is-game-menu :is(.catan-stepper,.catan-pager,.catan-card-links,.catan-overview-exit) [data-slot=button] { min-height:44px; min-width:44px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-inner); color:var(--catan-glass-text); }
 .catan-world .is-game-menu .catan-resource-choices>div { gap:8px; }
@@ -835,6 +838,15 @@
 .catan-theme .catan-resource-choices button[aria-pressed=true]::after { content:"✓"; position:absolute; top:4px; right:6px; color:#f6d589; font-size:.875rem; }
 .catan-resource-choices button { position:relative; }
 @media(min-width:600px) { .is-game-menu .catan-exchange { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* Desktop menus fit short content; their bodies shrink and scroll at the existing height cap. */
+@media(min-width:1024px) {
+  .catan-world .catan-menu-stage:not([data-catan-short-stage=true])>.is-game-menu { height:auto; max-height:min(72dvh,var(--catan-menu-height,calc(100% - 24px))); }
+  .catan-world .catan-menu-stage:not([data-catan-short-stage=true])>.is-game-menu[data-state=active] { display:flex; flex-direction:column; }
+  .catan-world .catan-menu-stage:not([data-catan-short-stage=true])>.is-game-menu>.catan-screen { flex:1 1 auto; height:auto; }
+  .catan-world .catan-menu-stage:not([data-catan-short-stage=true])>.is-game-menu>.catan-screen>.catan-screen-body { flex:0 1 auto; }
+  .catan-world .catan-menu-stage:not([data-catan-short-stage=true])>.is-game-menu .catan-empty-state { min-height:0; }
+}
 
 /* Fullscreen shares the same map and HUD spacing as the normal layout. */
 body:has(.catan-play.is-board-expanded) { overflow:hidden; }
