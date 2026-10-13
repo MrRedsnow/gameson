@@ -29,7 +29,9 @@
 .catan-ambient-smoke-puff { fill:#dddacf; opacity:0; animation:catan-ambient-smoke 3s ease-out both; }
 .catan-ambient-water-ring { fill:none; stroke:#d4e0da; stroke-width:.85; opacity:0; animation:catan-ambient-ring 1.8s ease-out both; }
 .catan-ambient-boat { transform-box:view-box; transform-origin:0 0; animation:catan-ambient-boat var(--catan-boat-period,6.5s) ease-in-out infinite; animation-delay:var(--catan-boat-delay,0ms); animation-play-state:paused; }
-.catan-board[data-catan-ambient-active=true] .catan-ambient-boat { animation-play-state:running; }
+.catan-board[data-catan-ambient-active=true][data-catan-water-enabled=true] .catan-ambient-boat { animation-play-state:running; }
+.catan-board[data-catan-water-enabled=false] .catan-ambient-water-ring { display:none; animation:none; }
+.catan-board[data-catan-water-enabled=false] .catan-ambient-sailboat-wake { display:none; }
 .catan-board[data-catan-ambient-active=false] .catan-ambient-island * { animation-play-state:paused; }
 .catan-board[data-catan-atmosphere-active=false] .catan-atmosphere { visibility:hidden; }
 .catan-atmosphere-cloud-size {

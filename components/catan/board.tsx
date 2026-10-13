@@ -41,9 +41,9 @@ function HexNumber({ artId, hex, blocked = false }: { artId: string; hex: Hex; b
   </> : null;
 }
 
-export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, islandVisible = true, animationBaseline = 0, ambientEnabled = true, seaTarget, ambientPreviewKind, ambientPreviewAtmosphere = false }: {
+export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, onInspect, islandVisible = true, animationBaseline = 0, ambientEnabled = true, waterEnabled = true, seaTarget, ambientPreviewKind, ambientPreviewAtmosphere = false }: {
   game: CatanView; mode: BoardMode; choices: number[]; selected: number | null;
-  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number; ambientEnabled?: boolean; seaTarget?: HTMLElement | null;
+  onSelect: (id: number) => void; disabled: boolean; onInspect?: (resource: Resource) => void; expanded?: boolean; islandVisible?: boolean; animationBaseline?: number; ambientEnabled?: boolean; waterEnabled?: boolean; seaTarget?: HTMLElement | null;
   ambientPreviewKind?: AmbientKind; ambientPreviewAtmosphere?: boolean;
 }) {
   const artId = `catan-${useId().replace(/:/g, "")}`;
@@ -198,11 +198,11 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
     onClick: (event: React.MouseEvent<SVGGElement>) => { if (!disabled) { event.stopPropagation(); if (run) run(event); else activateFromTap(id, event); } },
     onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!disabled) { if (run) run(null); else activateFromTap(id, null); } } },
   });
-  const seaSurface = <CatanSeaBackground ref={seaRef} width={seaViewport.width} height={seaViewport.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && seaViewport.measured} interacting={interactionActive} ambientEnabled={ambientEnabled} />;
+  const seaSurface = <CatanSeaBackground ref={seaRef} width={seaViewport.width} height={seaViewport.height} size={sea.size} x={sea.x} y={sea.y} active={islandVisible && seaViewport.measured} interacting={interactionActive} ambientEnabled={ambientEnabled} waterEnabled={waterEnabled} />;
   return <section className="catan-board-panel" aria-label="Catan-Spielbrett">
     <div className="catan-board-map"><div ref={viewportRef} className="catan-board-viewport" role="presentation" style={seaStyle} data-interacting={interactionActive} {...viewportProps} onClick={() => setInspect(null)}>
       {seaTarget ? createPortal(seaSurface, seaTarget) : seaTarget === undefined ? seaSurface : null}
-      <svg ref={svgRef} className="catan-board" viewBox={viewBox} style={{ "--catan-camera-scale": scale } as CSSProperties} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom} data-catan-ambient-active={ambientEnabled && islandVisible && !interactionActive && !effectsBusy} data-catan-atmosphere-active={ambientEnabled && islandVisible}>
+      <svg ref={svgRef} className="catan-board" viewBox={viewBox} style={{ "--catan-camera-scale": scale } as CSSProperties} role="group" aria-label="Insel mit Landschaften, Häfen, Straßen und Siedlungen" aria-describedby={`${artId}-navigation-hint`} data-zoom={camera.zoom} data-catan-ambient-active={ambientEnabled && islandVisible && !interactionActive && !effectsBusy} data-catan-atmosphere-active={ambientEnabled && islandVisible} data-catan-water-enabled={waterEnabled}>
         <title>Catan – Spielbrett</title>
         <defs>
           <LandscapeDefinitions id={artId} cleanPasture={pastureReady} />
@@ -231,7 +231,7 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           <path className="catan-hex-seam-shadow" d={seamPath} fill="none" vectorEffect="non-scaling-stroke" />
           <path className="catan-hex-seam-light" d={seamPath} fill="none" vectorEffect="non-scaling-stroke" />
         </g>
-        <CatanAmbientIsland game={game} artId={artId} viewBox={viewBox} boardBounds={boardBounds} scale={scale} active={islandVisible} interacting={interactionActive} enabled={ambientEnabled} effectsBusy={effectsBusy} cleanPasture={pastureReady} externalPedestrians previewKind={ambientPreviewKind} previewAtmosphere={ambientPreviewAtmosphere} />
+        <CatanAmbientIsland game={game} artId={artId} viewBox={viewBox} boardBounds={boardBounds} scale={scale} active={islandVisible} interacting={interactionActive} enabled={ambientEnabled} waterEnabled={waterEnabled} effectsBusy={effectsBusy} cleanPasture={pastureReady} externalPedestrians previewKind={ambientPreviewKind} previewAtmosphere={ambientPreviewAtmosphere} />
         {board.hexes.filter((hex) => hex.id !== game.robberHex).map((hex) => <HexNumber key={hex.id} artId={artId} hex={hex} />)}
         {mode === "robber" && board.hexes.filter((hex) => choices.includes(hex.id) && hex.id !== selected).map((hex) => <circle key={`robber-choice-${hex.id}`} cx={hex.x} cy={hex.y} r="46" fill="none" stroke="#fff5c3" strokeDasharray="4 6" strokeWidth="2" pointerEvents="none" aria-hidden="true" />)}
         {selectedHex && <polygon className="catan-hex-selection" points={selectedHex.vertices.map((id) => `${board.vertices[id].x},${board.vertices[id].y}`).join(" ")} fill="none" stroke="#fff5c3" strokeWidth="3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" pointerEvents="none" aria-hidden="true" />}

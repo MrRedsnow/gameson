@@ -22,13 +22,13 @@ class Listeners {
   emit(type, event = {}) { this.handlers.get(type)?.forEach((callback) => callback(event)); }
   get size() { return [...this.handlers.values()].reduce((sum, callbacks) => sum + callbacks.size, 0); }
 }
-const defaults = { width: 412, height: 892, size: 940, x: 8, y: -5, active: true, interacting: false, ambientEnabled: true };
+const defaults = { width: 412, height: 892, size: 940, x: 8, y: -5, active: true, interacting: false, ambientEnabled: true, waterEnabled: true };
 
-function environment(t, { reducedMotion = false, handheld = true, contextAvailable = true } = {}) {
+function environment(t, { reducedMotion = false, handheld = true, contextAvailable = true, waterEnabled = true } = {}) {
   const frames = new Map(); const images = []; const hooks = [];
   const uniforms = new Map(); const draws = []; const shaderSources = []; const deleted = { textures: 0, buffers: 0, programs: 0, shaders: 0 };
   let nextFrame = 0; let hookIndex = 0; let renders = 0; let contextLost = false; let disposed = false;
-  let pendingLayout = []; let pendingEffects = []; let props = { ...defaults };
+  let pendingLayout = []; let pendingEffects = []; let props = { ...defaults, waterEnabled };
   const handle = { current: null };
   const viewport = { attributes: new Map(), style: { values: new Map(), setProperty(name, value) { this.values.set(name, value); } }, setAttribute(name, value) { this.attributes.set(name, value); } };
   const gl = {
@@ -138,6 +138,36 @@ test("the ambient toggle removes sea reflections without restarting its clock or
   env.render({ ambientEnabled: true });
   assert.equal(env.draws.at(-1).ambient, 1); assert.equal(env.draws.at(-1).time, resumedPhase);
   assert.equal(env.shaderSources.length, shaders); assert.equal(env.images.length, 1); assert.equal(env.frames.size, 1);
+});
+
+test("disabling water cancels its renderer loop and keeps the static sea aligned during navigation", (t) => {
+  const env = environment(t); env.load(); env.frameAt(0); env.frameAt(500);
+  const phase = env.draws.at(-1).time; const shaders = env.shaderSources.length;
+  env.render({ waterEnabled: false });
+  const count = env.draws.length;
+  assert.equal(env.frames.size, 0); assert.equal(env.canvas.style.opacity, "0");
+  assert.equal(env.viewport.attributes.get("data-catan-sea-ready"), "false");
+  env.handle.current.setCameraLayout({ size: 1060, x: 27, y: -31 });
+  env.render({ waterEnabled: false, ambientEnabled: false, size: 1060, x: 27, y: -31 });
+  env.frameAt(10_000);
+  assert.equal(env.draws.length, count, "Neither camera updates nor island settings can restart disabled water draws.");
+  assert.equal(env.frames.size, 0);
+  assert.equal(env.viewport.style.values.get("--catan-sea-size"), "1060px");
+  assert.equal(env.viewport.style.values.get("--catan-sea-x"), "27px"); assert.equal(env.viewport.style.values.get("--catan-sea-y"), "-31px");
+  env.render({ waterEnabled: true });
+  assert.equal(env.canvas.style.opacity, "1"); assert.equal(env.frames.size, 1);
+  assert.equal(env.shaderSources.length, shaders); assert.equal(env.images.length, 1);
+  assert.equal(env.draws.at(-1).ambient, 0, "Water and island animation settings remain independent.");
+  env.frameAt(20_000); assert.equal(env.draws.at(-1).time, phase, "Disabled time cannot accumulate into a phase jump.");
+  env.frameAt(20_034); assert.ok(Math.abs(env.draws.at(-1).time - phase - .034) < 1e-8);
+});
+
+test("initially disabled water avoids WebGL setup and loading an unused texture", (t) => {
+  const env = environment(t, { waterEnabled: false });
+  assert.equal(env.shaderSources.length, 0); assert.equal(env.images.length, 0); assert.equal(env.frames.size, 0);
+  assert.equal(env.canvas.style.opacity, "0");
+  env.render({ waterEnabled: true }); env.load();
+  assert.equal(env.images.length, 1); assert.equal(env.frames.size, 1); assert.equal(env.canvas.style.opacity, "1");
 });
 
 test("panning keeps the sea visible and paints imperative camera changes at the frozen wave phase", (t) => {

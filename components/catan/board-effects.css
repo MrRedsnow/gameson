@@ -9,7 +9,7 @@
 /* The first path point remains on the rotated pier. Only the boat attachment
    and the rope's soft curve move, in the same phase as the world-up sprite. */
 .catan-harbor-mooring { animation:catan-harbor-mooring var(--catan-boat-period,6.5s) ease-in-out infinite; animation-delay:var(--catan-boat-delay,0ms); animation-play-state:paused; }
-.catan-board[data-catan-ambient-active=true] .catan-harbor-mooring { animation-play-state:running; }
+.catan-board[data-catan-ambient-active=true][data-catan-water-enabled=true] .catan-harbor-mooring { animation-play-state:running; }
 @keyframes catan-harbor-mooring { 0%,100% { d:var(--catan-mooring-from); } 50% { d:var(--catan-mooring-to); } }
 @media (prefers-reduced-motion:reduce) {
   .catan-roll-field,.catan-number-label.is-roll-hit,.catan-road-award-glow { filter:none; }

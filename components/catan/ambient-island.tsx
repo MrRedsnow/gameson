@@ -84,14 +84,14 @@ function Scene({ game, artId, scene }: { game: AmbientGame; artId: string; scene
  * External pedestrian use instances sit above roads and below buildings;
  * their animated source nodes remain here inside the single scheduler layer.
  * The parent SVG's data-catan-effect-active flag pauses new scenery events;
- * data-catan-ambient-active controls the separate harbor-boat CSS wrapper.
+ * The parent SVG's water and ambient flags control harbor-boat CSS motion.
  * Clean pasture is opt-in after the replacement image successfully loads.
  * CSS is loaded by app/catan/layout.tsx so SSR/test bundles need no CSS loader.
  */
-export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, enabled, effectsBusy = false, cleanPasture = true, previewKind, externalPedestrians = false, boardBounds, scale = 1, previewAtmosphere = false }: {
+export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, enabled, waterEnabled = true, effectsBusy = false, cleanPasture = true, previewKind, externalPedestrians = false, boardBounds, scale = 1, previewAtmosphere = false }: {
   game: AmbientGame; artId: string; viewBox: string; active: boolean; interacting: boolean; enabled: boolean;
   effectsBusy?: boolean; cleanPasture?: boolean; previewKind?: AmbientKind; externalPedestrians?: boolean;
-  boardBounds?: BoardBounds; scale?: number; previewAtmosphere?: boolean;
+  boardBounds?: BoardBounds; scale?: number; previewAtmosphere?: boolean; waterEnabled?: boolean;
 }) {
   const layer = useRef<SVGGElement>(null);
   const latest = useRef({ game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind, scale, previewAtmosphere, sailboatReady: false, pirateShipReady: false });
@@ -198,7 +198,7 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
 
   useLayoutEffect(() => {
     if (!layer.current) return;
-    const hasAtmosphere = artwork.clouds || atmosphere.surf.length > 0;
+    const hasAtmosphere = artwork.clouds || (waterEnabled && atmosphere.surf.length > 0);
     if (!scenes.length && !hasAtmosphere) return;
     const nodes = new Map([...layer.current.querySelectorAll<SVGGElement>("[data-ambient-scene]")].map((node) => [node.getAttribute("data-ambient-scene"), { node, body: node.querySelector<SVGGElement>(".catan-ambient-body") }]));
     const skyNodes = atmosphereNodes(layer.current);
@@ -216,7 +216,7 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
       const atmosphereTime = clock.sample(now, true);
       let running = hasAtmosphere;
       if (hasAtmosphere && now - lastAtmospherePaint >= 1000 / 30 - .5) {
-        paintAtmosphere(skyNodes, atmosphere, atmosphereTime, latest.current.scale, mobileRef.current, artwork.clouds, latest.current.previewAtmosphere, fogBlocked, fogPlayback.current);
+        paintAtmosphere(skyNodes, atmosphere, atmosphereTime, latest.current.scale, mobileRef.current, artwork.clouds, latest.current.previewAtmosphere, fogBlocked, fogPlayback.current, waterEnabled);
         lastAtmospherePaint = now;
       }
       for (const scene of scenes) {
@@ -273,7 +273,7 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
     };
   // Frames mutate only SVG presentation; IDs, rather than game polls, own playback.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sceneKey, artwork.clouds, geometryKey]);
+  }, [sceneKey, artwork.clouds, geometryKey, waterEnabled]);
 
   const bounds = ambientBounds(viewBox);
   const movingSheep = new Set(scenes.filter((scene) => scene.kind === "sheep").map((scene) => `${scene.hexId}:${scene.sheepIndex}`));
@@ -302,7 +302,7 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
         {ambientHarborExclusions(game.board).map(({ point, radius, kind, edgeId }) => <circle key={`${kind}-${edgeId}`} cx={point.x} cy={point.y} r={radius} fill="black" />)}
       </mask>}
     </defs>
-    <AtmosphereLayer spec={atmosphere} artId={artId} cloudsReady={artwork.clouds} />
+    <AtmosphereLayer spec={atmosphere} artId={artId} cloudsReady={artwork.clouds} waterEnabled={waterEnabled} />
     {cleanPasture && ambientSheep(game.board).filter((sheep) => !movingSheep.has(`${sheep.hexId}:${sheep.sheepIndex}`)).map((sheep) => <g key={`${sheep.hexId}:${sheep.sheepIndex}`} clipPath={`url(#${artId}-hex-${sheep.hexId})`} className={`catan-ambient-standing-sheep${sheep.hexId === game.robberHex ? " is-blocked" : ""}`}>
       <g transform={`translate(${sheep.point.x} ${sheep.point.y}) scale(${sheep.sheepIndex % 2 ? -1 : 1} 1)`}><Sprite artId={artId} kind="sheep" staticPose /></g>
     </g>)}

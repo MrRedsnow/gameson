@@ -87,13 +87,20 @@ function Preview() {
   const [local, setLocal] = useState(false);
   const [offline, setOffline] = useState(false);
   const [hideCount, setHideCount] = useState(0);
+  const view = catanView(state.game, state.viewer);
+  // Deliberately mix single and double digits without changing game-engine state.
+  if (scenario === "overview-stats") view.players.forEach((player, index) => {
+    player.resourceCount = [25, 5, 14, 9][index];
+    player.knights = [10, 3, 12, 1][index];
+    player.roadLength = [12, 3, 10, 1][index];
+  });
   async function send(action: CatanAction) {
     if (rejectAction) { setError("Prüfung: Die Aktion wurde abgelehnt. Deine Auswahl bleibt erhalten."); return false; }
     try { setState({ ...state, game: applyCatanAction(state.game, state.viewer, action, () => 2) }); setError(""); return true; }
     catch (e) { setError((e as Error).message); return false; }
   }
   return <><style>{`html { font-size:${largeText ? 32 : 16}px; } .qa-controls { max-height:calc(100dvh - 8px); overflow-y:auto; }`}</style><details className="qa-controls"><summary>QA</summary>
-    <label>Prüfsituation<select value={scenario} onChange={(e) => { setScenario(e.target.value); setState(fixture(e.target.value)); setError(""); }}>{["map-vote", "map-waiting", "map-tie", "map-tie-guest", "rich", "poor", "build-settlement", "setup", "setup-road", "roll", "discard", "robber", "robber-after-seven", "robber-after-knight", "steal", "steal-single", "free-roads", "cards", "empty-bank", "incoming", "outgoing", "waiting", "finished", "history"].map((name) => <option key={name}>{name}</option>)}</select></label>
+    <label>Prüfsituation<select value={scenario} onChange={(e) => { setScenario(e.target.value); setState(fixture(e.target.value)); setError(""); }}>{["map-vote", "map-waiting", "map-tie", "map-tie-guest", "rich", "overview-stats", "poor", "build-settlement", "setup", "setup-road", "roll", "discard", "robber", "robber-after-seven", "robber-after-knight", "steal", "steal-single", "free-roads", "cards", "empty-bank", "incoming", "outgoing", "waiting", "finished", "history"].map((name) => <option key={name}>{name}</option>)}</select></label>
     <label>Perspektive<select value={state.viewer} onChange={(e) => { setState({ ...state, viewer: e.target.value }); setError(""); }}>{state.game.players.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}</select></label>
     <label><input type="checkbox" checked={largeText} onChange={(e) => setLargeText(e.target.checked)} />Text 200%</label>
     <label><input type="checkbox" checked={rejectAction} onChange={(e) => setRejectAction(e.target.checked)} />Aktion ablehnen</label>
@@ -112,7 +119,7 @@ function Preview() {
       setState({ ...state, game: applyCatanAction({ ...state.game, phase: "roll" }, state.game.players[state.game.currentPlayer].id, { type: "roll" }, () => face++) });
     }}>7 auslösen</button>
     </details>
-    <div className="catan-theme"><main className="catan-shell catan-shell-wide catan-shell-play">{error && <div className="catan-notice" role="alert">{error}</div>}<CatanGameUI key={`${scenario}:${state.game.id}:${state.viewer}`} game={catanView(state.game, state.viewer)} send={send} busy={busy} local={local} offline={offline} onHide={() => setHideCount((count) => count + 1)} afterNotificationSequence={0} onRematch={() => setState(fixture("setup"))} /></main></div>
+    <div className="catan-theme"><main className="catan-shell catan-shell-wide catan-shell-play">{error && <div className="catan-notice" role="alert">{error}</div>}<CatanGameUI key={`${scenario}:${state.game.id}:${state.viewer}`} game={view} send={send} busy={busy} local={local} offline={offline} onHide={() => setHideCount((count) => count + 1)} afterNotificationSequence={0} onRematch={() => setState(fixture("setup"))} /></main></div>
   </>;
 }
 createRoot(document.getElementById("root")!).render(<Preview />);

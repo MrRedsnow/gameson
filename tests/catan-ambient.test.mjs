@@ -595,6 +595,11 @@ test("camera navigation leaves no scenery timer or SVG paint, resumes once and r
   now = 1_000_000; document.hidden = false; listeners.get("visibilitychange")(); flush();
   assert.deepEqual(scenes, [], "Returning from a hidden tab starts fresh without replaying the elapsed schedule.");
   assert.equal(timers.size, 1);
+  render({ waterEnabled: false });
+  assert.equal(timers.size, 1, "The independently enabled island still schedules life.");
+  assert.equal(frames.size, 0, "Without ready clouds or active scenes, disabled surf needs no animation frame.");
+  render({ waterEnabled: true });
+  assert.equal(frames.size, 1, "Enabling water resumes shoreline animation once.");
   const reduced = media.get("(prefers-reduced-motion: reduce)");
   reduced.matches = true; for (const callback of reduced.listeners) callback(); flush();
   assert.equal(timers.size, 0); assert.equal(frames.size, 0);

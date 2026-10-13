@@ -24,8 +24,8 @@ export function AtmosphereDefinitions({ game, artId, cloudsReady }: { game: Ambi
 }
 
 /** Kept beneath every play marking, with paired clouds sharing one clock. */
-export function AtmosphereLayer({ spec, artId, cloudsReady, sky = false }: {
-  spec: AtmosphereSpec; artId: string; cloudsReady: boolean; sky?: boolean;
+export function AtmosphereLayer({ spec, artId, cloudsReady, sky = false, waterEnabled = true }: {
+  spec: AtmosphereSpec; artId: string; cloudsReady: boolean; sky?: boolean; waterEnabled?: boolean;
 }) {
   if (sky) return <g className="catan-atmosphere catan-atmosphere-sky">
     {cloudsReady && spec.clouds.map((cloud, index) => <g key={cloud.id} data-atmosphere-kind="cloud" data-atmosphere-id={cloud.id} className={`catan-atmosphere-cloud${index ? " is-desktop-cloud" : ""}`} opacity={0}>
@@ -44,7 +44,7 @@ export function AtmosphereLayer({ spec, artId, cloudsReady, sky = false }: {
       </g>)}
     </g>}
     <g clipPath={`url(#${artId}-harbor-sea-clip)`}>
-      {spec.surf.map((surf) => <g key={surf.id} data-atmosphere-kind="surf" data-atmosphere-id={surf.id} opacity={0}>
+      {waterEnabled && spec.surf.map((surf) => <g key={surf.id} data-atmosphere-kind="surf" data-atmosphere-id={surf.id} opacity={0}>
         <line className="catan-atmosphere-surf-line" x1={surf.from.x} y1={surf.from.y} x2={surf.to.x} y2={surf.to.y} vectorEffect="non-scaling-stroke" />
         <line className="catan-atmosphere-surf-line is-secondary" x1={surf.from.x + surf.outward.x * 3} y1={surf.from.y + surf.outward.y * 3} x2={surf.to.x + surf.outward.x * 3} y2={surf.to.y + surf.outward.y * 3} vectorEffect="non-scaling-stroke" />
       </g>)}
@@ -56,7 +56,7 @@ export function atmosphereNodes(layer: SVGGElement) {
   return new Map([...layer.querySelectorAll<SVGGElement>("[data-atmosphere-id]")].map((node) => [node.getAttribute("data-atmosphere-id"), node]));
 }
 
-export function paintAtmosphere(nodes: ReturnType<typeof atmosphereNodes>, spec: AtmosphereSpec, elapsed: number, scale: number, mobile: boolean, cloudsReady: boolean, preview: boolean, blocked: () => boolean, fogState: { visible: boolean }) {
+export function paintAtmosphere(nodes: ReturnType<typeof atmosphereNodes>, spec: AtmosphereSpec, elapsed: number, scale: number, mobile: boolean, cloudsReady: boolean, preview: boolean, blocked: () => boolean, fogState: { visible: boolean }, waterEnabled = true) {
   if (cloudsReady) {
     for (const [index, cloud] of spec.clouds.entries()) {
       if (mobile && index) continue;
@@ -77,6 +77,7 @@ export function paintAtmosphere(nodes: ReturnType<typeof atmosphereNodes>, spec:
       node?.setAttribute("opacity", String(opacity));
     }
   }
+  if (!waterEnabled) return;
   for (const surf of spec.surf) {
     const node = nodes.get(surf.id);
     const progress = (elapsed / surf.duration + surf.phase) % 1;

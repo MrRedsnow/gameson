@@ -738,7 +738,7 @@ test("Übersicht zeigt sofort alle Punktestände, Listenlinks und nur zusätzlic
   assert.ok(html.indexOf(hide) < html.indexOf('class="game-back-link"'));
   assert.doesNotMatch(html, /catan-overview-menu|Hand verdecken|Einen Schritt zurück/);
   for (const card of html.match(/<details class="catan-player-card"[\s\S]*?<\/details>/g) ?? []) {
-    assert.equal((card.match(/Rohstoffkarten/g) ?? []).length, 1, "Aufgeklappte Spielerdetails dürfen die Rohstoffzahl nicht erneut zeigen.");
+    assert.equal((card.match(/data-catan-stat="resources"/g) ?? []).length, 1, "Aufgeklappte Spielerdetails dürfen die Rohstoffzahl nicht erneut zeigen.");
     assert.match(card, /Entwicklungskarten/); assert.match(card, /Vorrat:/);
   }
 });
@@ -762,13 +762,13 @@ test("gegnerische Siegpunktkarten bleiben bis zum Spielende verdeckt, Endpunkte 
   const game = foundedGame(); const active = game.players[game.currentPlayer]; const viewer = game.players.find((p) => p.id !== active.id);
   active.development = Array.from({ length: 8 }, (_, i) => ({ id: `point-${i}`, type: "victory", boughtOnTurn: 0 }));
   const before = overview(game, viewer.id);
-  const card = before.match(new RegExp(`<details class="catan-player-card"[^>]*>[\\s\\S]*?<strong>${active.name}[\\s\\S]*?<b>(\\d+) / 10<\\/b>`));
+  const card = before.match(new RegExp(`<details class="catan-player-card"[^>]*>[\\s\\S]*?<strong>${active.name}[\\s\\S]*?<b\\b[^>]*>(\\d+) / 10<\\/b>`));
   assert.equal(card?.[1], "2", "Verdeckte gegnerische Siegpunkte dürfen vor dem Ende nicht aufgedeckt werden.");
   const finished = applyCatanAction(game, active.id, { type: "roll" }, sequence([1, 3]));
   assert.equal(finished.phase, "finished");
   const after = overview(finished, viewer.id, { onRematch() {} });
   assert.match(after, new RegExp(`<h2>${active.name} gewinnt!<\\/h2>`));
-  assert.match(after, new RegExp(`<strong>${active.name}[\\s\\S]*?<b>10 / 10<\\/b>`));
+  assert.match(after, new RegExp(`<strong>${active.name}[\\s\\S]*?<b\\b[^>]*>10 / 10<\\/b>`));
   assert.equal((after.match(/class="catan-player-card"/g) ?? []).length, game.players.length);
   assert.match(after, /Neue Partie vorbereiten/);
 });

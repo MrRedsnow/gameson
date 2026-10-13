@@ -49,6 +49,9 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
     const hand = play.querySelector<HTMLElement>(".catan-hand-bar");
     const world = island.closest<HTMLElement>(".catan-world");
     const canvas = island.querySelector<HTMLElement>(".catan-island-canvas");
+    const screen = active ? panel(active)?.querySelector<HTMLElement>(":scope > .catan-screen") : null;
+    const heading = screen?.querySelector<HTMLElement>(":scope > .catan-screen-heading");
+    const footer = screen?.querySelector<HTMLElement>(":scope > .catan-screen-actions");
     const measure = () => {
       const bounds = island.getBoundingClientRect();
       const container = play.getBoundingClientRect();
@@ -66,15 +69,22 @@ export function useFullscreenMenu(active: FullscreenMenu | null, select: (menu: 
         play.style.setProperty("--catan-map-bottom", `${Math.min(0, canvasBounds.bottom - worldBounds.bottom)}px`);
       }
       island.dataset.catanShortStage = String(menuHeight < 340);
-      island.dataset.catanTinyStage = String(menuHeight < 180);
+      // Enlarged headings can consume a menu even when the stage itself is tall.
+      const style = screen ? getComputedStyle(screen) : null;
+      const chromeHeight = (heading?.getBoundingClientRect().height ?? 0) + (footer?.getBoundingClientRect().height ?? 0)
+        + (parseFloat(style?.paddingTop ?? "0") || 0) + (parseFloat(style?.paddingBottom ?? "0") || 0)
+        + (parseFloat(style?.rowGap ?? "0") || 0) * (footer ? 2 : 1);
+      const availableHeight = Math.min(menuHeight, window.innerHeight * .72);
+      island.dataset.catanTinyStage = String(menuHeight < 180 || Boolean(screen && availableHeight - chromeHeight < 32));
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(island); observer.observe(play); if (hand) observer.observe(hand);
     if (world) observer.observe(world); if (canvas) observer.observe(canvas);
+    if (heading) observer.observe(heading); if (footer) observer.observe(footer);
     window.addEventListener("resize", measure);
     return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
-  }, [expanded, active, task]);
+  }, [expanded, active, task, panel]);
 
   return { bindNav, bindBoard, close, click };
 }

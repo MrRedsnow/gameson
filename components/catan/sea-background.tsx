@@ -4,7 +4,7 @@ import { useEffect, useImperativeHandle, useLayoutEffect, useRef, type Ref } fro
 import { seaRenderBudget } from "@/lib/catan-render-budget";
 
 type SeaCameraLayout = { size: number; x: number; y: number };
-type SeaLayout = SeaCameraLayout & { width: number; height: number; active: boolean; interacting?: boolean; ambientEnabled?: boolean };
+type SeaLayout = SeaCameraLayout & { width: number; height: number; active: boolean; interacting?: boolean; ambientEnabled?: boolean; waterEnabled?: boolean };
 export type CatanSeaHandle = { setCameraLayout: (camera: SeaCameraLayout) => void };
 const VERTEX = `
 attribute vec2 a_position;
@@ -169,7 +169,7 @@ export function CatanSeaBackground({ ref, ...props }: SeaLayout & { ref?: Ref<Ca
       if (lastPaint === null || now - lastPaint >= interval - .5) { draw(); lastPaint = now; }
       frame = requestAnimationFrame(tick);
     }
-    function canRender() { return !disposed && !failed && layout.current.active && !document.hidden && !motion.matches; }
+    function canRender() { return !disposed && !failed && layout.current.active && layout.current.waterEnabled !== false && !document.hidden && !motion.matches; }
     function canAnimate() { return canRender() && !layout.current.interacting; }
     function sync() {
       if (!canRender()) { stop(); return; }
@@ -196,5 +196,5 @@ export function CatanSeaBackground({ ref, ...props }: SeaLayout & { ref?: Ref<Ca
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="catan-sea-surface" aria-hidden="true" />;
+  return <canvas ref={canvasRef} className="catan-sea-surface" data-catan-water-enabled={props.waterEnabled !== false} aria-hidden="true" />;
 }

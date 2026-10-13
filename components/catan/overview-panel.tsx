@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
-import { Bell, BookOpen, CheckCheck, ChevronRight, LockKeyhole, ScrollText, Trophy, Users } from "lucide-react";
+import { Bell, BookOpen, CheckCheck, ChevronRight, LockKeyhole, Route, ScrollText, Shield, Trophy, Users, WalletCards } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GameBackLink } from "@/components/game-entry";
 import { COSTS, PLAYER_COLORS, PLAYER_COLOR_NAMES, RESOURCES, RESOURCE_INFO, resourceCount, victoryPoints, type CatanView } from "@/lib/catan";
@@ -24,13 +24,16 @@ const RULES = [
 const BUILDING_NAMES: Record<keyof typeof COSTS, string> = { road: "Straße", settlement: "Siedlung", city: "Stadt", development: "Entwicklungskarte" };
 export type OverviewPage = "menu" | "scores" | "log" | "rules" | "activity";
 
-export function OverviewPanel({ game, page, setPage, activity, unreadActivity, unread, onRead, local, onHide, onRematch, busy, turnActions, ambientEnabled = true, onAmbientChange, onClose }: {
+export function OverviewPanel({ game, page, setPage, activity, unreadActivity, unread, onRead, local, onHide, onRematch, busy, turnActions, ambientEnabled = true, onAmbientChange, waterEnabled = true, onWaterChange, onClose }: {
   game: CatanView; page: OverviewPage; setPage: (page: OverviewPage) => void; activity: CatanActivity[]; unreadActivity?: CatanActivity[]; unread: number; onRead: () => void;
   local: boolean; onHide?: () => void; onRematch?: () => void; busy: boolean; turnActions?: ReactNode;
-  ambientEnabled?: boolean; onAmbientChange?: (enabled: boolean) => void; onClose?: () => void;
+  ambientEnabled?: boolean; onAmbientChange?: (enabled: boolean) => void; waterEnabled?: boolean; onWaterChange?: (enabled: boolean) => void; onClose?: () => void;
 }) {
   const me = game.me!; const back = () => setPage("menu");
   const ambientId = useId();
+  const waterId = useId();
+  const playersId = useId();
+  const settingsId = useId();
   if (page === "rules") return <Screen onClose={onClose} title="Spielregeln & Baukosten" headingIcon={<BookOpen />} back={back} actions={turnActions}>
     <div className="catan-rule-list">
       <details className="catan-rule-section" open><summary>Baukosten</summary><div className="catan-rule-costs">{(Object.keys(COSTS) as (keyof typeof COSTS)[]).map((kind) => <div key={kind}><strong>{BUILDING_NAMES[kind]}</strong><span className="catan-cost">{RESOURCES.filter((resource) => COSTS[kind][resource]).map((resource) => <span key={resource} title={RESOURCE_INFO[resource].label}><ResourceIcon resource={resource} />{COSTS[kind][resource]}<span className="sr-only"> {RESOURCE_INFO[resource].label}</span></span>)}</span></div>)}</div></details>
@@ -49,16 +52,32 @@ export function OverviewPanel({ game, page, setPage, activity, unreadActivity, u
   }
   const finished = game.phase === "finished"; const winner = game.players.find((p) => p.id === game.winner);
   const hideLabel = game.phase === "map_vote" ? "Gerät weitergeben" : "Handkarten verdecken";
-  return <Screen onClose={onClose} title={finished ? `${winner?.name} gewinnt!` : "Übersicht"} headingIcon={finished ? <Trophy /> : <Users />} subtitle={finished ? "Die Partie ist beendet" : "Punkte, Meldungen und Spielregeln"} actions={finished && onRematch ? <Button className="catan-primary" disabled={busy} onClick={onRematch}>Neue Partie vorbereiten</Button> : turnActions}>
+  return <Screen onClose={onClose} title={finished ? `${winner?.name} gewinnt!` : "Übersicht"} headingIcon={finished ? <Trophy /> : <Users />} subtitle={finished ? "Die Partie ist beendet" : "Spieler, Verlauf und Einstellungen"} actions={finished && onRematch ? <Button className="catan-primary" disabled={busy} onClick={onRematch}>Neue Partie vorbereiten</Button> : turnActions}>
     {finished && <p className="catan-inline-hint"><Trophy /> {game.targetPoints} Punkte erreicht.</p>}
+    <section className="catan-overview-section" aria-labelledby={playersId}>
+    <h3 id={playersId}>Spieler</h3>
     <div className="catan-score-list">{game.players.map((p) => <details className="catan-player-card" key={p.id} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties}>
-      <summary><i className="catan-player-dot" aria-hidden="true" /><strong>{p.name}{p.id === me.id ? " (du)" : ""}<span className="sr-only"> · {PLAYER_COLOR_NAMES[p.color]}</span></strong><b>{p.id === me.id ? victoryPoints(game, me) : p.points} / {game.targetPoints}</b><small>{p.resourceCount} Rohstoffkarten · {p.knights} Ritter · Straße {p.roadLength}</small></summary>
+      <summary><i className="catan-player-dot" aria-hidden="true" /><strong>{p.name}{p.id === me.id ? " (du)" : ""}<span className="sr-only"> · {PLAYER_COLOR_NAMES[p.color]}</span></strong><b className="catan-player-points">{p.id === me.id ? victoryPoints(game, me) : p.points} / {game.targetPoints}</b>
+        <span className="catan-player-stats">
+          <span className="catan-player-stat" data-catan-stat="resources" title="Rohstoffkarten"><WalletCards aria-hidden="true" /><span data-catan-stat-value>{p.resourceCount}</span><span className="sr-only"> Rohstoffkarten</span></span>
+          <span className="catan-player-stat" data-catan-stat="knights" title="Ausgespielte Ritter"><Shield aria-hidden="true" /><span data-catan-stat-value>{p.knights}</span><span className="sr-only"> ausgespielte Ritter</span></span>
+          <span className="catan-player-stat" data-catan-stat="road" title="Längste Straße"><Route aria-hidden="true" /><span data-catan-stat-value>{p.roadLength}</span><span className="sr-only"> Straßen in der längsten Straße</span></span>
+        </span>
+      </summary>
       <div><p>{p.developmentCount} Entwicklungskarten</p>
         {(game.longestRoad === p.id || game.largestArmy === p.id) && <p>{game.longestRoad === p.id ? "Längste Straße: +2 Punkte. " : ""}{game.largestArmy === p.id ? "Größte Rittermacht: +2 Punkte." : ""}</p>}
         <p>Vorrat: {15 - p.pieces.road} Straßen · {5 - p.pieces.settlement} Siedlungen · {4 - p.pieces.city} Städte</p></div>
     </details>)}</div>
+    </section>
+    <section className="catan-overview-section catan-overview-settings" aria-labelledby={settingsId}>
+    <h3 id={settingsId}>Verlauf und Einstellungen</h3>
     <div className="catan-overview-links">{([{ id: "log", title: "Spielverlauf", Icon: ScrollText }, { id: "activity", title: "Deine Meldungen", Icon: Bell }, { id: "rules", title: "Spielregeln & Baukosten", Icon: BookOpen }] as const).map(({ id, title, Icon }) => <button type="button" className="catan-overview-link" key={id} onClick={() => setPage(id)}><Icon /><span>{title}</span>{id === "activity" && unread > 0 && <b>{unread} neu</b>}<ChevronRight /></button>)}</div>
-    {onAmbientChange && <label htmlFor={ambientId} aria-label="Lebendige Insel" className="catan-ambient-preference"><span><strong>Lebendige Insel</strong><small>Tiere, Boote und kleine Bewegungen</small></span><input id={ambientId} type="checkbox" checked={ambientEnabled} onChange={(event) => onAmbientChange(event.target.checked)} /></label>}
+    {(onAmbientChange || onWaterChange) && <div className="catan-animation-preferences">
+      <p className="catan-inline-hint">Schalte Animationen aus, um Akku zu sparen. Deine Auswahl wird auf diesem Gerät gespeichert.</p>
+      {onAmbientChange && <label htmlFor={ambientId} className="catan-ambient-preference"><span><strong>Lebendige Insel</strong><small>Tiere, Boote und kleine Bewegungen</small></span><input id={ambientId} type="checkbox" aria-label="Lebendige Insel" checked={ambientEnabled} onChange={(event) => onAmbientChange(event.target.checked)} /></label>}
+      {onWaterChange && <label htmlFor={waterId} className="catan-ambient-preference"><span><strong>Bewegtes Wasser</strong><small>Wellen und Wasserbewegung</small></span><input id={waterId} type="checkbox" aria-label="Bewegtes Wasser" checked={waterEnabled} onChange={(event) => onWaterChange(event.target.checked)} /></label>}
+    </div>}
     <div className="catan-overview-exit">{local && onHide && !finished && <Button type="button" variant="outline" className="catan-hide-button" data-catan-sound="cancel" aria-label={hideLabel} onClick={onHide}><LockKeyhole />{hideLabel}</Button>}<GameBackLink /></div>
+    </section>
   </Screen>;
 }

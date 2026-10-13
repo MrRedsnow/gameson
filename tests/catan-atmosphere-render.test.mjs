@@ -54,6 +54,21 @@ test("a newly busy action blocks fog between scheduler ticks while an already vi
   assert.equal(fog.attributes.get("opacity"), "0"); assert.equal(checks, 3, "A later fog bank checks the live action state again.");
 });
 
+test("disabled water removes shoreline wave nodes and their paint work while retaining island clouds", (t) => {
+  assert.ok(spec.surf.length > 0);
+  const layer = nodes();
+  paintAtmosphere(layer, spec, 1000, 1, false, true, false, () => false, { visible: false }, false);
+  assert.ok(spec.surf.every((surf) => layer.get(surf.id).attributes.size === 0), "No shoreline wave transform or opacity writes remain.");
+  assert.ok(spec.clouds.every((cloud) => layer.get(cloud.id).attributes.has("transform")), "Cloud movement remains independently enabled.");
+  t.mock.method(React, "useState", (initial) => [Array.isArray(initial) ? [] : { clouds: true, sailboat: false, pirate_ship: false }, () => {}]);
+  const props = { game: { id: "static-water", board: createBoard(() => 0), robberHex: -1 }, artId: "static-water", viewBox: "-420 -370 840 740", active: true, interacting: false, enabled: true };
+  const still = renderToStaticMarkup(React.createElement("svg", null, React.createElement(CatanAmbientIsland, { ...props, waterEnabled: false })));
+  const moving = renderToStaticMarkup(React.createElement("svg", null, React.createElement(CatanAmbientIsland, props)));
+  assert.doesNotMatch(still, /data-atmosphere-kind="surf"/);
+  assert.match(still, /data-atmosphere-kind="cloud"/);
+  assert.match(moving, /data-atmosphere-kind="surf"/);
+});
+
 test("rendered boat wakes begin at the painted stern in all twelve views and their full curves stay inside the validated envelope", (t) => {
   let scene;
   t.mock.method(React, "useState", (initial) => [Array.isArray(initial) ? [scene] : { clouds: false, sailboat: true, pirate_ship: true }, () => {}]);

@@ -9,6 +9,7 @@ import { CatanResourceHand } from "./resource-hand";
 import { useCatanActivity } from "./activity";
 import { useCatanSounds } from "./sound";
 import { useAmbientPreference } from "./use-ambient-preference";
+import { useWaterPreference } from "./use-water-preference";
 import { CatanEventNotice } from "./event-notice";
 import { CardsPanel } from "./cards-panel";
 import { OverviewPanel, type OverviewPage } from "./overview-panel";
@@ -166,6 +167,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
   const activity = useCatanActivity(game, afterNotificationSequence, onActivityRead);
   const sounds = useCatanSounds(game, animationBaseline);
   const ambient = useAmbientPreference();
+  const water = useWaterPreference();
   const send: Send = async (action) => {
     if (externalBusy || pending.current) return false;
     pending.current = true; setInFlight(true);
@@ -273,7 +275,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
     <div data-state="active" className="catan-tab-panel catan-tab-insel">
       <section className="catan-screen catan-island-screen" inert={activeMenu !== null}>
         <div className="catan-island-canvas">
-          <CatanBoard key={game.mapVote?.id ?? "accepted"} game={game} mode={mode} choices={choices} selected={selected} onSelect={selectPlace} disabled={busy} onInspect={sounds.preview} islandVisible animationBaseline={animationBaseline} ambientEnabled={ambient.enabled} seaTarget={seaTarget} />
+          <CatanBoard key={game.mapVote?.id ?? "accepted"} game={game} mode={mode} choices={choices} selected={selected} onSelect={selectPlace} disabled={busy} onInspect={sounds.preview} islandVisible animationBaseline={animationBaseline} ambientEnabled={ambient.enabled} waterEnabled={water.enabled} seaTarget={seaTarget} />
           <div className="catan-island-tools">
             <Button variant="ghost" size="icon" className="catan-sound-toggle" aria-label={sounds.enabled ? "Soundeffekte ausschalten" : "Soundeffekte einschalten"} aria-pressed={sounds.enabled} title="Soundeffekte für Rohstoffe, Würfeln, Bauen, Handel und Spielaktionen" onClick={() => void sounds.toggle()}>{sounds.enabled ? <Volume2 /> : <VolumeX />}</Button>
             <Button variant="outline" size="icon" aria-label={expanded ? "Vollbild der Insel schließen" : "Insel im Vollbild öffnen"} aria-pressed={expanded} title={expanded ? "Zurück zur Spielansicht (Esc)" : "Insel maximieren"} onClick={() => { if (!expanded) closeGuide(); fullscreen.toggle(); }}>{expanded ? <Minimize2 /> : <Maximize2 />}</Button>
@@ -308,7 +310,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
       <BuildChoices game={game} busy={busy} selected={chosenBuild} onBuild={(kind) => setBuildChoice({ context: buildContext, kind })} />
     </Screen></div>
     <div className="catan-tab-panel is-game-menu" {...panelProps("handel")}><TradePanel onClose={() => closeMenu(true)} game={game} send={send} busy={busy} /></div>
-    <div className="catan-tab-panel is-game-menu" {...panelProps("uebersicht")}><OverviewPanel onClose={() => closeMenu(true)} game={game} page={overviewPage} setPage={setOverviewPage} activity={activity.all} unreadActivity={activity.unread} unread={activity.unread.length} onRead={activity.read} local={local} onHide={onHide ? hideHand : undefined} onRematch={onRematch} busy={busy} ambientEnabled={ambient.enabled} onAmbientChange={ambient.setEnabled} /></div>
+    <div className="catan-tab-panel is-game-menu" {...panelProps("uebersicht")}><OverviewPanel onClose={() => closeMenu(true)} game={game} page={overviewPage} setPage={setOverviewPage} activity={activity.all} unreadActivity={activity.unread} unread={activity.unread.length} onRead={activity.read} local={local} onHide={onHide ? hideHand : undefined} onRematch={onRematch} busy={busy} ambientEnabled={ambient.enabled} onAmbientChange={ambient.setEnabled} waterEnabled={water.enabled} onWaterChange={water.setEnabled} /></div>
     </div>
     </div>
     <nav ref={menuNavRef} className="catan-nav" aria-label={expanded ? "Vollbild-Spielmenü" : "Spielmenü"}><div className="catan-nav-list">{CATAN_TABS.map(({ id, label, Icon }) => {
