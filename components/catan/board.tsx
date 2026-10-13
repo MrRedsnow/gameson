@@ -36,7 +36,7 @@ const ROAD_PAINTS = PLAYER_COLORS.map((base) => {
 
 function HexNumber({ artId, hex, blocked = false }: { artId: string; hex: Hex; blocked?: boolean }) {
   return hex.number ? <>
-    {!blocked && <NumberBackdrop id={artId} resource={hex.resource} x={hex.x} y={hex.y} mirrored={hex.id % 2 === 1} />}
+    <NumberBackdrop id={artId} resource={hex.resource} x={hex.x} y={hex.y} mirrored={hex.id % 2 === 1} />
     <NumberLabel number={hex.number} resource={hex.resource} hexId={hex.id} x={hex.x} y={hex.y} blocked={blocked} />
   </> : null;
 }
@@ -240,6 +240,10 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
           <path className="catan-hex-seam-shadow" d={seamPath} fill="none" vectorEffect="non-scaling-stroke" />
           <path className="catan-hex-seam-light" d={seamPath} fill="none" vectorEffect="non-scaling-stroke" />
         </g>
+        <polygon className="catan-robber-territory" points={robberHex.vertices.map((id) => {
+          const vertex = board.vertices[id];
+          return `${robberHex.x + (vertex.x - robberHex.x) * .91},${robberHex.y + (vertex.y - robberHex.y) * .91}`;
+        }).join(" ")} vectorEffect="non-scaling-stroke" pointerEvents="none" aria-hidden="true" />
         <CatanAmbientIsland game={game} artId={artId} viewBox={viewBox} boardBounds={boardBounds} scale={scale} active={islandVisible} interacting={interactionActive} enabled={ambientEnabled} waterEnabled={waterEnabled} effectsBusy={effectsBusy} cleanPasture={pastureReady} externalPedestrians previewKind={ambientPreviewKind} previewAtmosphere={ambientPreviewAtmosphere} />
         {board.hexes.filter((hex) => hex.id !== game.robberHex).map((hex) => <HexNumber key={hex.id} artId={artId} hex={hex} />)}
         {mode === "robber" && board.hexes.filter((hex) => choices.includes(hex.id) && hex.id !== selected).map((hex) => <circle key={`robber-choice-${hex.id}`} cx={hex.x} cy={hex.y} r="46" fill="none" stroke="#fff5c3" strokeDasharray="4 6" strokeWidth="2" pointerEvents="none" aria-hidden="true" />)}
@@ -314,8 +318,12 @@ export function CatanBoard({ game, mode, choices, selected, onSelect, disabled, 
         })}
         <g ref={effectsRef} className="catan-construction-effects" pointerEvents="none" aria-hidden="true" />
         <g className="catan-robber-layer" data-catan-robber={robberHex.id} role="img" aria-label={`Räuber auf Feld ${robberHex.id + 1} – blockiert den Ertrag`} pointerEvents="none">
-          <RobberPiece id={artId} x={robberHex.x} y={robberHex.y} />
           <HexNumber artId={artId} hex={robberHex} blocked />
+          <RobberPiece id={artId} x={robberHex.x} y={robberHex.y} number={robberHex.number} />
+          <g className="catan-robber-status" transform={`translate(${robberHex.x + (robberHex.number ? 17 : 13)} ${robberHex.y + (robberHex.number ? 17 : 13)})`} aria-hidden="true">
+            <circle r="7" />
+            <path d="M-2-1v-2a2 2 0 0 1 4 0v2M-3.25-1h6.5v5.25h-6.5z" />
+          </g>
         </g>
       </svg>
       {inspectedBuilding?.building && inspectedOwner && <p ref={infoRef} id={infoId} className="catan-board-field-info" style={{ top: "var(--catan-inspection-top,8px)" }} role="status" aria-atomic="true">{inspectedBuilding.building === "city" ? "Stadt" : "Siedlung"} · {inspectedOwner.name}</p>}

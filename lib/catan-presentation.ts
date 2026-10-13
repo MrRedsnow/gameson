@@ -1,5 +1,10 @@
 import { DEVELOPMENT_INFO, type CatanView, type Development } from "./catan";
 
+// Leave the production number in place; the desert has room for a centered piece.
+export function robberMarkerOffset(number: number | null) {
+  return number ? -29 : 0;
+}
+
 export type CatanRollPresentation = { id: string; turn: number; dice: [number, number]; robberHex: number };
 export type CatanRobberPresentation = { id: string; fromHex: number; toHex: number };
 export type CatanAwardPresentation = { id: string; type: "longestRoad" | "largestArmy"; fromId: string | null; toId: string | null };

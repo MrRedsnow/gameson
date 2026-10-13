@@ -1,5 +1,5 @@
 import { longestRoadPath, type Board, type CatanView } from "@/lib/catan";
-import { CatanPresentationCursor, type CatanPresentationBatch } from "@/lib/catan-presentation";
+import { CatanPresentationCursor, robberMarkerOffset, type CatanPresentationBatch } from "@/lib/catan-presentation";
 import { CONSTRUCTION_HANDOFF_MS, constructionBatch } from "@/lib/catan-construction";
 
 export const BOARD_ROLL_HIGHLIGHT_MS = 900;
@@ -107,7 +107,8 @@ export class BoardEffectsPlayback {
     if (!from || !to || !traveller) return;
     const originalTransform = traveller.getAttribute("transform") ?? "";
     const reduced = this.motion.matches;
-    const dust = svgNode("g", { class: "catan-robber-dust", transform: `translate(${to.x} ${to.y + 7})`, "pointer-events": "none", "aria-hidden": "true" });
+    const fromOffset = robberMarkerOffset(from.number); const toOffset = robberMarkerOffset(to.number);
+    const dust = svgNode("g", { class: "catan-robber-dust", transform: `translate(${to.x} ${to.y + toOffset + 14})`, "pointer-events": "none", "aria-hidden": "true" });
     const particles = Array.from({ length: 6 }, (_, index) => svgNode("circle", { r: 1.6 + index % 2 * .6, fill: "#e7d1a0" }));
     if (!reduced) { dust.append(...particles); this.layer.append(dust); }
     this.begin("robber", {
@@ -117,7 +118,7 @@ export class BoardEffectsPlayback {
         const elapsed = progress * (BOARD_ROBBER_TRAVEL_MS + 250);
         const travel = Math.min(1, elapsed / BOARD_ROBBER_TRAVEL_MS);
         const eased = travel * travel * (3 - 2 * travel);
-        traveller.setAttribute("transform", travel === 1 ? originalTransform : `translate(${(from.x - to.x) * (1 - eased)} ${(from.y - to.y) * (1 - eased) - Math.sin(Math.PI * travel) * 8}) ${originalTransform}`);
+        traveller.setAttribute("transform", travel === 1 ? originalTransform : `translate(${(from.x - to.x) * (1 - eased)} ${(from.y - to.y + fromOffset - toOffset) * (1 - eased) - Math.sin(Math.PI * travel) * 8}) ${originalTransform}`);
         const landing = Math.max(0, (elapsed - BOARD_ROBBER_TRAVEL_MS) / 250);
         for (const [index, particle] of particles.entries()) {
           particle.setAttribute("cx", String((index % 2 ? -1 : 1) * (3 + index * 1.7 + landing * 8)));
@@ -178,7 +179,7 @@ export class BoardEffectsPlayback {
     // update cancels the previous journey. Never restore its obsolete target.
     const hex = target.board.hexes.find((item) => item.id === target.robberHex);
     const traveller = this.svg.querySelector<SVGElement>("[data-catan-robber-traveller]");
-    if (hex && traveller) traveller.setAttribute("transform", `translate(${hex.x - 20} ${hex.y - 29})`);
+    if (hex && traveller) traveller.setAttribute("transform", `translate(${hex.x} ${hex.y})`);
     this.effects.clear(); this.schedule();
   }
   private onVisibility = () => { if (document.hidden) this.clear(); };

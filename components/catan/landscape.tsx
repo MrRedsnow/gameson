@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Board, Resource } from "@/lib/catan";
 import { HARBOR_BOAT_SIZE, harborMooringPath, type HarborLayout } from "@/lib/catan-harbor";
+import { robberMarkerOffset } from "@/lib/catan-presentation";
 import { NumberBackdropDefinitions } from "./number-backdrop";
 
 const TERRAIN_CELLS: Record<Resource | "desert", readonly [number, number]> = {
@@ -33,8 +34,13 @@ export function Landscape({ id, resource, x, y, mirrored = false, blocked = fals
   return <use className={`catan-landscape${blocked ? " is-blocked" : ""}`} href={`#${id}-${resource}`} transform={`translate(${x} ${y})${mirrored ? " scale(-1 1)" : ""}`} aria-hidden="true" />;
 }
 
-export function RobberPiece({ id, x, y }: { id: string; x: number; y: number }) {
-  return <use className="catan-robber-piece" data-catan-robber-traveller="" href={`#${id}-robber`} transform={`translate(${x - 20} ${y - 29})`} aria-hidden="true" />;
+export function RobberPiece({ id, x, y, number }: { id: string; x: number; y: number; number: number | null }) {
+  const offset = robberMarkerOffset(number);
+  return <g className="catan-robber-piece" data-catan-robber-traveller="" transform={`translate(${x} ${y})`} aria-hidden="true">
+    <ellipse className="catan-robber-shadow" cy={offset + 14} rx="12" ry="3" />
+    <circle className="catan-robber-medallion" cy={offset} r="15" vectorEffect="non-scaling-stroke" />
+    <use href={`#${id}-robber`} transform={`translate(-16 ${offset - 16}) scale(.8)`} />
+  </g>;
 }
 
 export function HarborSeaClip({ id, board, bounds }: { id: string; board: Board; bounds: { x: number; y: number; width: number; height: number } }) {

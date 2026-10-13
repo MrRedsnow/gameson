@@ -1,5 +1,5 @@
 .catan-ambient-island,.catan-ambient-island * { pointer-events:none; }
-.catan-ambient-standing-sheep.is-blocked { filter:grayscale(1) brightness(.74); }
+.catan-ambient-standing-sheep.is-blocked { filter:saturate(.82) brightness(.92); }
 .catan-ambient-gull { filter:drop-shadow(0px 1px 1px #0e2838b3); }
 .catan-ambient-forest_bird { filter:brightness(1.25) drop-shadow(0px 1px 1px #102b3299); }
 .catan-ambient-dolphin { filter:brightness(1.2) drop-shadow(0px 1px 1px #b8dfdf66); }

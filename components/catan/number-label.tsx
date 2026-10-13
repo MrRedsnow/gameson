@@ -13,7 +13,7 @@ export function NumberLabel({ number, resource, x, y, hexId, blocked = false }: 
   const [baseline, setBaseline] = useState(10);
   useLayoutEffect(() => {
     const node = ref.current;
-    if (!node || blocked) return;
+    if (!node) return;
     const style = getComputedStyle(node);
     const font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
     const key = `${font}:${number}`;
@@ -30,6 +30,6 @@ export function NumberLabel({ number, resource, x, y, hexId, blocked = false }: 
       baselineCache.set(key, offset);
     }
     setBaseline(offset);
-  }, [number, blocked]);
-  return <text ref={ref} className={`catan-number-label${blocked ? " is-blocked" : ""}`} data-catan-number={hexId} data-resource={resource} data-catan-number-hot={number === 6 || number === 8} x={x} y={y + (blocked ? 36 : baseline)} textAnchor="middle" aria-hidden="true">{number}</text>;
+  }, [number]);
+  return <text ref={ref} className={`catan-number-label${blocked ? " is-blocked" : ""}`} data-catan-number={hexId} data-resource={resource} data-catan-number-hot={number === 6 || number === 8} x={x} y={y + baseline} textAnchor="middle" aria-hidden="true">{number}</text>;
 }

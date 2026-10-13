@@ -45,7 +45,7 @@ function environment(t, game, { reducedMotion = false } = {}) {
   const original = Object.fromEntries(Object.keys(globals).map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   Object.entries(globals).forEach(([key, value]) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value }));
   const svg = new Node("svg"); const layer = new Node(); const traveller = new Node("use");
-  const setRobberPosition = (hexId) => { const hex = game.board.hexes[hexId]; traveller.setAttribute("transform", `translate(${hex.x - 20} ${hex.y - 29})`); };
+  const setRobberPosition = (hexId) => { const hex = game.board.hexes[hexId]; traveller.setAttribute("transform", `translate(${hex.x} ${hex.y})`); };
   setRobberPosition(game.robberHex); svg.queries.set("[data-catan-robber-traveller]", traveller);
   const numbers = game.board.hexes.map((hex) => { const node = new Node("text"); svg.queries.set(`[data-catan-number="${hex.id}"]`, node); return node; });
   const harbors = game.board.harbors.map((harbor) => { const node = new Node(); svg.queries.set(`[data-catan-harbor="${harbor.edge}"]`, node); return node; });
@@ -101,7 +101,7 @@ test("robber travels from its previous world coordinates for 650ms before landin
   const env = environment(t, before); env.setRobberPosition(next.robberHex); const finalTransform = env.traveller.getAttribute("transform");
   env.playback.update(next); env.frameAt(0);
   const from = before.board.hexes[before.robberHex]; const to = before.board.hexes[next.robberHex];
-  assert.equal(env.traveller.getAttribute("transform"), `translate(${from.x - to.x} ${from.y - to.y}) ${finalTransform}`);
+  assert.equal(env.traveller.getAttribute("transform"), `translate(${from.x - to.x} ${from.y - to.y + (from.number ? -29 : 0) - (to.number ? -29 : 0)}) ${finalTransform}`);
   env.frameAt(325); assert.notEqual(env.traveller.getAttribute("transform"), finalTransform);
   env.frameAt(650); assert.equal(env.traveller.getAttribute("transform"), finalTransform);
   env.frameAt(750); assert.ok(env.layer.children[0].children.some((node) => Number(node.getAttribute("opacity")) > 0));

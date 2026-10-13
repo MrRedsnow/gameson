@@ -216,27 +216,28 @@ test("der gemalte Räuber bleibt auf allen 19 Feldern über Gebäuden und Baueff
     }
     for (const expanded of [false, true]) {
       const html = render(CatanBoard, { game: catanView(game, game.players[0].id), mode: null, choices: [], selected: null, onSelect() {}, disabled: false, expanded });
-      const layer = html.match(/<g class="catan-robber-layer"[^>]*>[\s\S]*?<\/g>/)?.[0];
+      const layer = html.slice(html.indexOf('<g class="catan-robber-layer"'), html.indexOf('</svg>', html.indexOf('<g class="catan-robber-layer"')));
       assert.ok(layer, `Räuberebene fehlt auf Feld ${hex.id}.`);
       assert.equal((html.match(/class="catan-robber-piece"/g) ?? []).length, 1);
       assert.equal((html.match(/class="catan-number-label[^"]*"/g) ?? []).length, 18);
       assert.match(html, /href="\/catan\/robber-v2\.png" width="40" height="40"/);
       const landscapes = html.match(/<use class="catan-landscape[^"]*"[^>]*>/g);
       assert.equal(landscapes.length, 19);
-      assert.equal(landscapes.filter((landscape) => landscape.includes("is-blocked")).length, 1, "Nur das aktuelle Räuberfeld darf ausgegraut werden.");
+      assert.equal(landscapes.filter((landscape) => landscape.includes("is-blocked")).length, 1, "Nur das aktuelle Räuberfeld darf die Blockadedarstellung erhalten.");
       assert.ok(landscapes[hex.id].includes('class="catan-landscape is-blocked"'));
       assert.match(layer, /role="img"[^>]*aria-label="Räuber auf Feld \d+ – blockiert den Ertrag"[^>]*pointer-events="none"/);
       assert.ok(layer.includes(`data-catan-robber="${hex.id}"`));
-      assert.ok(layer.includes(`transform="translate(${hex.x - 20} ${hex.y - 29})"`));
+      assert.ok(layer.includes(`transform="translate(${hex.x} ${hex.y})"`));
       assert.ok(html.indexOf(layer) > html.lastIndexOf("data-catan-building="));
       assert.ok(html.indexOf(layer) > html.indexOf('class="catan-construction-effects"'));
       assert.match(html, /Räuber blockiert den Ertrag/);
       assert.doesNotMatch(html, />R<\/text>/);
       assert.doesNotMatch(html, />Wüste<\/text>/);
       if (hex.number) {
-        assert.ok(layer.includes(`x="${hex.x}" y="${hex.y + 36}" text-anchor="middle" aria-hidden="true">${hex.number}</text>`));
+        assert.ok(layer.includes(`x="${hex.x}" y="${hex.y + 10}" text-anchor="middle" aria-hidden="true">${hex.number}</text>`));
+        assert.match(layer, /class="catan-number-backdrop"/);
         assert.match(layer, /class="catan-number-label[^"]* is-blocked"/);
-        assert.doesNotMatch(layer, /on-grain/, "Auch auf ausgegrautem Acker muss die Zahl hell sein.");
+        assert.doesNotMatch(layer, /on-grain/, "Auch auf blockiertem Acker muss die Zahl hell sein.");
       } else {
         assert.doesNotMatch(layer, /catan-number-label/);
       }
