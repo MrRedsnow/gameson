@@ -11,6 +11,9 @@ The current v3 terrain, sea, building and harbor artwork was generated with the 
 | Buildings | [buildings-v3.png](../../public/catan/buildings-v3.png) | 1774 × 887 | Transparent 4 × 2 atlas: settlements above cities; columns are coral, blue, ivory and purple. |
 | Harbor piers | [harbor-atlas-v3.png](../../public/catan/harbor-atlas-v3.png) | 1774 × 887 | The left transparent cell supplies the weathered T-shaped pier; the original right-hand boat remains a source reference. |
 | Directional boats | [boats-directions-v1.png](../../public/catan/boats-directions-v1.png) | 1536 × 1024 | Transparent 3 × 2 atlas: newly painted views facing right, lower-right, lower-left / left, upper-left, upper-right. |
+| Clouds and shadows | [clouds-atlas-v1.png](../../public/catan/clouds-atlas-v1.png) | 1254 × 1254 | Transparent 2 × 2 atlas: two wispy ivory clouds above their matching soft slate-blue shadow silhouettes. |
+| Directional sailboats | [sailboats-directions-v1.png](../../public/catan/sailboats-directions-v1.png) | 1536 × 1024 | Transparent 3 × 2 atlas: wooden ivory-sailed boats facing right, lower-right, lower-left / left, upper-left, upper-right. |
+| Directional pirate ships | [pirate-ships-directions-v1.png](../../public/catan/pirate-ships-directions-v1.png) | 1536 × 1024 | Transparent 3 × 2 atlas: stout two-masted pirate vessels with dark sails and ivory skull emblems, facing right, lower-right, lower-left / left, upper-left, upper-right. |
 | Robber | [robber-v2.png](../../public/catan/robber-v2.png) | 1254 × 1254 | One transparent full-body person with a dark hooded cloak, warm rim highlights and a luminous gold sack with coins. |
 | Ambient sprites | [ambient-atlas-v1.png](../../public/catan/ambient-atlas-v1.png) | 1448 × 1086 | Transparent 4 × 3 atlas; two poses each for gull, woodland bird, butterfly, dolphin, sheep and pedestrian. |
 | Wildlife | [wildlife-atlas-v1.png](../../public/catan/wildlife-atlas-v1.png) | 1254 × 1254 | Transparent 4 × 4 atlas: paired doe, stag, fox, boar, fire salamander, common toad and newt poses; the last two cells are empty. |
@@ -26,6 +29,10 @@ All current assets are precached by the [service worker](../../public/sw.js) for
 The robber is drawn at 40 × 40 board units at (x − 20, y − 29), horizontally centered and close to the middle of its field. Only the occupied landscape is fully desaturated and darkened to 74% brightness; its terrain detail remains visible. Its number moves below the character to y + 29 and uses light ink with a stronger dark stroke, including on grain. The desert label receives the same contrast treatment. A dedicated SVG layer follows buildings and construction effects, and allows pointer events to pass through to the field and placement targets. Moving the robber restores the old field's normal colors automatically.
 
 ## Living island and action details
+
+The cloud/shadow atlas and six directional sailboat views were generated with the built-in ImageGen tool on 2026-10-13. The v3 terrain and existing directional rowing boats were inspected as style references. Both new PNGs preserve the tool's generated RGBA pixels and alpha without postprocessing. The cloud sheet received one ImageGen layout edit to improve transparent cell margins. Clouds and their matching shadow silhouettes occupy separate cells; the sailboat sheet contains no painted wake or sea. Both files are included in the version 30 service-worker cache for offline play. Read-only image inspection confirmed RGBA, alpha ranges of 0–255 and 0–254 respectively, and approximately 85%/78% fully transparent pixels. The sailboat image retains warm RGB values beneath some fully transparent pixels; an alpha-ignoring viewer may show these as a vignette. Pixel sampling and a real Chromium render over a blue-gray background confirmed that those pixels are invisible and only the hull, masts and sails are composited, without a glow or painted backdrop.
+
+The directional pirate ship was generated with built-in ImageGen on 2026-10-13, after inspecting the sailboat atlas as a visual style reference. One layout edit reduced and centered the six complete silhouettes without pixel postprocessing. The two-masted wooden ship has matte dark sails with a simple ivory skull and crossbones; it uses the same direction order and a larger render size than the sailboat. Read-only inspection confirmed RGBA, alpha 0–254 and approximately 72% fully transparent pixels. Visible sprites occupy at most 76% of their cell width and 72% of their cell height. The pirate atlas, clouds and sailboats are all precached in service-worker version 31.
 
 The ambient sprites and clean pasture were created with the built-in ImageGen tool on 2026-10-02, using the v3 terrain and buildings as style references. They retain the matte gouache palette and alpha for sprite compositing. Originals are preserved; the v3 wool tile remains a fallback if either the clean pasture or ambient sprite atlas cannot load. Both replacement images must finish loading before independent sheep replace the painted sheep. Both new files are precached for offline play.
 
@@ -59,6 +66,71 @@ The directional boats and wildlife were generated with the built-in ImageGen too
 Ore fields host doe deer, stags, foxes and wild boars; clay fields host fire salamanders, common toads and newts. Wheat fields additionally host brown hares, field mice and pheasants; forests host red squirrels, badgers and hedgehogs alongside the existing woodland birds. The field and forest atlas was generated with the built-in ImageGen tool on 2026-10-03, using the existing wildlife atlas as its style reference. All six species have two walking poses. Matched square badger crops include the whole nose while excluding neighboring sprites. Short walking or hopping routes protect each complete sprite rectangle, including movement, against the hex boundary and an 18-unit number clearance. A robber on the field prevents these scenes. All four wildlife groups share the existing scene budget and visibility/reduced-motion controls, and both atlases are precached for offline play.
 
 Confirmed optional notification metadata drives roll highlights, robber travel, private card reveals and award handovers. Old saved games fall back to confirmed snapshot differences. Restore/reconnect baselines consume earlier effects. Resource receipts preserve separate gross +N and −N badges, while the total reflects the net change. The field numbers and play markers are drawn above the ambient layer.
+
+### Clouds and shadows prompts
+
+Tool: built-in ImageGen, `transparent_background: true`. Generation prompt:
+
+Use case: stylized-concept.
+Asset type: production transparent game sprite atlas for a painted island board game.
+Primary request: exactly TWO isolated cloud wisps plus their TWO matching shadow silhouettes in one SQUARE atlas, exact 2 columns x 2 rows of equal square cells, no gutters or grid lines. Canvas ideally 1024x1024.
+Input image role: /Users/wagnerit/Imposter/public/catan/terrain-atlas-v3.jpg is STYLE REFERENCE ONLY: match matte naturalistic gouache brushwork, simplified broad pigment shapes and gentle modeled shading. Include none of the terrain.
+Exact layout: TOP LEFT cell one ivory-white thin elongated wispy cloud seen from overhead. TOP RIGHT cell a different asymmetrical ivory-white wispy cloud seen from overhead. Both centered at the exact center of their square cell; their silhouette should be broad horizontally and thinner vertically. Painted cloud footprint occupies at most 68% of its cell width and at most 55% of its cell height; generous completely transparent clear margins in EVERY cell. The cloud shape will be rendered at a 2.5:1 width:height ratio, so do not add a background rectangle. BOTTOM LEFT cell a soft dark slate blue-gray silhouette matching the top-left cloud EXACT shape, size, and centered position. BOTTOM RIGHT corresponding shadow silhouette matching the top-right cloud EXACT shape, size, and centered position. These are separate standalone shadow masks, NOT shadows below clouds. Shadow edges are softly feathered; shadows are dark muted blue-gray with semitransparent edges and no glowing halo.
+Style: overhead airy thin clouds with softly visible opaque gouache strokes, warm restrained off-white highlights, cool pale gray-blue volume, natural quiet weather. Thin feathery ends, no dark outlines, no photorealism, no cartoon.
+Backdrop: actual transparent alpha, ALL pixels outside the four painted sprites must be alpha=0. Output ONLY the four centered sprites. No sky, checkerboard painted into the image, sea, land, ground, rectangular fills, white background, cloud cast shadows in the top row, text, labels, numbers, grid, border, watermark or extra sprites.
+
+Layout edit using the generated cloud atlas as the edit target:
+
+Use case: precise-object-edit. Edit the supplied four-sprite cloud atlas and preserve the exact square 2 columns x 2 rows layout, the TWO beautiful painted off-white cloud designs and TWO matching dark blue-gray standalone shadows, and actual transparent background.
+ONE targeted correction: resize each isolated sprite to have a MAXIMUM width of 65% of its square cell and center ALL FOUR sprites at their exact cell centers, both horizontally and vertically. Center TOP LEFT at canvas (25%,25%), TOP RIGHT at (75%,25%), BOTTOM LEFT at (25%,75%), BOTTOM RIGHT at (75%,75%). The corresponding cloud and shadow MUST have exactly the SAME footprint and relative position inside their own cells. BOTTOM sprites are simple soft shadow silhouettes of the clouds, never a second cloud. Keep the thin wispy broad cloud shape, matte natural gouache texture, ivory highlights and cool shading.
+Clear all stray semitransparent specks in the empty margins. At least 17.5% of EVERY cell edge must be entirely alpha=0. Preserve genuine alpha transparency, do not add any backdrop or baked-in checkerboard. Do not add text, labels, grid, sea or ground. Output this corrected cloud-and-shadow atlas only.
+
+### Directional sailboats prompt
+
+Tool: built-in ImageGen, `transparent_background: true`. Generation prompt:
+
+Use case: stylized-concept.
+Asset type: production transparent SIX-direction game sprite atlas for a painted island board game.
+Input image roles: the supplied /Users/wagnerit/Imposter/public/catan/terrain-atlas-v3.jpg and /Users/wagnerit/Imposter/public/catan/boats-directions-v1.png are STYLE REFERENCES ONLY. Match their matte naturalistic gouache brushwork, tiny believable wooden boats, muted materials, overhead slightly oblique aerial orthographic camera, and upper-left daylight. Include none of the terrain or rowing boats themselves.
+Primary request: ONE small wooden single-masted sailboat with a restrained warm ivory sail, newly painted in SIX different directional views, same physical boat identity and scale in every cell. Weathered honey-brown narrow wood hull, one simple mast and one ivory cloth sail, calm modest proportions, no people.
+Exact layout: landscape canvas aspect ratio 3:2, exact THREE columns by TWO rows of equal square cells. NO borders, grid, gutters, labels or cell backgrounds. Each boat is entirely isolated and CENTERED at the EXACT CENTER of its square cell with all hull, mast and sail included. Generous margin at least 17.5% per cell edge; maximum footprint width OR height 65% of a cell. This atlas is used at tiny size.
+Exact ROW-MAJOR order for the BOW direction, screen coordinates:
+TOP LEFT bow points RIGHT (east, 0 degrees).
+TOP MIDDLE bow points LOWER RIGHT (southeast, 60 degrees).
+TOP RIGHT bow points LOWER LEFT (southwest, 120 degrees).
+BOTTOM LEFT bow points LEFT (west, 180 degrees).
+BOTTOM MIDDLE bow points UPPER LEFT (northwest, 240 degrees).
+BOTTOM RIGHT bow points UPPER RIGHT (northeast, 300 degrees).
+Paint each directional view from the SAME fixed overhead/slightly oblique aerial camera, NOT merely rotating a flat sprite. Show a simple recognizable sail in every direction while keeping the hull bow direction unmistakable. Consistent physical scale and soft natural light from upper left. Soft organic paint edges, broad detailed gouache shading, natural ivory cloth and worn timber, no black outlines or plastic shine.
+Backdrop: GENUINE transparent alpha throughout all empty space. Output ONLY six isolated sailboat sprites. Absolutely NO water, sea, ground, wake, cast shadow, horizon, scenic background, solid background, baked-in checkerboard, text, number, frame, labels, logos, flags, people or extras.
+
+### Directional pirate ship prompts
+
+Tool: built-in ImageGen, `transparent_background: true`. Generation prompt:
+
+Use case: stylized-concept.
+Asset type: production transparent SIX-direction pirate-ship sprite atlas for a hand-painted island board game.
+Style reference: the existing six-view ivory-sailed wooden sailboat atlas visible above was inspected ONLY for its style: matte naturalistic gouache, softly modeled warm wood, visible broad brushwork, fixed elevated three-quarter aerial orthographic camera, consistent soft upper-left daylight. The new pirate vessel is a larger, broader vessel matching that camera and handmade palette.
+Primary request: exactly SIX physically painted directional views of the SAME stout TWO-MASTED wooden pirate ship. A compact broad dark-brown hull with a higher square stern deck, a pointed bow and modest bowsprit; two clearly separate masts; restrained charcoal-black square cloth sails with a little warm red-brown edging. One broad front sail has a SMALL SIMPLE IVORY SKULL AND CROSSBONES emblem, readable at tiny game size, matte ivory pigment. A tiny dark pirate pennant is allowed at the upper mast. No people, no cannonballs, no combat. Calm sailing vessel, believable natural proportions, no cartoon or black outline.
+Composition: EXACT THREE columns by TWO rows of equal SQUARE cells on a 3:2 landscape canvas, ideally1536x1024. Exactly ONE isolated centered complete ship in each cell. Each whole ship, including every sail, mast, bowsprit and pennant, must fit in at MOST 76% of cell width AND height, with at least12% perfectly transparent padding on ALL FOUR cell edges. Keep identical physical size across the six views. The sprite will render in an88world-unit square, about twice the smaller sailboat's44unit square, so readable broad silhouettes matter more than microdetail.
+Exact ROW-MAJOR BOW DIRECTIONS in screen coordinates: TOP LEFT facing RIGHT/east0degrees. TOP MIDDLE facing LOWER RIGHT/southeast60degrees. TOP RIGHT facing LOWER LEFT/southwest120degrees. BOTTOM LEFT facing LEFT/west180degrees. BOTTOM MIDDLE facing UPPER LEFT/northwest240degrees. BOTTOM RIGHT facing UPPER RIGHT/northeast300degrees. These are freshly rendered physical views of the same ship under the SAME fixed camera and light, not six flat rotated stickers. Upper-facing views show the closer stern while the bow recedes. Keep orientation obvious.
+Backdrop: GENUINE transparent alpha; ALL empty pixels around the ship silhouettes must be alpha=0. Clean edge antialiasing only immediately adjacent to hull, rigging or sail edges. No glow, brown vignette, spotlight, halo, cast shadow, water, sea, ground, floor, shoreline, foam, wake, sky, scenery or painted rectangle. No baked-in checkerboard, border, grid, labels, words, numbers, watermark, logos or extra sprites. Output ONLY the six complete isolated pirate ships.
+
+Layout edit using the generated pirate atlas as the edit target:
+
+Use case: precise-object-edit. Edit target: generated six-view pirate-ship sprite atlas.
+ONE correction only: greatly REDUCE every complete ship sprite by30% so the entire painted ship including each pennant, mast, bowsprit, rigging and hull fits comfortably inside its OWN exact square cell, and RECENTER the complete silhouette at that cell's exact center.
+Preserve the ship design, TWO masts, charcoal cloth sails, ivory skull and crossbones, wooden stern, freshly painted six physical directions, gouache style, warm wood, fixed aerial camera and upper-left light.
+Canvas EXACT1536x1024, EXACT3columnsx2rows of square512x512cells. Strict allowed painted bounds for each FULL ship:
+TOP LEFT x=92..420,y=92..420.
+TOP MIDDLE x=604..932,y=92..420.
+TOP RIGHT x=1116..1444,y=92..420.
+BOTTOM LEFT x=92..420,y=604..932.
+BOTTOM MIDDLE x=604..932,y=604..932.
+BOTTOM RIGHT x=1116..1444,y=604..932.
+ALL ship pixels including mast tips and bows MUST be within these limits, giving at least18% completely clear alpha margin at EVERY cell edge. Six ships remain centered, same physical scale.
+Row-major bow directions remain right,lower-right,lower-left / left,upper-left,upper-right.
+Genuine alpha transparency, ALL pixels outside only ship silhouettes exactlyalpha0, no cast shadow, brown backdrop, glow, sea, wake, floor, cell grid, border, labels or text. Output ONLY the smaller centered six pirate ship sprites.
 
 ### Ambient sprite prompt
 

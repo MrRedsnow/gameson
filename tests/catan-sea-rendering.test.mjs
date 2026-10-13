@@ -26,13 +26,14 @@ const defaults = { width: 412, height: 892, size: 940, x: 8, y: -5, active: true
 
 function environment(t, { reducedMotion = false, handheld = true, contextAvailable = true } = {}) {
   const frames = new Map(); const images = []; const hooks = [];
-  const uniforms = new Map(); const draws = []; const deleted = { textures: 0, buffers: 0, programs: 0, shaders: 0 };
+  const uniforms = new Map(); const draws = []; const shaderSources = []; const deleted = { textures: 0, buffers: 0, programs: 0, shaders: 0 };
   let nextFrame = 0; let hookIndex = 0; let renders = 0; let contextLost = false; let disposed = false;
   let pendingLayout = []; let pendingEffects = []; let props = { ...defaults };
   const handle = { current: null };
   const viewport = { attributes: new Map(), style: { values: new Map(), setProperty(name, value) { this.values.set(name, value); } }, setAttribute(name, value) { this.attributes.set(name, value); } };
   const gl = {
     isContextLost: () => contextLost, createShader: () => ({}), getShaderParameter: () => true,
+    shaderSource: (_shader, source) => shaderSources.push(source),
     getShaderPrecisionFormat: () => ({ precision: 23 }), createProgram: () => ({}), getProgramParameter: () => true,
     getUniformLocation: (_program, name) => name, createBuffer: () => ({}), createTexture: () => ({}), getAttribLocation: () => 0,
     uniform1i: (name, value) => uniforms.set(name, value), uniform1f: (name, value) => uniforms.set(name, value),
@@ -40,7 +41,7 @@ function environment(t, { reducedMotion = false, handheld = true, contextAvailab
     drawArrays: () => draws.push({ time: uniforms.get("u_time"), ambient: uniforms.get("u_ambient"), sea: [...uniforms.get("u_sea")], pixels: [canvas.width, canvas.height] }),
     deleteTexture: () => deleted.textures++, deleteBuffer: () => deleted.buffers++, deleteProgram: () => deleted.programs++, deleteShader: () => deleted.shaders++,
   };
-  for (const name of ["shaderSource", "compileShader", "attachShader", "linkProgram", "useProgram", "bindBuffer", "bufferData", "enableVertexAttribArray", "vertexAttribPointer", "activeTexture", "bindTexture", "texParameteri", "texImage2D", "viewport"]) gl[name] = () => {};
+  for (const name of ["compileShader", "attachShader", "linkProgram", "useProgram", "bindBuffer", "bufferData", "enableVertexAttribArray", "vertexAttribPointer", "activeTexture", "bindTexture", "texParameteri", "texImage2D", "viewport"]) gl[name] = () => {};
   for (const [index, name] of ["VERTEX_SHADER", "FRAGMENT_SHADER", "HIGH_FLOAT", "COMPILE_STATUS", "LINK_STATUS", "ARRAY_BUFFER", "STATIC_DRAW", "FLOAT", "TEXTURE0", "TEXTURE_2D", "TEXTURE_MIN_FILTER", "TEXTURE_MAG_FILTER", "LINEAR", "TEXTURE_WRAP_S", "TEXTURE_WRAP_T", "CLAMP_TO_EDGE", "RGBA", "UNSIGNED_BYTE", "TRIANGLES"].entries()) gl[name] = index + 1;
   const canvas = Object.assign(new Listeners(), { width: 300, height: 150, style: { opacity: "" }, parentElement: viewport, getContext: () => contextAvailable ? gl : null });
   const document = Object.assign(new Listeners(), { hidden: false });
@@ -73,7 +74,7 @@ function environment(t, { reducedMotion = false, handheld = true, contextAvailab
   t.after(() => { dispose(); for (const [name, descriptor] of Object.entries(originals)) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else delete globalThis[name]; } });
   render();
   return {
-    canvas, viewport, gl, draws, deleted, frames, images, document, motion, device, handle, render, dispose, get renders() { return renders; },
+    canvas, viewport, gl, draws, shaderSources, deleted, frames, images, document, motion, device, handle, render, dispose, get renders() { return renders; },
     load() { const image = images.at(-1); assert.ok(image); image.complete = true; image.naturalWidth = image.naturalHeight = 1536; image.onload?.(); },
     frameAt(now) { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((callback) => callback(now)); },
     loseContext() { contextLost = true; let prevented = false; canvas.emit("webglcontextlost", { preventDefault() { prevented = true; } }); assert.equal(prevented, true); },
@@ -105,6 +106,38 @@ test("120Hz animation callbacks draw the sea at 30fps with a bounded phone backi
   assert.ok(env.draws.every((draw) => draw.pixels[0] * draw.pixels[1] <= 450000));
   assert.ok(Math.abs(env.draws.at(-1).time - 1) < 1e-8);
   assert.equal(env.frames.size, 1);
+});
+
+test("broad sea light stays positive and gentle, drifts spatially and crosses the clock wrap smoothly", (t) => {
+  const env = environment(t);
+  const fragment = env.shaderSources.find((source) => source.includes("gl_FragColor"));
+  const reflectionMath = fragment.slice(fragment.indexOf("float reflectionPhase"), fragment.indexOf("gl_FragColor"));
+  // Sample the exact scalar GLSL sent to the renderer, rather than a second copy
+  // of its equations. These statements use only ordinary scalar arithmetic.
+  const sample = new Function("u_time", "u_ambient", "p", `const sin = Math.sin, cos = Math.cos; ${reflectionMath.replace(/\bfloat\b/g, "const")} return reflection;`);
+  const values = [];
+  for (const x of [0, 128, 512, 1024, 1536]) for (const y of [0, 384, 768, 1536]) for (const time of [0, 5, 15, 30, 44.999]) {
+    const point = { x, y }; const value = sample(time, 1, point); values.push(value);
+    assert.ok(value >= 1 && value <= 1.03, "Reflections only brighten the painted sea, by at most three percent.");
+    assert.equal(sample(time, 0, point), 1, "The ambient preference removes all added light.");
+    assert.ok(Math.abs(sample(time + 45, 1, point) - value) < 1e-10);
+    assert.ok(Math.abs(sample(89.999, 1, point) - sample(0, 1, point)) < .00001, "The modulo-90 clock has no visible reflection seam.");
+  }
+  assert.ok(Math.max(...values) - Math.min(...values) > .015, "The broad light remains visible across the sea and over time.");
+  assert.ok(Math.abs(sample(0, 1, { x: 512, y: 384 }) - sample(15, 1, { x: 512, y: 384 })) > .002, "Light moves while the camera remains still.");
+});
+
+test("the ambient toggle removes sea reflections without restarting its clock or renderer", (t) => {
+  const env = environment(t); env.load(); env.frameAt(0); env.frameAt(500);
+  const phase = env.draws.at(-1).time; const shaders = env.shaderSources.length;
+  env.render({ ambientEnabled: false });
+  assert.equal(env.draws.at(-1).ambient, 0); assert.equal(env.draws.at(-1).time, phase);
+  assert.equal(env.frames.size, 1); env.frameAt(1000);
+  assert.ok(env.draws.at(-1).time > phase, "Base water motion continues with scenery disabled.");
+  const resumedPhase = env.draws.at(-1).time;
+  env.render({ ambientEnabled: true });
+  assert.equal(env.draws.at(-1).ambient, 1); assert.equal(env.draws.at(-1).time, resumedPhase);
+  assert.equal(env.shaderSources.length, shaders); assert.equal(env.images.length, 1); assert.equal(env.frames.size, 1);
 });
 
 test("panning keeps the sea visible and paints imperative camera changes at the frozen wave phase", (t) => {

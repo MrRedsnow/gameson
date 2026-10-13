@@ -33,7 +33,12 @@ void main() {
     1.5 * cos(phase + p.x / 96.0 - p.y / 128.0) + 0.5 * sin(2.0 * phase + p.y / 110.0)
   );
   vec4 paintedSea = texture2D(u_texture, clamp(uv + wave / u_textureSize, 0.0, 1.0));
-  float reflection = 1.0 + u_ambient * 0.015 * sin(u_time * 6.28318530718 / 30.0 + p.x / 260.0 + p.y / 340.0);
+  // Wide, slowly crossing light patches add at most three percent brightness.
+  // Forty-five seconds divides the ninety-second clock wrap without a seam.
+  float reflectionPhase = u_time * 6.28318530718 / 45.0;
+  float lightBand = 0.5 + 0.5 * sin(reflectionPhase + p.x / 430.0 + p.y / 550.0);
+  float lightShape = 0.5 + 0.5 * cos(reflectionPhase - p.x / 610.0 + p.y / 480.0);
+  float reflection = 1.0 + u_ambient * 0.03 * lightBand * lightShape;
   gl_FragColor = vec4(paintedSea.rgb * reflection, paintedSea.a);
 }`;
 

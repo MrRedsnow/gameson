@@ -296,8 +296,9 @@ test("grazing sheep and wind never begin on the robber's blocked field", () => {
       assert.ok(Math.abs(point.x - hex.x) - size / 2 >= 14, "The sheep stays beside the central number.");
     }
     const breeze = createAmbientScene("wind", game, bounds, ambientRandom(`wind-${seed}`));
-    assert.ok(breeze.windFields.length >= 1 && breeze.windFields.length <= 2);
+    assert.ok(breeze.windFields.length >= 1 && breeze.windFields.length <= 3);
     assert.ok(breeze.windFields.every((id) => ["wood", "grain"].includes(game.board.hexes[id].resource)));
+    for (let index = 1; index < breeze.windFields.length; index++) assert.ok(game.board.edges.some((edge) => edge.hexes.includes(breeze.windFields[index - 1]) && edge.hexes.includes(breeze.windFields[index])), "A gust advances through neighboring fields.");
   }
 });
 
@@ -396,13 +397,14 @@ test("first birds arrive sooner than repeats and long visible scenes retain thei
   const create = (kind) => ["gull", "forest_bird", "dolphin"].includes(kind) ? { point: { x: 0, y: 0 } } : null;
   assert.deepEqual(queue.tick(0, state, create), []);
   assert.deepEqual(queue.tick(1999, state, create), []);
-  assert.deepEqual(queue.tick(2000, state, create).map((scene) => [scene.kind, scene.startedAt, scene.duration]), [["gull", 2000, 10_000]]);
+  assert.deepEqual(queue.tick(2000, state, create).map((scene) => [scene.kind, scene.startedAt, scene.duration]), [["gull", 2000, 18_000]]);
   assert.deepEqual(queue.tick(5000, state, create).map((scene) => scene.kind), ["gull", "forest_bird"]);
   const full = queue.tick(7000, state, create);
   assert.equal(full.length, 3); assert.equal(full.find((scene) => scene.kind === "dolphin").duration, 8000);
   assert.equal(AMBIENT_DURATIONS.forest_bird, 7000);
-  const repeat = queue.tick(12_000, state, create).find((scene) => scene.kind === "gull");
-  assert.equal(repeat.startedAt, 12_000, "The next gull follows the repeat interval after its first appearance.");
+  assert.equal(queue.tick(12_000, state, create).find((scene) => scene.kind === "gull").startedAt, 2000, "A flock finishes its long flight before another starts.");
+  const repeat = queue.tick(30_000, state, create).find((scene) => scene.kind === "gull");
+  assert.equal(repeat.startedAt, 30_000, "The next flock follows a quiet interval after the long flight.");
 });
 
 test("running grazing and road scenes stop when a public board update invalidates their place", () => {
@@ -422,7 +424,7 @@ test("running grazing and road scenes stop when a public board update invalidate
   assert.deepEqual(queue.tick(2, state, () => null), []);
 });
 
-test("shared deadlines obey both scene budgets and a separate two-field breeze", () => {
+test("shared deadlines obey both scene budgets and a separate connected breeze", () => {
   for (const mobile of [false, true]) {
     const queue = new AmbientSchedule(() => 0); let calls = 0;
     const create = () => { calls++; return { point: { x: 0, y: 0 } }; };
@@ -440,6 +442,7 @@ test("shared deadlines obey both scene budgets and a separate two-field breeze",
 test("busy mobile islands show walkers early and give every waiting animal its turn", () => {
   const game = makeGame();
   const road = game.board.edges.find((edge) => edge.hexes.length === 2);
+  game.robberHex = game.board.hexes.find((hex) => hex.resource !== "desert").id;
   road.owner = "a";
   Object.assign(game.board.vertices[road.a], { owner: "a", building: "settlement" });
   for (const seed of ["constant", ...Array.from({ length: 24 }, (_, index) => `busy-island-${index}`)]) {
@@ -532,6 +535,11 @@ test("camera navigation leaves no scenery timer or SVG paint, resumes once and r
   t.mock.method(performance, "now", () => now);
   t.after(() => { for (const [name, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[name]; else globalThis[name] = value; } });
   t.mock.method(React, "useRef", (value) => { const id = cursor++; return slots[id] ??= { current: id === 0 ? layer : value }; });
+  t.mock.method(React, "useMemo", (create, deps) => {
+    const id = cursor++; const slot = slots[id] ??= {};
+    if (!slot.deps || deps.some((value, index) => !Object.is(value, slot.deps[index]))) { slot.deps = deps; slot.value = create(); }
+    return slot.value;
+  });
   t.mock.method(React, "useState", (value) => {
     const id = cursor++; const slot = slots[id] ??= { value };
     return [slot.value, (next) => { slot.value = next; scenes = next; dirty = true; }];

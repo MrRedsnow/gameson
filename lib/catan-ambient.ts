@@ -5,19 +5,21 @@ import { HARBOR_BOAT_CLEARANCE, harborLayout } from "./catan-harbor";
 export { pointInPolygon, segmentDistance, type AmbientPoint } from "./catan-geometry";
 export type AmbientBounds = AmbientPoint & { width: number; height: number };
 export type WildlifeKind = "ore_wildlife" | "clay_wildlife" | "grain_wildlife" | "forest_wildlife";
-export type AmbientKind = "gull" | "forest_bird" | "butterfly" | "dolphin" | "sheep" | "pedestrian" | "smoke" | "wind" | WildlifeKind;
+export type AmbientKind = "gull" | "forest_bird" | "butterfly" | "dolphin" | "sailboat" | "pirate_ship" | "desert_dust" | "sheep" | "pedestrian" | "smoke" | "wind" | WildlifeKind;
 export type WildlifeSpecies = "deer" | "stag" | "fox" | "boar" | "salamander" | "toad" | "newt" | "hare" | "field_mouse" | "pheasant" | "squirrel" | "badger" | "hedgehog";
 export type AmbientGame = Pick<CatanView, "id" | "board" | "robberHex">;
 export type AmbientScene = {
   id: string; kind: AmbientKind; startedAt: number; duration: number;
   point?: AmbientPoint; path?: AmbientPoint[]; pathKind?: "bezier" | "polyline"; hexId?: number; sheepIndex?: number;
-  roadEdges?: number[]; windFields?: number[]; wildlifeSpecies?: WildlifeSpecies;
+  roadEdges?: number[]; windFields?: number[]; wildlifeSpecies?: WildlifeSpecies; heading?: number;
 };
 
 export const AMBIENT_INTERVALS: Record<AmbientKind, readonly [number, number]> = {
   gull: [10_000, 18_000], forest_bird: [12_000, 24_000], butterfly: [12_000, 24_000],
   dolphin: [18_000, 32_000], sheep: [6_000, 12_000], pedestrian: [8000, 14_000],
   smoke: [6000, 10_000], wind: [16_000, 28_000],
+  sailboat: [90_000, 150_000], desert_dust: [60_000, 100_000],
+  pirate_ship: [150_000, 240_000],
   ore_wildlife: [16_000, 28_000], clay_wildlife: [16_000, 28_000],
   grain_wildlife: [16_000, 28_000], forest_wildlife: [16_000, 28_000],
 };
@@ -25,12 +27,16 @@ export const AMBIENT_FIRST_INTERVALS: Record<AmbientKind, readonly [number, numb
   gull: [2000, 4000], forest_bird: [5000, 8000], butterfly: [6000, 10_000],
   dolphin: [7000, 12_000], sheep: [1000, 3000], pedestrian: [1000, 2000],
   smoke: [3000, 5000], wind: [8000, 12_000],
+  sailboat: [30_000, 50_000], desert_dust: [20_000, 35_000],
+  pirate_ship: [45_000, 70_000],
   ore_wildlife: [6000, 12_000], clay_wildlife: [6000, 12_000],
   grain_wildlife: [6000, 12_000], forest_wildlife: [6000, 12_000],
 };
 const KINDS = Object.keys(AMBIENT_INTERVALS) as AmbientKind[];
 export const AMBIENT_DURATIONS: Record<AmbientKind, number> = {
-  gull: 10_000, forest_bird: 7000, butterfly: 6500, dolphin: 8000,
+  gull: 18_000, forest_bird: 7000, butterfly: 6500, dolphin: 8000,
+  sailboat: 30_000, desert_dust: 8000,
+  pirate_ship: 40_000,
   sheep: 6000, pedestrian: 8500, smoke: 4500, wind: 8500,
   ore_wildlife: 8000, clay_wildlife: 7500,
   grain_wildlife: 7500, forest_wildlife: 8000,
@@ -58,6 +64,12 @@ export const AMBIENT_DOLPHIN_SIZE = 40;
 // Sprite corner radius, the sea mask's 11-unit coast exclusion and rounding reserve.
 export const AMBIENT_DOLPHIN_CLEARANCE = Math.ceil(Math.hypot(AMBIENT_DOLPHIN_SIZE / 2, AMBIENT_DOLPHIN_SIZE * .72)) + 12;
 export const AMBIENT_DOLPHIN_JUMP = 10;
+export const AMBIENT_SAILBOAT_SIZE = 44;
+export const AMBIENT_SAILBOAT_WAKE = 16;
+export const AMBIENT_PIRATE_SHIP_SIZE = 88;
+export const AMBIENT_PIRATE_SHIP_WAKE = 32;
+export const AMBIENT_DESERT_DUST_WIDTH = 30;
+export const AMBIENT_DESERT_DUST_HEIGHT = 10;
 /** The painted sheep stay available unless both replacement layers have loaded. */
 export function preloadAmbientArtwork(onReady: (ready: boolean) => void, createImage: () => Pick<HTMLImageElement, "src" | "onload" | "onerror"> = () => new Image()) {
   const images = [createImage(), createImage()]; const loaded = [false, false];
@@ -173,12 +185,12 @@ function dolphinGeometry(board: Board): DolphinGeometry {
   if (dolphinGeometryCache.size >= 12) dolphinGeometryCache.delete(dolphinGeometryCache.keys().next().value!);
   dolphinGeometryCache.set(key, geometry); return geometry;
 }
-function dolphinPosition(geometry: DolphinGeometry, bounds: AmbientBounds, point: AmbientPoint) {
-  const sprite = { x: point.x - AMBIENT_DOLPHIN_SIZE / 2, y: point.y - AMBIENT_DOLPHIN_SIZE * .72, width: AMBIENT_DOLPHIN_SIZE, height: AMBIENT_DOLPHIN_SIZE };
+function seaRectangleClear(geometry: DolphinGeometry, bounds: AmbientBounds, sprite: AmbientBounds, coastPadding: number) {
+  if ([sprite.x, sprite.y, sprite.width, sprite.height, coastPadding].some((value) => !Number.isFinite(value)) || sprite.width <= 0 || sprite.height <= 0 || coastPadding < 0) return false;
   if (!pointInAmbientBounds(sprite, bounds, 1) || !pointInAmbientBounds({ x: sprite.x + sprite.width, y: sprite.y + sprite.height }, bounds, 1)) return false;
   // The expanded rectangle excludes the painted sea mask's 11-unit coastal
   // band plus a reserve; slab intersection checks the entire edge, not corners.
-  const coastGuard = { x: sprite.x - 12, y: sprite.y - 12, width: sprite.width + 24, height: sprite.height + 24 };
+  const coastGuard = { x: sprite.x - coastPadding, y: sprite.y - coastPadding, width: sprite.width + coastPadding * 2, height: sprite.height + coastPadding * 2 };
   const clearsHarbors = geometry.harbors.every((harbor) => {
     const harborPoint = harbor.point;
     const dx = Math.max(sprite.x - harborPoint.x, 0, harborPoint.x - sprite.x - sprite.width);
@@ -187,8 +199,16 @@ function dolphinPosition(geometry: DolphinGeometry, bounds: AmbientBounds, point
   });
   if (!clearsHarbors) return false;
   for (const edge of geometry.coast) if (segmentHitsRectangle(edge.a, edge.b, coastGuard)) return false;
+  const point = { x: sprite.x + sprite.width / 2, y: sprite.y + sprite.height / 2 };
   for (const hex of geometry.land) if (pointInAmbientBounds(point, hex.bounds) && pointInPolygon(point, hex.polygon)) return false;
   return true;
+}
+/** A complete decoration envelope must stay in water, not only its centre. */
+export function ambientSeaRectangle(board: Board, bounds: AmbientBounds, rectangle: AmbientBounds, coastPadding = 12) {
+  return seaRectangleClear(dolphinGeometry(board), bounds, rectangle, coastPadding);
+}
+function dolphinPosition(geometry: DolphinGeometry, bounds: AmbientBounds, point: AmbientPoint) {
+  return seaRectangleClear(geometry, bounds, { x: point.x - AMBIENT_DOLPHIN_SIZE / 2, y: point.y - AMBIENT_DOLPHIN_SIZE * .72, width: AMBIENT_DOLPHIN_SIZE, height: AMBIENT_DOLPHIN_SIZE }, 12);
 }
 /** Full axis-aligned sprite rectangle; its horizontal mirror has identical bounds. */
 export function ambientDolphinPosition(board: Board, bounds: AmbientBounds, point: AmbientPoint) { return dolphinPosition(dolphinGeometry(board), bounds, point); }
@@ -256,6 +276,87 @@ function dolphinPath(board: Board, bounds: AmbientBounds, random: () => number):
   const group = choose([...sectors.values()], random); const route = group && choose(group, random);
   if (!route) return null;
   const result = route.map((point) => ({ ...point })); return random() < .5 ? result.reverse() : result;
+}
+
+/** The six atlas cells face east, south-east, south-west, west, north-west, north-east. */
+export function ambientSailboatHeading(points: readonly AmbientPoint[]) {
+  const start = points[0]; const end = points[points.length - 1];
+  return start && end ? (Math.round(Math.atan2(end.y - start.y, end.x - start.x) / (Math.PI / 3)) + 6) % 6 : 0;
+}
+const SAILBOAT_STERN_ANCHORS = [[23, 69], [31, 49], [73, 49], [81, 67], [69, 72], [30, 74]] as const;
+const PIRATE_STERN_ANCHORS = [[22, 75], [24, 62], [80, 62], [82, 74], [70, 77], [27, 77]] as const;
+/** Painted stern positions differ from the square cell centre and the mast. */
+export function ambientShipWakeAnchor(heading: number, size: number): AmbientPoint {
+  const index = Number.isFinite(heading) ? (Math.round(heading) % 6 + 6) % 6 : 0;
+  const [x, y] = (size >= AMBIENT_PIRATE_SHIP_SIZE ? PIRATE_STERN_ANCHORS : SAILBOAT_STERN_ANCHORS)[index];
+  return { x: (x / 100 - .5) * size, y: (y / 100 - .5) * size };
+}
+/** A centred square sprite, two-unit bob and the whole wake behind its hull. */
+export function ambientSailboatRectangle(point: AmbientPoint, heading = 0, size = AMBIENT_SAILBOAT_SIZE, wakeLength = AMBIENT_SAILBOAT_WAKE): AmbientBounds {
+  const angle = heading * Math.PI / 3; const half = size / 2;
+  const anchor = ambientShipWakeAnchor(heading, size);
+  const wake = { x: anchor.x - Math.cos(angle) * wakeLength, y: anchor.y - Math.sin(angle) * wakeLength };
+  // Includes the six-unit fanned wake, its stroke and the vertical bob.
+  const fan = 8 * size / AMBIENT_SAILBOAT_SIZE;
+  const left = Math.min(-half, anchor.x - fan, wake.x - fan); const right = Math.max(half, anchor.x + fan, wake.x + fan);
+  const top = Math.min(-half - 2, anchor.y - fan - 2, wake.y - fan - 2); const bottom = Math.max(half + 2, anchor.y + fan + 2, wake.y + fan + 2);
+  return { x: point.x + left, y: point.y + top, width: right - left, height: bottom - top };
+}
+export function ambientSailboatPosition(board: Board, bounds: AmbientBounds, point: AmbientPoint, heading = 0, size = AMBIENT_SAILBOAT_SIZE, wakeLength = AMBIENT_SAILBOAT_WAKE) {
+  return ambientSeaRectangle(board, bounds, ambientSailboatRectangle(point, heading, size, wakeLength));
+}
+export function validSailboatPath(board: Board, bounds: AmbientBounds, points: readonly AmbientPoint[], heading = ambientSailboatHeading(points), size = AMBIENT_SAILBOAT_SIZE, wakeLength = AMBIENT_SAILBOAT_WAKE) {
+  if (points.length !== 2 || points.some((point) => !Number.isFinite(point.x) || !Number.isFinite(point.y))) return false;
+  const steps = Math.max(40, Math.ceil(distance(points[0], points[1]) / 1.5));
+  const prepared = dolphinGeometry(board);
+  for (let step = 0; step <= steps; step++) if (!seaRectangleClear(prepared, bounds, ambientSailboatRectangle(ambientPathPoint(points, step / steps, "polyline"), heading, size, wakeLength), 12)) return false;
+  return true;
+}
+export function ambientPirateShipPosition(board: Board, bounds: AmbientBounds, point: AmbientPoint, heading = 0) {
+  return ambientSailboatPosition(board, bounds, point, heading, AMBIENT_PIRATE_SHIP_SIZE, AMBIENT_PIRATE_SHIP_WAKE);
+}
+export function validPirateShipPath(board: Board, bounds: AmbientBounds, points: readonly AmbientPoint[], heading = ambientSailboatHeading(points)) {
+  return validSailboatPath(board, bounds, points, heading, AMBIENT_PIRATE_SHIP_SIZE, AMBIENT_PIRATE_SHIP_WAKE);
+}
+const sailboatRouteCache = new Map<string, { path: AmbientPoint[]; heading: number }[]>();
+function sailboatRoute(board: Board, bounds: AmbientBounds, random: () => number, size = AMBIENT_SAILBOAT_SIZE, wakeLength = AMBIENT_SAILBOAT_WAKE) {
+  const key = `${publicBoardGeometryKey(board)}|${bounds.x}:${bounds.y}:${bounds.width}:${bounds.height}|${size}:${wakeLength}`;
+  const large = size > AMBIENT_SAILBOAT_SIZE;
+  let routes = sailboatRouteCache.get(key);
+  if (!routes) {
+    routes = [];
+    for (const edge of board.edges.filter((edge) => edge.hexes.length === 1)) {
+      const a = board.vertices[edge.a]; const b = board.vertices[edge.b];
+      const midpoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const radius = Math.hypot(midpoint.x, midpoint.y) || 1;
+      const outward = { x: midpoint.x / radius, y: midpoint.y / radius };
+      const tangentHeading = (Math.round(Math.atan2(outward.x, -outward.y) / (Math.PI / 3)) + 6) % 6;
+      for (const heading of [tangentHeading, (tangentHeading + 3) % 6]) {
+        let found: AmbientPoint[] | undefined;
+        const direction = { x: Math.cos(heading * Math.PI / 3), y: Math.sin(heading * Math.PI / 3) };
+        const offsets = large ? [126, 146, 166, 186, 206, 226, 246] : [74, 86, 98, 110, 122, 134, 146, 158];
+        const lengths = large ? [240, 200, 160, 110, 80] : [140, 110, 80, 60];
+        // Larger ships prefer an open-water passage over a short near-coast
+        // fallback. Small boats retain their existing shoreline preference.
+        const candidates = large ? lengths.flatMap((length) => offsets.map((offset) => ({ length, offset }))) : offsets.flatMap((offset) => lengths.map((length) => ({ length, offset })));
+        for (const { offset, length } of candidates) {
+          const center = { x: midpoint.x + outward.x * offset, y: midpoint.y + outward.y * offset };
+          const path = [{ x: center.x - direction.x * length / 2, y: center.y - direction.y * length / 2 }, { x: center.x + direction.x * length / 2, y: center.y + direction.y * length / 2 }];
+          if (validSailboatPath(board, bounds, path, heading, size, wakeLength)) { found = path; break; }
+        }
+        if (found) routes.push({ path: found, heading });
+      }
+    }
+    if (sailboatRouteCache.size >= 12) sailboatRouteCache.delete(sailboatRouteCache.keys().next().value!);
+    sailboatRouteCache.set(key, routes);
+  }
+  const sectors = new Map<number, typeof routes>();
+  for (const route of routes) {
+    const midpoint = ambientPathPoint(route.path, .5); const sector = (Math.floor(Math.atan2(midpoint.y, midpoint.x) / (Math.PI / 4)) + 8) % 8;
+    const group = sectors.get(sector) ?? []; group.push(route); sectors.set(sector, group);
+  }
+  const group = choose([...sectors.values()], random); const route = group && choose(group, random);
+  return route ? { path: route.path.map((point) => ({ ...point })), pathKind: "polyline" as const, heading: route.heading } : null;
 }
 
 export function ambientSheep(board: Board) {
@@ -379,6 +480,16 @@ export function ambientRoadRoute(board: Board, bounds: AmbientBounds, random: ()
 export function createAmbientScene(kind: AmbientKind, game: AmbientGame, bounds: AmbientBounds, random: () => number): Omit<AmbientScene, "id" | "startedAt" | "duration" | "kind"> | null {
   if (isAmbientWildlifeKind(kind)) return wildlifeRoute(kind, game, bounds, random);
   if (kind === "dolphin") { const path = dolphinPath(game.board, bounds, random); return path ? { path, pathKind: "bezier" } : null; }
+  if (kind === "sailboat") return sailboatRoute(game.board, bounds, random);
+  if (kind === "pirate_ship") return sailboatRoute(game.board, bounds, random, AMBIENT_PIRATE_SHIP_SIZE, AMBIENT_PIRATE_SHIP_WAKE);
+  if (kind === "desert_dust") {
+    const routes = game.board.hexes.filter((hex) => hex.resource === "desert" && hex.id !== game.robberHex).flatMap((hex) => {
+      const from = { x: hex.x - 10, y: hex.y - 28 }; const to = { x: hex.x + 10, y: hex.y - 28 };
+      const swept = { x: from.x - AMBIENT_DESERT_DUST_WIDTH / 2, y: from.y - AMBIENT_DESERT_DUST_HEIGHT / 2, width: AMBIENT_DESERT_DUST_WIDTH + 20, height: AMBIENT_DESERT_DUST_HEIGHT };
+      return wildlifeRectangleClear(game.board, hex, bounds, swept) ? [{ hexId: hex.id, path: [from, to], pathKind: "polyline" as const }] : [];
+    });
+    return choose(routes, random) ?? null;
+  }
   if (kind === "pedestrian") return ambientRoadRoute(game.board, bounds, random);
   if (kind === "butterfly" || kind === "forest_bird") return terrainRoute(game, bounds, kind === "butterfly" ? ["wool", "grain"] : ["wood"], random);
   if (kind === "sheep") {
@@ -401,20 +512,33 @@ export function createAmbientScene(kind: AmbientKind, game: AmbientGame, bounds:
   if (kind === "wind") {
     const fields = game.board.hexes.filter((hex) => ["wood", "grain"].includes(hex.resource) && hex.id !== game.robberHex && pointInAmbientBounds(hex, bounds, 35));
     const first = choose(fields, random); if (!first) return null;
-    const next = choose(fields.filter((hex) => hex.id !== first.id), random);
-    return { windFields: [first.id, ...(next ? [next.id] : [])] };
+    const windFields = [first.id]; let last = first;
+    // One breeze advances through a connected corridor instead of shaking
+    // unrelated woods and fields on opposite ends of the island.
+    while (windFields.length < 3) {
+      const neighbors = new Set(game.board.edges.filter((edge) => edge.hexes.includes(last.id)).flatMap((edge) => edge.hexes));
+      const next = fields.filter((hex) => !windFields.includes(hex.id) && neighbors.has(hex.id)).sort((a, b) => (b.x + b.y * .22) - (a.x + a.y * .22))[0];
+      if (!next) break;
+      windFields.push(next.id); last = next;
+    }
+    return { windFields };
   }
-  const coast = choose(game.board.edges.filter((edge) => edge.hexes.length === 1 && pointInAmbientBounds(harborAmbientPoint(game.board, edge.id), bounds, 20)), random);
-  if (!coast) return null;
-  const center = harborAmbientPoint(game.board, coast.id); const radius = Math.hypot(center.x, center.y) || 1;
-  const tangent = { x: -center.y / radius, y: center.x / radius };
-  const path = [
-    { x: center.x - tangent.x * 27, y: center.y - tangent.y * 27 },
-    { x: center.x - tangent.x * 12 + center.x / radius * 12, y: center.y - tangent.y * 12 + center.y / radius * 12 },
-    { x: center.x + tangent.x * 12 + center.x / radius * 12, y: center.y + tangent.y * 12 + center.y / radius * 12 },
-    { x: center.x + tangent.x * 27, y: center.y + tangent.y * 27 },
-  ];
-  return path.every((point) => pointInAmbientBounds(point, bounds, 12)) ? { path, pathKind: "bezier" } : null;
+  const flights = game.board.edges.filter((edge) => edge.hexes.length === 1).flatMap((coast) => {
+    const center = harborAmbientPoint(game.board, coast.id); const radius = Math.hypot(center.x, center.y) || 1;
+    const tangent = { x: -center.y / radius, y: center.x / radius };
+    for (const length of [160, 130, 100]) {
+      const path = [
+        { x: center.x - tangent.x * length / 2, y: center.y - tangent.y * length / 2 },
+        { x: center.x - tangent.x * length / 6 + center.x / radius * 14, y: center.y - tangent.y * length / 6 + center.y / radius * 14 },
+        { x: center.x + tangent.x * length / 6 + center.x / radius * 14, y: center.y + tangent.y * length / 6 + center.y / radius * 14 },
+        { x: center.x + tangent.x * length / 2, y: center.y + tangent.y * length / 2 },
+      ];
+      // Covers the trailing two birds, atlas squares and the 25-degree banking.
+      if (path.every((point) => pointInAmbientBounds(point, bounds, 60))) return [{ path, pathKind: "bezier" as const }];
+    }
+    return [];
+  });
+  return choose(flights, random) ?? null;
 }
 
 export type AmbientScheduleState = { available: boolean; blocked: boolean; mobile: boolean };
@@ -426,6 +550,7 @@ export function ambientSceneValid(scene: AmbientScene, game: AmbientGame, cleanP
   }
   if (scene.kind === "sheep") return cleanPasture && scene.hexId !== game.robberHex && game.board.hexes[scene.hexId!]?.resource === "wool";
   if (scene.kind === "wind") return Boolean(scene.windFields?.every((id) => id !== game.robberHex && ["wood", "grain"].includes(game.board.hexes[id]?.resource)));
+  if (scene.kind === "desert_dust") return scene.hexId !== game.robberHex && game.board.hexes[scene.hexId!]?.resource === "desert";
   if (scene.kind === "pedestrian") {
     const edges = scene.roadEdges?.map((id) => game.board.edges[id]);
     const owner = edges?.[0]?.owner;
@@ -450,7 +575,7 @@ export class AmbientSchedule {
     if (!this.available) { this.available = true; this.reset(now); }
     this.scenes = this.scenes.filter((scene) => scene.startedAt + scene.duration > now);
     const cap = state.mobile ? 2 : 3;
-    // A resize keeps the oldest scenes and the independent two-patch breeze.
+    // A resize keeps the oldest scenes and the independent connected breeze.
     this.scenes = this.scenes.filter((scene, index, scenes) => scene.kind === "wind" || scenes.slice(0, index + 1).filter((item) => item.kind !== "wind").length <= cap);
     // An action pauses spawning, without destroying the order of waiting kinds.
     // Hidden/disabled views above still discard the queue completely.
@@ -467,6 +592,8 @@ export class AmbientSchedule {
       // Keep a waiting scene's original deadline. Resetting every waiting kind
       // to the same time let birds repeatedly jump ahead of people and wildlife.
       if (!allowed) continue;
+      const seaActor = (candidate: AmbientKind) => candidate === "sailboat" || candidate === "pirate_ship" || candidate === "dolphin";
+      if (seaActor(kind) && this.scenes.some((scene) => seaActor(scene.kind))) continue;
       const details = create(kind);
       this.deadlines.set(kind, now + (details ? this.delay(kind) : 10_000));
       if (details) this.scenes.push({ ...details, id: `ambient-${++this.counter}`, kind, startedAt: now, duration: ambientSceneDuration(kind, details) });

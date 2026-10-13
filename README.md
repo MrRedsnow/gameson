@@ -158,6 +158,13 @@ incoming offers open the relevant area.
   Local setup roads allow an 800 ms transition before the next handoff.
 - The sea pauses when the island or document is hidden. Its wave cycle lasts
   4.5 seconds; movement strength and camera parallax are separate settings.
+- Optional island atmosphere adds drifting clouds and land shadows, coastal
+  surf, occasional sailing boats and larger pirate ships with wakes, gull flocks,
+  offshore fog and desert dust. Connected woods and grain fields sway in successive gusts;
+  broad sea reflections drift over 45 seconds. Cloud sizes stay legible in the
+  overview and bounded while zooming. The existing atmosphere switch controls
+  these effects, and reduced motion stops them. Camera gestures freeze their
+  movement without resetting cloud or fog positions.
 - Optional resource sounds play for gains or field inspection. They start
   disabled and work offline. The wood sound uses the complete user-provided
   `Wood Planks Falling Sound - Sound Effects_.ogg`, converted to
@@ -231,6 +238,13 @@ npx wrangler dev --config dist/server/wrangler.json --local --persist-to .wrangl
 
 The tests cover game rules, APIs, sessions, UI rendering, map controls, realtime
 updates and Ubuntu setup behavior.
+
+For deterministic atmosphere previews, run
+`CATAN_QA_FIXTURE=catan-atmosphere.tsx node tests/catan-ux-preview.mjs`, then
+`node tests/catan-atmosphere-browser.mjs` in another terminal. This checks normal
+motion at zoom 1, 3 and 6 on four screen sizes, fullscreen, scenery click-through,
+motion preferences and independent artwork failures. Screenshots are written to
+the ignored `.wrangler/catan-atmosphere/` directory.
 
 ### Core Ball browser check
 

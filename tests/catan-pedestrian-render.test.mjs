@@ -55,6 +55,7 @@ test("the scenery animation finds its villager source inside defs, follows four-
   const layer = { querySelectorAll: () => [source] }; const layouts = []; let refs = 0; let frame;
   t.mock.method(React, "useState", () => [[scene], () => {}]);
   t.mock.method(React, "useRef", (value) => ({ current: refs++ === 0 ? layer : value }));
+  t.mock.method(React, "useMemo", (create) => create());
   t.mock.method(React, "useEffect", () => {});
   t.mock.method(React, "useLayoutEffect", (effect) => { layouts.push(effect); });
   const previousFrame = globalThis.requestAnimationFrame; const previousCancel = globalThis.cancelAnimationFrame;

@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
-  AMBIENT_DOLPHIN_SIZE, AMBIENT_WALK_REST, AMBIENT_WILDLIFE_BOB, AMBIENT_WILDLIFE_SPRITES, AmbientSchedule, ambientBounds, ambientHarborExclusions, ambientPathPoint, ambientRandom, ambientSceneValid, ambientSheep, createAmbientScene, isAmbientWildlifeKind,
+  AMBIENT_DOLPHIN_SIZE, AMBIENT_PIRATE_SHIP_SIZE, AMBIENT_PIRATE_SHIP_WAKE, AMBIENT_SAILBOAT_SIZE, AMBIENT_SAILBOAT_WAKE, AMBIENT_WALK_REST, AMBIENT_WILDLIFE_BOB, AMBIENT_WILDLIFE_SPRITES, AmbientSchedule, ambientBounds, ambientHarborExclusions, ambientPathPoint, ambientRandom, ambientSceneValid, ambientSheep, ambientShipWakeAnchor, createAmbientScene, isAmbientWildlifeKind,
   type AmbientGame, type AmbientKind, type AmbientScene, type WildlifeSpecies,
 } from "@/lib/catan-ambient";
+import { AtmosphereClock, createAtmosphere, preloadAtmosphereArtwork } from "@/lib/catan-atmosphere";
+import type { BoardBounds } from "@/lib/catan-camera";
+import { AtmosphereDefinitions, AtmosphereLayer, atmosphereNodes, paintAtmosphere } from "./atmosphere";
 
 // A 4 × 3 atlas has 100-unit square cells irrespective of its pixel dimensions.
 const SPRITE_CELLS: Partial<Record<AmbientKind, readonly [number, number]>> = {
@@ -26,25 +29,53 @@ function Sprite({ artId, kind, wildlifeSpecies, staticPose = false }: { artId: s
 function Wind({ game, artId, scene }: { game: AmbientGame; artId: string; scene: AmbientScene }) {
   return <>{scene.windFields?.map((hexId, index) => {
     const hex = game.board.hexes[hexId];
-    return <g key={hexId} clipPath={`url(#${artId}-hex-${hexId})`}>
+    return <g key={hexId} className={index === 2 ? "is-desktop-wind-patch" : undefined} clipPath={`url(#${artId}-hex-${hexId})`}>
       <g transform={`translate(${hex.x} ${hex.y})${hex.id % 2 ? " scale(-1 1)" : ""}`} mask={`url(#${artId}-ambient-wind-mask)`}>
-        <use className={`catan-ambient-wind-patch on-${hex.resource}`} href={`#${artId}-${hex.resource}`} style={{ "--ambient-wind-delay": `${index * -800}ms` } as CSSProperties} />
+        <use className={`catan-ambient-wind-patch on-${hex.resource}`} href={`#${artId}-${hex.resource}`} style={{ "--ambient-wind-delay": `${index * 650}ms`, "--ambient-wind-direction": hex.id % 2 ? -1 : 1 } as CSSProperties} />
       </g>
     </g>;
   })}</>;
 }
 
 function Scene({ game, artId, scene }: { game: AmbientGame; artId: string; scene: AmbientScene }) {
-  if (scene.kind === "wind") return <g className="catan-ambient-wind-scene" data-ambient-scene={scene.id}><Wind game={game} artId={artId} scene={scene} /></g>;
+  if (scene.kind === "wind") return <g className="catan-ambient-wind-scene" data-ambient-scene={scene.id} data-ambient-kind="wind"><Wind game={game} artId={artId} scene={scene} /></g>;
   if (scene.kind === "smoke") return <g data-ambient-scene={scene.id} data-ambient-kind="smoke" className="catan-ambient-smoke" transform={`translate(${scene.point!.x} ${scene.point!.y})`}>
     {[0, 1, 2].map((index) => <ellipse key={index} className="catan-ambient-smoke-puff" cx={0} cy={0} rx={2.8 + index * .3} ry={1.9 + index * .2} style={{ animationDelay: `${index * 700}ms` }} />)}
   </g>;
   const start = scene.path?.[0] ?? scene.point!;
   const next = scene.path?.[1];
+  if (scene.kind === "sailboat" || scene.kind === "pirate_ship") {
+    const pirate = scene.kind === "pirate_ship";
+    const size = pirate ? AMBIENT_PIRATE_SHIP_SIZE : AMBIENT_SAILBOAT_SIZE;
+    const wake = pirate ? AMBIENT_PIRATE_SHIP_WAKE : AMBIENT_SAILBOAT_WAKE;
+    const ratio = size / AMBIENT_SAILBOAT_SIZE;
+    const heading = scene.heading ?? 0; const angle = heading * Math.PI / 3;
+    const dx = Math.cos(angle); const dy = Math.sin(angle);
+    const stern = ambientShipWakeAnchor(heading, size);
+    return <g data-ambient-scene={scene.id} data-ambient-kind={scene.kind} data-boat-heading={heading} data-boat-size={size} transform={`translate(${start.x} ${start.y})`}>
+      <defs><linearGradient id={`${artId}-${scene.id}-wake`} gradientUnits="userSpaceOnUse" x1={stern.x} y1={stern.y} x2={stern.x - dx * wake} y2={stern.y - dy * wake}>
+        <stop offset="0" stopColor="#d4e7dd" stopOpacity=".8" /><stop offset="1" stopColor="#d4e7dd" stopOpacity="0" />
+      </linearGradient></defs>
+      {[0, 1, 2].map((index) => {
+        const side = (index - 1) * ratio; const from = index === 1 ? 0 : 3 * ratio; const to = wake - (index === 1 ? 0 : 2 * ratio);
+        return <path key={index} data-ambient-wake={index} className="catan-ambient-sailboat-wake" d={`M${stern.x - dx * from - dy * side * 2},${stern.y - dy * from + dx * side * 2} Q${stern.x - dx * (from + to) / 2 - dy * side * 4},${stern.y - dy * (from + to) / 2 + dx * side * 4} ${stern.x - dx * to - dy * side * 6},${stern.y - dy * to + dx * side * 6}`} style={{ stroke: `url(#${artId}-${scene.id}-wake)`, strokeWidth: 1.3 * ratio, opacity: index === 1 ? .65 : .35 }} />;
+      })}
+      <g className="catan-ambient-body">
+        <svg x={-size / 2} y={-size / 2} width={size} height={size} viewBox={`${heading % 3 * 100} ${Math.floor(heading / 3) * 100} 100 100`} overflow="hidden"><use href={`#${artId}-${pirate ? "pirate-ship" : "sailboat"}-atlas`} /></svg>
+      </g>
+    </g>;
+  }
+  if (scene.kind === "desert_dust") return <g data-ambient-scene={scene.id} data-ambient-kind="desert_dust" data-ambient-hex={scene.hexId} transform={`translate(${start.x} ${start.y})`}>
+    <g className="catan-ambient-body catan-ambient-desert-dust">
+      {[-1, 0, 1].map((index) => <ellipse key={index} cx={index * 6} cy={index * 1.2} rx={8 - Math.abs(index)} ry={2.5} fill={`url(#${artId}-ambient-dust-feather)`} />)}
+    </g>
+  </g>;
   const groundDirection = next ? Math.abs(next.x - start.x) > .001 ? next.x - start.x : next.y - start.y : 1;
   const flip = scene.kind === "sheep" ? ((scene.sheepIndex ?? 0) % 2 ? -1 : 1) : scene.wildlifeSpecies || scene.kind === "pedestrian" ? groundDirection < 0 ? -1 : 1 : scene.path && scene.path[scene.path.length - 1].x < start.x ? -1 : 1;
   return <g data-ambient-scene={scene.id} data-ambient-kind={scene.kind} data-wildlife-species={scene.wildlifeSpecies} data-ambient-hex={scene.hexId} transform={`translate(${start.x} ${start.y})`} style={{ "--ambient-scene-duration": `${scene.duration}ms` } as CSSProperties}>
-    <g className="catan-ambient-body" transform={`scale(${flip} 1)`}><Sprite artId={artId} kind={scene.kind} wildlifeSpecies={scene.wildlifeSpecies} /></g>
+    <g className="catan-ambient-body" transform={`scale(${flip} 1)`}>
+      {scene.kind === "gull" ? [[0, 0], [-17, 12], [-34, -8]].map(([x, y], index) => <g key={index} data-ambient-flock-bird={index} className={index === 2 ? "is-desktop-flock-bird" : undefined} transform={`translate(${x} ${y})`}><Sprite artId={artId} kind="gull" /></g>) : <Sprite artId={artId} kind={scene.kind} wildlifeSpecies={scene.wildlifeSpecies} />}
+    </g>
   </g>;
 }
 
@@ -57,25 +88,44 @@ function Scene({ game, artId, scene }: { game: AmbientGame; artId: string; scene
  * Clean pasture is opt-in after the replacement image successfully loads.
  * CSS is loaded by app/catan/layout.tsx so SSR/test bundles need no CSS loader.
  */
-export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, enabled, effectsBusy = false, cleanPasture = true, previewKind, externalPedestrians = false }: {
+export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, enabled, effectsBusy = false, cleanPasture = true, previewKind, externalPedestrians = false, boardBounds, scale = 1, previewAtmosphere = false }: {
   game: AmbientGame; artId: string; viewBox: string; active: boolean; interacting: boolean; enabled: boolean;
   effectsBusy?: boolean; cleanPasture?: boolean; previewKind?: AmbientKind; externalPedestrians?: boolean;
+  boardBounds?: BoardBounds; scale?: number; previewAtmosphere?: boolean;
 }) {
   const layer = useRef<SVGGElement>(null);
-  const latest = useRef({ game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind });
+  const latest = useRef({ game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind, scale, previewAtmosphere, sailboatReady: false, pirateShipReady: false });
   const tickRef = useRef<(() => void) | null>(null);
   const playbackRef = useRef<((running: boolean) => void) | null>(null);
   const playbackAllowed = useRef(active && enabled && !interacting);
+  const mobileRef = useRef(false);
+  const spawnBlocked = useRef(false);
+  const fogPlayback = useRef({ visible: false });
   const [scenes, setScenes] = useState<AmbientScene[]>([]);
+  const [artwork, setArtwork] = useState({ clouds: false, sailboat: false, pirate_ship: false });
+  const atmosphereClock = useRef(new AtmosphereClock());
+  const geometryKey = `${game.id}:${game.board.vertices.map((point) => `${point.x},${point.y}`).join(";")}:${game.board.harbors.map((harbor) => harbor.edge).join(",")}`;
+  const atmosphere = useMemo(() => {
+    const initialBounds = boardBounds ?? ambientBounds(viewBox) ?? { x: -420, y: -370, width: 840, height: 740 };
+    return createAtmosphere(game.board, initialBounds, `${game.id}:atmosphere`);
+    // Capture fitted geometry once; navigating cannot relocate weather routes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geometryKey]);
   const sceneKey = scenes.map((scene) => scene.id).join(":");
+  useLayoutEffect(() => { atmosphereClock.current = new AtmosphereClock(); fogPlayback.current.visible = false; }, [geometryKey]);
   useLayoutEffect(() => {
-    latest.current = { game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind };
-  }, [game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind]);
+    latest.current = { game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind, scale, previewAtmosphere, sailboatReady: artwork.sailboat, pirateShipReady: artwork.pirate_ship };
+  }, [game, viewBox, cleanPasture, active, interacting, enabled, effectsBusy, previewKind, scale, previewAtmosphere, artwork.sailboat, artwork.pirate_ship]);
   useLayoutEffect(() => {
     tickRef.current?.();
   // Camera frames only update the latest bounds. They must not restart the
   // scheduler, validate routes or publish scenes while a gesture is moving.
-  }, [game, cleanPasture, active, interacting, enabled, effectsBusy, previewKind]);
+  }, [game, cleanPasture, active, interacting, enabled, effectsBusy, previewKind, artwork.sailboat, artwork.pirate_ship]);
+
+  useEffect(() => {
+    if (typeof Image === "undefined") return;
+    return preloadAtmosphereArtwork((asset, ready) => setArtwork((previous) => previous[asset] === ready ? previous : { ...previous, [asset]: ready }));
+  }, []);
 
   useEffect(() => {
     const svg = layer.current?.ownerSVGElement;
@@ -94,9 +144,11 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
       if (disposed) return;
       if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
       const current = latest.current;
+      mobileRef.current = compact.matches;
       const available = current.active && current.enabled && !document.hidden && !motion.matches;
       playbackAllowed.current = available && !current.interacting;
       playbackRef.current?.(playbackAllowed.current);
+      svg?.setAttribute("data-catan-atmosphere-active", String(available));
       // Preserve current scenery during navigation, but leave no timer or SVG
       // animation frame competing with the camera. The end-of-gesture tick
       // expires old scenes and reads the final visible bounds in one pass.
@@ -107,11 +159,12 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
       const blocked = current.interacting || current.effectsBusy || document.documentElement.classList.contains("catan-dice-rolling") ||
         svg?.getAttribute("data-catan-effect-active") === "true" || Boolean(svg?.querySelector(".catan-construction-effect")) ||
         Boolean(svg?.closest(".catan-play")?.querySelector(".catan-event-notice:not([hidden])"));
+      spawnBlocked.current = blocked;
       svg?.setAttribute("data-catan-ambient-active", String(available && !blocked));
       const bounds = ambientBounds(current.viewBox); const now = performance.now();
       const state = { available, blocked, mobile: compact.matches };
       const create = (kind: AmbientKind) => {
-        if (!bounds || (kind === "sheep" && !current.cleanPasture)) return null;
+        if (!bounds || (kind === "sheep" && !current.cleanPasture) || (kind === "sailboat" && !current.sailboatReady) || (kind === "pirate_ship" && !current.pirateShipReady)) return null;
         return createAmbientScene(kind, current.game, bounds, random);
       };
       if (current.game !== validatedGame || current.cleanPasture !== validatedPasture) {
@@ -136,6 +189,7 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
       playbackAllowed.current = false; playbackRef.current?.(false);
       tickRef.current = null;
       svg?.setAttribute("data-catan-ambient-active", "false");
+      svg?.setAttribute("data-catan-atmosphere-active", "false");
       document.removeEventListener("visibilitychange", tick);
       motion.removeEventListener("change", tick); compact.removeEventListener("change", tick);
       setScenes([]);
@@ -143,13 +197,28 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
   }, [game.id]);
 
   useLayoutEffect(() => {
-    if (!layer.current || !scenes.length) return;
+    if (!layer.current) return;
+    const hasAtmosphere = artwork.clouds || atmosphere.surf.length > 0;
+    if (!scenes.length && !hasAtmosphere) return;
     const nodes = new Map([...layer.current.querySelectorAll<SVGGElement>("[data-ambient-scene]")].map((node) => [node.getAttribute("data-ambient-scene"), { node, body: node.querySelector<SVGGElement>(".catan-ambient-body") }]));
-    let frame = 0; let disposed = false; let finished = false;
+    const skyNodes = atmosphereNodes(layer.current);
+    const svg = layer.current.ownerSVGElement;
+    // Check live action state only when fog is about to become visible, rather
+    // than waiting for the scheduler's next eight-hundred-millisecond tick.
+    const fogBlocked = () => spawnBlocked.current || latest.current.effectsBusy || document.documentElement.classList.contains("catan-dice-rolling") ||
+      svg?.getAttribute("data-catan-effect-active") === "true" || Boolean(svg?.querySelector(".catan-construction-effect")) ||
+      Boolean(svg?.closest(".catan-play")?.querySelector(".catan-event-notice:not([hidden])"));
+    let frame = 0; let disposed = false; let finished = false; let lastAtmospherePaint = -Infinity;
+    const clock = atmosphereClock.current;
     const paint = (now: number) => {
       frame = 0;
       if (disposed || !playbackAllowed.current || latest.current.interacting) return;
-      let running = false;
+      const atmosphereTime = clock.sample(now, true);
+      let running = hasAtmosphere;
+      if (hasAtmosphere && now - lastAtmospherePaint >= 1000 / 30 - .5) {
+        paintAtmosphere(skyNodes, atmosphere, atmosphereTime, latest.current.scale, mobileRef.current, artwork.clouds, latest.current.previewAtmosphere, fogBlocked, fogPlayback.current);
+        lastAtmospherePaint = now;
+      }
       for (const scene of scenes) {
         const entry = nodes.get(scene.id); if (!entry) continue;
         const { node, body } = entry;
@@ -166,7 +235,8 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
         if (point) {
           const settle = Math.max(0, Math.min(1, (scene.duration - elapsed) / 450));
           const settleWalk = Math.max(0, Math.min(1, (walkDuration - elapsed) / 250));
-          const lift = scene.kind === "dolphin" ? Math.sin(progress * Math.PI) * 10 : scene.kind === "pedestrian" ? Math.sin(elapsed / 105) * .7 * settleWalk : scene.kind === "sheep" ? Math.abs(Math.sin(elapsed / 145)) * .85 * settle : scene.wildlifeSpecies ? Math.abs(Math.sin(elapsed / 210)) * AMBIENT_WILDLIFE_BOB : 0;
+          const ship = scene.kind === "sailboat" || scene.kind === "pirate_ship";
+          const lift = ship ? Math.sin(elapsed / (scene.kind === "pirate_ship" ? 3000 : 2000)) * 1.4 : scene.kind === "dolphin" ? Math.sin(progress * Math.PI) * 10 : scene.kind === "pedestrian" ? Math.sin(elapsed / 105) * .7 * settleWalk : scene.kind === "sheep" ? Math.abs(Math.sin(elapsed / 145)) * .85 * settle : scene.wildlifeSpecies ? Math.abs(Math.sin(elapsed / 210)) * AMBIENT_WILDLIFE_BOB : 0;
           node.setAttribute("transform", `translate(${point.x} ${point.y - lift})`);
           if (scene.path && pathProgress < 1) {
             const ahead = ambientPathPoint(scene.path, Math.min(1, pathProgress + .002), scene.pathKind);
@@ -174,7 +244,7 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
             // Ground figures turn on vertical roads and safe wildlife corridors
             // without rotating their upright silhouettes.
             const direction = (scene.wildlifeSpecies || scene.kind === "pedestrian") && Math.abs(dx) <= .001 ? dy : dx;
-            if (body && Math.abs(direction) > .001) {
+            if (body && !ship && scene.kind !== "desert_dust" && Math.abs(direction) > .001) {
               const facing = settling ? ((scene.sheepIndex ?? 0) % 2 ? -1 : 1) : direction < 0 ? -1 : 1;
               // Dolphins use an axis-aligned water clearance for their full sprite.
               const airborne = ["gull", "forest_bird", "butterfly"].includes(scene.kind);
@@ -192,26 +262,30 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
       else finished = true;
     };
     const playback = (running: boolean) => {
-      if (!running) { cancelAnimationFrame(frame); frame = 0; }
+      if (!running) { cancelAnimationFrame(frame); frame = 0; clock.pause(); }
       else if (!disposed && !finished && !frame) frame = requestAnimationFrame(paint);
     };
     playbackRef.current = playback;
     playback(playbackAllowed.current);
     return () => {
-      disposed = true; cancelAnimationFrame(frame);
+      disposed = true; cancelAnimationFrame(frame); clock.pause();
       if (playbackRef.current === playback) playbackRef.current = null;
     };
   // Frames mutate only SVG presentation; IDs, rather than game polls, own playback.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sceneKey]);
+  }, [sceneKey, artwork.clouds, geometryKey]);
 
   const bounds = ambientBounds(viewBox);
   const movingSheep = new Set(scenes.filter((scene) => scene.kind === "sheep").map((scene) => `${scene.hexId}:${scene.sheepIndex}`));
-  return <g ref={layer} className="catan-ambient-island" aria-hidden="true" pointerEvents="none">
+  return <g ref={layer} className="catan-ambient-island" aria-hidden="true" pointerEvents="none" style={{ "--catan-atmosphere-fallback-scale": scale } as CSSProperties}>
     <defs>
       <image id={`${artId}-ambient-atlas`} href="/catan/ambient-atlas-v1.png" width={400} height={300} preserveAspectRatio="none" />
       <image id={`${artId}-wildlife-atlas`} href="/catan/wildlife-atlas-v1.png" width={400} height={400} preserveAspectRatio="none" />
       <image id={`${artId}-field-forest-atlas`} href="/catan/field-forest-wildlife-v1.png" width={400} height={400} preserveAspectRatio="none" />
+      {artwork.sailboat && <image id={`${artId}-sailboat-atlas`} href="/catan/sailboats-directions-v1.png" width={300} height={200} preserveAspectRatio="none" />}
+      {artwork.pirate_ship && <image id={`${artId}-pirate-ship-atlas`} href="/catan/pirate-ships-directions-v1.png" width={300} height={200} preserveAspectRatio="none" />}
+      <AtmosphereDefinitions game={game} artId={artId} cloudsReady={artwork.clouds} />
+      <radialGradient id={`${artId}-ambient-dust-feather`}><stop offset="0" stopColor="#edd5a1" stopOpacity=".46" /><stop offset="1" stopColor="#bda172" stopOpacity="0" /></radialGradient>
       <g id={`${artId}-ambient-pedestrians`}>
         {scenes.filter((scene) => scene.kind === "pedestrian").map((scene) => <Scene key={scene.id} game={game} artId={artId} scene={scene} />)}
       </g>
@@ -228,13 +302,15 @@ export function CatanAmbientIsland({ game, artId, viewBox, active, interacting, 
         {ambientHarborExclusions(game.board).map(({ point, radius, kind, edgeId }) => <circle key={`${kind}-${edgeId}`} cx={point.x} cy={point.y} r={radius} fill="black" />)}
       </mask>}
     </defs>
+    <AtmosphereLayer spec={atmosphere} artId={artId} cloudsReady={artwork.clouds} />
     {cleanPasture && ambientSheep(game.board).filter((sheep) => !movingSheep.has(`${sheep.hexId}:${sheep.sheepIndex}`)).map((sheep) => <g key={`${sheep.hexId}:${sheep.sheepIndex}`} clipPath={`url(#${artId}-hex-${sheep.hexId})`} className={`catan-ambient-standing-sheep${sheep.hexId === game.robberHex ? " is-blocked" : ""}`}>
       <g transform={`translate(${sheep.point.x} ${sheep.point.y}) scale(${sheep.sheepIndex % 2 ? -1 : 1} 1)`}><Sprite artId={artId} kind="sheep" staticPose /></g>
     </g>)}
-    {scenes.filter((scene) => scene.kind !== "pedestrian").map((scene) => <g key={scene.id} mask={scene.kind === "dolphin" ? `url(#${artId}-ambient-sea-mask)` : undefined} clipPath={scene.kind === "sheep" && scene.hexId !== undefined ? `url(#${artId}-hex-${scene.hexId})` : undefined}>
+    {scenes.filter((scene) => scene.kind !== "pedestrian").map((scene) => <g key={scene.id} mask={scene.kind === "dolphin" ? `url(#${artId}-ambient-sea-mask)` : undefined} clipPath={(scene.kind === "sheep" || scene.kind === "desert_dust") && scene.hexId !== undefined ? `url(#${artId}-hex-${scene.hexId})` : scene.kind === "sailboat" || scene.kind === "pirate_ship" ? `url(#${artId}-harbor-sea-clip)` : undefined}>
       {scene.kind === "dolphin" && scene.path && [scene.path[0], scene.path[scene.path.length - 1]].map((point, index) => <ellipse key={index} className="catan-ambient-water-ring" cx={point.x} cy={point.y} rx={11} ry={4.4} style={{ animationDelay: `${index * Math.max(0, scene.duration - 1800)}ms`, transformOrigin: `${point.x}px ${point.y}px` }} />)}
       <Scene game={game} artId={artId} scene={scene} />
     </g>)}
     {!externalPedestrians && <use className="catan-ambient-pedestrians" href={`#${artId}-ambient-pedestrians`} />}
+    <AtmosphereLayer spec={atmosphere} artId={artId} cloudsReady={artwork.clouds} sky />
   </g>;
 }
