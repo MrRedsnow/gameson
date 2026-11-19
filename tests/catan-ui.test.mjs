@@ -24,27 +24,31 @@ const send = async () => true;
 const seats = [{ id: "a", name: "Robin" }, { id: "b", name: "Mara" }, { id: "c", name: "Lea" }];
 const sequence = (values) => { let i = 0; return (length) => values[i++ % values.length] % length; };
 
-test("map voting shows the island, progress, immutable own vote and host-only tie actions", () => {
+test("map voting keeps the island clear and shows vote status and host-only tie actions", () => {
   let game = createCatanGame([...seats, { id: "d", name: "Dana" }], 12, sequence([0]));
   let html = ui(game, "b");
-  assert.match(html, /Kartenabstimmung/); assert.match(html, /Karte akzeptieren/); assert.match(html, /Karte ablehnen/);
-  assert.match(html, /Felder, Zahlen und Häfen sind frei zufällig verteilt/);
-  assert.match(html, /0 Ja · 0 Nein · 4 offen/); assert.match(html, /Rohstoffton abspielen:/);
+  assert.match(statusRow(html), /Kartenabstimmung/);
+  assert.match(html, /Karte akzeptieren/); assert.match(html, /Karte ablehnen/);
+  assert.doesNotMatch(html, /catan-island-context|Felder, Zahlen und Häfen sind frei zufällig verteilt/);
+  assert.match(html, /Rohstoffton abspielen:/);
   assert.doesNotMatch(html, /Feld ansehen:|catan-board-field-info|catan-hex-selection/);
   assert.doesNotMatch(html, /Siedlung auf Kreuzung|Starthilfe zur Gründung|catan-hand-bar/);
   assert.equal((html.match(/<button\b[^>]*>/g) ?? []).filter((tag) => /data-catan-menu-trigger="(?:karten|bauen|handel)"/.test(tag) && /disabled=""/.test(tag)).length, 3);
   const mapId = game.mapVote.id;
   game = applyCatanAction(game, "b", { type: "map_vote", mapId, accept: false });
   html = ui(game, "b");
-  assert.match(html, /Du hast die Karte abgelehnt/); assert.match(html, /0 Ja · 1 Nein · 3 offen/);
+  assert.match(statusRow(html), /Stimme abgegeben · Warte auf weitere Stimmen/);
+  assert.doesNotMatch(html, /catan-island-context/);
   assert.doesNotMatch(html, /Karte akzeptieren|Karte ablehnen/);
   for (const [id, accept] of [["a", true], ["c", true], ["d", false]]) game = applyCatanAction(game, id, { type: "map_vote", mapId, accept });
   const host = ui(game, "a"); const guest = ui(game, "b");
-  assert.match(host, /2 Ja · 2 Nein · 0 offen/); assert.match(host, /Karte annehmen/); assert.match(host, /Neue Karte/);
-  assert.match(guest, /Gleichstand: Robin entscheidet/); assert.doesNotMatch(guest, /Karte annehmen|Neue Karte/);
+  assert.match(statusRow(host), /Gleichstand · Du entscheidest/);
+  assert.match(host, /Karte annehmen/); assert.match(host, /Neue Karte/);
+  assert.match(statusRow(guest), /Gleichstand · Spielleitung entscheidet/);
+  assert.doesNotMatch(guest, /Karte annehmen|Neue Karte/);
   assert.match(ui(game, "a", { busy: true }), /<button[^>]*disabled=""[^>]*>Karte annehmen/);
   game = applyCatanAction(game, "a", { type: "resolve_map_tie", mapId, accept: true });
-  assert.match(ui(game, "a"), /Erste Siedlung setzen|mit der Gründung dran/); assert.doesNotMatch(ui(game, "a"), /catan-map-vote/);
+  assert.match(ui(game, "a"), /Erste Siedlung setzen|mit der Gründung dran/);
 });
 
 function foundedGame() {

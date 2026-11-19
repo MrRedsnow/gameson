@@ -251,7 +251,10 @@ test("sichtbare Catan-Partie mit echter Zufallskarte und hörbaren Sounds", asyn
     await host.page.getByRole("button", { name: "Partie starten", exact: true }).click();
     reference = seats.find((seat) => seat.name === viewerName);
     await reference.page.bringToFront();
-    await expect(host.page.getByRole("region", { name: "Kartenabstimmung", exact: true })).toBeVisible();
+    const voteControls = host.page.getByRole("region", { name: "Eure Karte prüfen", exact: true });
+    await expect(voteControls.getByRole("button", { name: "Karte akzeptieren", exact: true })).toBeVisible();
+    await expect(voteControls.getByRole("button", { name: "Karte ablehnen", exact: true })).toBeVisible();
+    await expect(voteControls.locator(".catan-island-context")).toHaveCount(0);
     game = await snapshot();
     initialBoard = structuredClone(game.board);
     expect(game.phase).toBe("map_vote");

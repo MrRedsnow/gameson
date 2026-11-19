@@ -403,12 +403,6 @@
 .catan-island-screen>.catan-screen-actions [data-slot=button]>svg { width:clamp(22px,3.5vw,32px); height:clamp(22px,3.5vw,32px); }
 .catan-island-context { display:grid; gap:8px; padding:10px 12px; background:#082c3bd9; }
 .catan-island-context:empty { display:none; }
-.catan-map-vote { padding:10px 12px; border:1px solid #60808d; border-radius:12px; background:#132a34ed; font-size:.875rem; line-height:1.4; }
-.catan-map-vote p { margin:4px 0 0; color:#ced7d8; overflow-wrap:anywhere; }
-.catan-map-vote summary { padding-top:7px; cursor:pointer; color:#f5d88f; }
-.catan-map-vote ul { display:grid; gap:5px; padding:7px 0 0; margin:0; list-style:none; }
-.catan-map-vote li { display:flex; justify-content:space-between; gap:10px; }
-.catan-map-vote li span { overflow-wrap:anywhere; min-width:0; }
 .catan-theme .catan-nav-tab:disabled { opacity:.4; cursor:default; }
 .catan-island-tools { display:flex; flex-direction:column; gap:clamp(6px,1.2vw,12px); flex-shrink:0; }
 .catan-screen-heading>.catan-island-tools { flex:0 0 auto; }
@@ -823,9 +817,9 @@
 .catan-world .is-game-menu .catan-exchange p:last-child { border-color:rgba(192,239,199,.2); background:rgba(192,239,199,.06); }
 .is-game-menu .catan-exchange :is(span,strong) { overflow-wrap:anywhere; }
 .is-game-menu .catan-player-card summary { gap:8px; padding:12px; }
-.catan-world .is-game-menu :is(.catan-overview-link,.catan-log-entry,.catan-trade-bag,.catan-activity-entry,.catan-map-vote,.catan-section,.catan-trade-preview) { padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
+.catan-world .is-game-menu :is(.catan-overview-link,.catan-log-entry,.catan-trade-bag,.catan-activity-entry,.catan-section,.catan-trade-preview) { padding:12px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-world .is-game-menu .catan-player-card>div { border-top:0; }
-.catan-world :is(.is-game-menu,.catan-island-context) :is(.catan-section,.catan-development-card,.catan-rule-section,.catan-activity-item,.catan-map-vote) :is(.catan-trade-preview,.catan-trade-bag,.catan-amount-controls,.catan-resource-hand>div) { border:0; border-top:1px solid var(--catan-glass-inner-edge); border-radius:0; background:transparent; box-shadow:none; }
+.catan-world :is(.is-game-menu,.catan-island-context) :is(.catan-section,.catan-development-card,.catan-rule-section,.catan-activity-item) :is(.catan-trade-preview,.catan-trade-bag,.catan-amount-controls,.catan-resource-hand>div) { border:0; border-top:1px solid var(--catan-glass-inner-edge); border-radius:0; background:transparent; box-shadow:none; }
 .catan-world .is-game-menu .catan-amount-controls { padding:12px; gap:8px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-theme .catan-world .is-game-menu :is(.catan-stepper,.catan-pager,.catan-card-links,.catan-overview-exit) [data-slot=button] { min-height:44px; min-width:44px; border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-button-radius); background:var(--catan-glass-inner); color:var(--catan-glass-text); }
 .catan-world .is-game-menu .catan-resource-choices>div { gap:8px; }
@@ -836,7 +830,7 @@
 .catan-world .is-game-menu .catan-trade-result .is-gain { background:rgba(58,113,80,var(--catan-glass-alpha)); }
 .catan-world .is-game-menu .catan-trade-result .is-loss { background:rgba(137,86,53,var(--catan-glass-alpha)); }
 .catan-world .is-game-menu .catan-inline-hint { color:var(--catan-glass-muted); }
-.catan-world .catan-island-context :is(.catan-map-vote,.catan-section) { border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
+.catan-world .catan-island-context .catan-section { border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-theme .catan-resource-choices button[aria-pressed=true]::after { content:"✓"; position:absolute; top:4px; right:6px; color:#f6d589; font-size:.875rem; }
 .catan-resource-choices button { position:relative; }
 @media(min-width:600px) { .is-game-menu .catan-exchange { grid-template-columns:repeat(2,minmax(0,1fr)); } }

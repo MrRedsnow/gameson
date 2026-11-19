@@ -14,7 +14,7 @@ import { CatanEventNotice } from "./event-notice";
 import { CardsPanel } from "./cards-panel";
 import { OverviewPanel, type OverviewPage } from "./overview-panel";
 import { Screen, type Send } from "./play-primitives";
-import { MapVoteActions, MapVotePanel } from "./map-vote";
+import { MapVoteActions } from "./map-vote";
 import { TradePanel } from "./trade-panel";
 import { useIslandFullscreen } from "./use-island-fullscreen";
 import { useFullscreenMenu, type FullscreenMenu } from "./use-fullscreen-menu";
@@ -170,7 +170,15 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
     finally { pending.current = false; setInFlight(false); }
   };
   const finished = game.phase === "finished"; const needsDiscard = game.phase === "discard" && game.discards[me.id] > 0;
-  const statusTitle = voting ? "Kartenabstimmung" : finished ? `${game.players.find((p) => p.id === game.winner)!.name} gewinnt!` : own ? "Du bist am Zug" : `${active.name} ist am Zug`;
+  const voted = voting && Object.hasOwn(game.mapVote!.votes, me.id);
+  const voteTied = voting && mapVoteProgress(game).tied;
+  const resolvesMapTie = voteTied && me.id === game.mapVote!.hostPlayerId;
+  let statusTitle: string;
+  if (voteTied) statusTitle = resolvesMapTie ? "Gleichstand · Du entscheidest" : "Gleichstand · Spielleitung entscheidet";
+  else if (voted) statusTitle = "Stimme abgegeben · Warte auf weitere Stimmen";
+  else if (voting) statusTitle = "Kartenabstimmung";
+  else if (finished) statusTitle = `${game.players.find((p) => p.id === game.winner)!.name} gewinnt!`;
+  else statusTitle = own ? "Du bist am Zug" : `${active.name} ist am Zug`;
   const setup = own && game.phase.startsWith("setup");
   let mode: BoardMode = null;
   if (own) {
@@ -204,7 +212,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
   const canEndTurn = own && game.phase === "main" && !game.trade && !mode;
   const go = (target: CatanTab, text: string) => <Button className="catan-primary" onClick={() => selectTab(target)}>{text}</Button>;
   let turnActions: ReactNode;
-  if (voting) turnActions = !Object.hasOwn(game.mapVote!.votes, me.id) || (mapVoteProgress(game).tied && me.id === game.mapVote!.hostPlayerId) ? <MapVoteActions game={game} send={send} busy={busy} /> : undefined;
+  if (voting) turnActions = !voted || resolvesMapTie ? <MapVoteActions mapId={game.mapVote!.id} resolvesTie={resolvesMapTie} send={send} busy={busy} /> : undefined;
   else if (needsDiscard) turnActions = go("karten", `${game.discards[me.id]} Karten abgeben`);
   else if (mode && mode !== "robber") turnActions = go("insel", `${BUILDING_NAMES[mode]} auf der Insel setzen`);
   else if (own && game.phase === "steal") turnActions = go("insel", "Person zum Bestehlen wählen");
@@ -266,8 +274,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
           <CatanBoard key={game.mapVote?.id ?? "accepted"} game={game} mode={mode} choices={choices} selected={selected} onSelect={selectPlace} disabled={busy} onInspect={sounds.preview} islandVisible animationBaseline={animationBaseline} ambientEnabled={ambient.enabled} waterEnabled={water.enabled} seaTarget={seaTarget} controlsTarget={controlsTarget} />
         </div>
         <section className={`catan-island-dock${own && game.phase === "steal" ? " is-steal" : ""}`} aria-label={islandTitle} data-menu-hidden={activeMenu ? "true" : undefined} aria-hidden={activeMenu ? true : undefined} inert={activeMenu !== null}>
-          <div className="catan-island-context">
-            {voting && <MapVotePanel game={game} />}
+          {!voting && <div className="catan-island-context">
             {mode && mode !== "robber" && !setup && <div className="catan-placement-controls">
               <header className="catan-placement-heading"><div><h2>{islandTitle}</h2><p role="status">{selected === null ? "Wähle einen markierten Bauplatz auf der Karte." : "Auswahl bereit · Bestätige deinen Zug."}</p></div></header>
             </div>}
@@ -282,7 +289,7 @@ export function CatanGameUI({ game, send: sendAction, busy: externalBusy, local,
             </div>}
             {game.phase === "discard" && !needsDiscard && <p className="catan-inline-hint">Andere geben Rohstoffe ab. Danach geht es weiter.</p>}
             {!canBuild && mode && mode !== "robber" && <p className="catan-inline-hint" role="status">{buildUnavailable(game, mode)}</p>}
-          </div>
+          </div>}
           <div className="catan-island-toolbar">
             <div ref={setControlsTarget} className="catan-island-map-controls" />
             <footer className={`catan-screen-actions${mode ? " catan-placement-actions" : ""}`}>{islandActions}</footer>
