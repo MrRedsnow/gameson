@@ -830,6 +830,55 @@
 .catan-world .is-game-menu .catan-trade-result .is-gain { background:rgba(58,113,80,var(--catan-glass-alpha)); }
 .catan-world .is-game-menu .catan-trade-result .is-loss { background:rgba(137,86,53,var(--catan-glass-alpha)); }
 .catan-world .is-game-menu .catan-inline-hint { color:var(--catan-glass-muted); }
+.catan-trade-compose .is-loss {
+  --catan-trade-ink:#ffd0b5;
+  --catan-trade-edge:rgba(234,151,108,.38);
+  --catan-trade-fill:rgba(139,78,51,.23);
+}
+.catan-trade-compose .is-gain {
+  --catan-trade-ink:#c0efc7;
+  --catan-trade-edge:rgba(139,218,159,.34);
+  --catan-trade-fill:rgba(62,123,83,.24);
+}
+.catan-trade-composition-summary {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,6.5rem),1fr));
+  gap:8px;
+}
+.catan-trade-composition-summary>section {
+  display:grid;
+  align-content:start;
+  gap:4px;
+  min-width:0;
+  padding:8px 10px;
+  border:1px solid var(--catan-trade-edge);
+  border-radius:var(--catan-glass-button-radius);
+  background:var(--catan-trade-fill);
+  color:var(--catan-trade-ink);
+  overflow-wrap:anywhere;
+}
+.catan-trade-composition-summary :is(h3,strong) { font-size:.875rem; line-height:1.3; font-weight:750; }
+.catan-trade-quantities { display:grid; gap:6px; min-width:0; }
+.catan-trade-quantity {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px 8px;
+  min-width:0;
+  padding:4px 8px;
+  border:1px solid var(--catan-trade-edge,var(--catan-glass-inner-edge));
+  border-radius:var(--catan-glass-button-radius);
+  background:var(--catan-trade-fill,var(--catan-glass-inner));
+}
+.catan-trade-quantity>svg { width:22px; height:22px; flex:0 0 22px; }
+.catan-trade-quantity-label { display:grid; flex:1 1 3.5rem; gap:2px; min-width:0; line-height:1.25; overflow-wrap:anywhere; }
+.catan-trade-quantity-label strong { font-size:.875rem; color:var(--catan-trade-ink,var(--catan-glass-text)); }
+.catan-trade-quantity-label small { font-size:.75rem; color:var(--catan-glass-muted); }
+.catan-trade-quantity .catan-stepper { flex:0 0 auto; gap:4px; margin-left:auto; }
+.catan-trade-quantity .catan-stepper output { width:2.25rem; font-size:1rem; font-weight:800; color:var(--catan-trade-ink,var(--catan-glass-muted)); }
+@media(hover:hover) {
+  .catan-theme .catan-world .is-game-menu .catan-trade-quantity .catan-stepper [data-slot=button]:not(:disabled):hover { border-color:var(--catan-glass-edge); background:var(--catan-glass-hover); }
+}
 .catan-world .catan-island-context .catan-section { border:1px solid var(--catan-glass-inner-edge); border-radius:var(--catan-glass-inner-radius); background:var(--catan-glass-inner); }
 .catan-theme .catan-resource-choices button[aria-pressed=true]::after { content:"✓"; position:absolute; top:4px; right:6px; color:#f6d589; font-size:.875rem; }
 .catan-resource-choices button { position:relative; }
@@ -886,10 +935,11 @@ body:has(.catan-play.is-board-expanded) { overflow:hidden; }
   .catan-play .catan-hand-resource small { grid-column:3; grid-row:1; }
 }
 .catan-menu-stage[data-catan-short-stage=true]>.is-game-menu { height:var(--catan-menu-height,100%); }
-/* With enlarged text and little height, scroll the entire panel instead of clipping its header/footer. */
-.catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen { overflow:auto; overscroll-behavior:contain; }
-.catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen>.catan-screen-body { flex:1 0 auto; min-height:44px; overflow:visible; }
-.catan-world .catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen { scroll-padding-block:8px; }
+/* The composer adds its send button within the open menu. On short stages let the whole panel scroll. */
+.catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen,
+.catan-menu-stage[data-catan-short-stage=true]>.is-game-menu>.catan-trade-compose { overflow:auto; overscroll-behavior:contain; scroll-padding-block:8px; }
+.catan-menu-stage[data-catan-tiny-stage=true]>.is-game-menu>.catan-screen>.catan-screen-body,
+.catan-menu-stage[data-catan-short-stage=true]>.is-game-menu>.catan-trade-compose>.catan-screen-body { flex:1 0 auto; min-height:44px; overflow:visible; }
 /* SVG construction feedback follows the map camera and never captures input. */
 .catan-construction-effects,
 .catan-construction-effect,

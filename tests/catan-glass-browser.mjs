@@ -161,16 +161,21 @@ try {
   await auditWorld(page,"handel"); await capture(page,"390x844-trade-bank");
   await trade.getByRole("button",{name:"Einen Schritt zurück",exact:true}).click();
   await trade.locator(".catan-trade-option").filter({hasText:"Mitspielende"}).click();
-  await capture(page,"390x844-trade-step1"); await trade.locator(".catan-person-choice").first().click();
-  await trade.getByRole("button",{name:"Ich gebe: mehr Holz",exact:true}).click(); await capture(page,"390x844-trade-step2");
+  await capture(page,"390x844-trade-recipients"); await trade.locator(".catan-person-choice").first().click();
+  await trade.getByRole("button",{name:"Holz: Minus",exact:true}).click();
+  await trade.getByRole("button",{name:"Erz: Plus",exact:true}).click();
   await trigger(page,"karten").click(); await trigger(page,"handel").click();
-  await expect(trade.getByRole("heading",{name:"Was bietest du allen an?",exact:true})).toBeVisible();
-  await expect(trade.locator(".catan-amount-controls").first().locator("output")).toHaveText("1");
-  await trade.getByRole("button",{name:/^Weiter: Was möchtest du/}).click();
-  await trade.getByRole("button",{name:"Ich möchte: mehr Erz",exact:true}).click(); await auditWorld(page,"handel"); await capture(page,"390x844-trade-step3");
-  await trade.getByRole("button",{name:/^Angebot prüfen/}).click(); await auditWorld(page,"handel"); await capture(page,"390x844-trade-step4");
-  await trade.getByRole("button",{name:"Einen Schritt zurück",exact:true}).click();
-  await expect(trade.getByRole("heading",{name:"Was möchtest du erhalten?",exact:true})).toBeVisible();
+  await expect(trade.getByRole("heading",{name:"Angebot an alle",exact:true})).toBeVisible();
+  const loss = trade.getByLabel("Holz: Tauschmenge",{exact:true});
+  const gain = trade.getByLabel("Erz: Tauschmenge",{exact:true});
+  await expect(loss).toHaveText("−1");
+  await expect(gain).toHaveText("+1");
+  assert.ok(Number(await loss.evaluate((element) => getComputedStyle(element).fontWeight)) >= 700, "Trade loss is bold");
+  assert.ok(Number(await gain.evaluate((element) => getComputedStyle(element).fontWeight)) >= 700, "Trade gain is bold");
+  const lossColor = await loss.evaluate((element) => getComputedStyle(element).color);
+  const gainColor = await gain.evaluate((element) => getComputedStyle(element).color);
+  assert.notEqual(lossColor, gainColor, "Trade loss and gain have distinct colors");
+  await auditWorld(page,"handel"); await capture(page,"390x844-trade-compose");
 
   for (const scenario of ["incoming","outgoing","discard","setup","robber","steal"]) {
     await fixture(page,scenario);
@@ -188,7 +193,7 @@ try {
   await ambient.uncheck(); await expect(ambient).not.toBeChecked();
   await ambient.check(); await expect(ambient).toBeChecked();
   await expect(page.locator(".catan-play")).toHaveAttribute("data-catan-sequence",ambientSequence);
-  const ambientCard = overview.locator(".catan-ambient-preference");
+  const ambientCard = overview.locator(".catan-ambient-preference").filter({ has: page.getByRole("checkbox",{name:"Lebendige Insel",exact:true}) });
   await ambientCard.scrollIntoViewIfNeeded();
   assert.equal(await ambientCard.evaluate((element) => getComputedStyle(element).borderRadius),"16px","Ambient preference shares the inner glass card material");
   await capture(page,"390x844-overview-ambient-preference");

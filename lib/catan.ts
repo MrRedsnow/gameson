@@ -3,6 +3,7 @@
  * Gameson house rule: selectable victory target, default 12 instead of 10.
  */
 export const RESOURCES = ["wood", "brick", "wool", "grain", "ore"] as const;
+export const RESOURCE_CARDS_PER_TYPE = 19;
 export type Resource = typeof RESOURCES[number];
 export type Resources = Record<Resource, number>;
 export const RESOURCE_INFO: Record<Resource, { label: string; terrain: string; color: string; symbol: string }> = {
@@ -107,7 +108,7 @@ function readResources(value: unknown): Resources {
   const result = emptyResources();
   for (const r of RESOURCES) {
     const n = object[r] ?? 0;
-    assert(typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 19, "Die Rohstoffmenge muss zwischen 0 und 19 liegen.");
+    assert(typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= RESOURCE_CARDS_PER_TYPE, `Die Rohstoffmenge muss zwischen 0 und ${RESOURCE_CARDS_PER_TYPE} liegen.`);
     result[r] = n;
   }
   return result;
@@ -186,7 +187,7 @@ export function createCatanGame(seats: { id: string; name: string }[], targetPoi
   const board = createBoard(random); const start = random(seats.length);
   const players = seats.map((p, color) => ({ id: p.id, name: p.name.trim(), color, resources: emptyResources(), development: [], knights: 0 }));
   const game: CatanGame = {
-    version: 1, id: crypto.randomUUID(), board, players: [...players.slice(start), ...players.slice(0, start)], targetPoints: validateTargetPoints(targetPoints), bank: emptyResources(19),
+    version: 1, id: crypto.randomUUID(), board, players: [...players.slice(start), ...players.slice(0, start)], targetPoints: validateTargetPoints(targetPoints), bank: emptyResources(RESOURCE_CARDS_PER_TYPE),
     deck: shuffled<Development>([...Array<Development>(14).fill("knight"), ...Array<Development>(5).fill("victory"), "road_building", "road_building", "plenty", "plenty", "monopoly", "monopoly"], random),
     currentPlayer: 0, phase: "map_vote", mapVote: { id: crypto.randomUUID(), hostPlayerId, votes: {} }, turn: 0, setupIndex: 0, setupVertex: null, robberHex: board.hexes.find((h) => h.resource === "desert")!.id,
     dice: null, playedDevelopment: false, freeRoads: 0, returnPhase: "main", discards: {}, victims: [], longestRoad: null, largestArmy: null, trade: null, winner: null, log: [], sequence: 0, notifications: [],

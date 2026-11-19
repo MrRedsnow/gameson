@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ArrowRightLeft, ChevronRight, Landmark, Tag, Users } from "lucide-react";
+import { ArrowRightLeft, ChevronRight, Landmark, Minus, Plus, Tag, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PLAYER_COLORS, RESOURCES, RESOURCE_INFO, canAfford, emptyResources, isTradeRecipient, resourceCount, tradeRatio, type CatanView, type Resource, type Resources } from "@/lib/catan";
+import { PLAYER_COLORS, RESOURCES, RESOURCE_CARDS_PER_TYPE, RESOURCE_INFO, canAfford, emptyResources, isTradeRecipient, resourceCount, tradeRatio, type CatanView, type Resource, type Resources } from "@/lib/catan";
 import { missingResources } from "@/lib/catan-ux";
 import { ResourceIcon } from "./board";
-import { BagText, ResourceAmounts, ResourceChoices, Screen, type Send } from "./play-primitives";
+import { BagText, ResourceChoices, Screen, type Send } from "./play-primitives";
 
 export function TradeInventoryPreview({ resources, give, receive, unavailable }: { resources: Resources; give: Partial<Resources>; receive: Partial<Resources>; unavailable?: string }) {
   const reason = unavailable || missingResources(resources, give);
@@ -20,7 +20,7 @@ export function TradeInventoryPreview({ resources, give, receive, unavailable }:
   </section>;
 }
 
-type View = "choice" | "offers" | "bank" | "who" | "give" | "receive" | "review";
+type View = "choice" | "offers" | "bank" | "who" | "compose";
 type TradeFilter = "all" | "bank" | "players" | "offers";
 const TRADE_FILTERS: { id: TradeFilter; label: string }[] = [
   { id: "all", label: "Alle" }, { id: "bank", label: "Bank & Hafen" },
@@ -28,14 +28,26 @@ const TRADE_FILTERS: { id: TradeFilter; label: string }[] = [
 ];
 const TRADE_SUBTITLE = "Tausche Ressourcen mit Bank, Hafen oder Mitspielenden";
 
+function signedQuantity(quantity: number) {
+  if (quantity === 0) return "0";
+  return `${quantity < 0 ? "−" : "+"}${Math.abs(quantity)}`;
+}
+
+function summarizeQuantities(quantities: Resources, sign: -1 | 1) {
+  return RESOURCES.filter((resource) => quantities[resource] * sign > 0)
+    .map((resource) => `${signedQuantity(quantities[resource])} ${RESOURCE_INFO[resource].label}`)
+    .join(", ") || "Noch nichts gewählt";
+}
+
 export function TradePanel({ game, send, busy, turnActions, onClose }: { game: CatanView; send: Send; busy: boolean; turnActions?: ReactNode; onClose?: () => void }) {
   const me = game.me!; const active = game.players[game.currentPlayer]; const isTurn = active.id === me.id; const open = game.phase === "main";
   const recipients = game.players.filter((p) => p.id !== me.id && (isTurn || p.id === active.id));
   const [view, setView] = useState<View>("choice"); const [toId, setToId] = useState<string | null>("");
   const [filter, setFilter] = useState<TradeFilter>("all");
   const [give, setGive] = useState<Resource>("wood"); const [receive, setReceive] = useState<Resource>("brick");
-  const [offered, setOffered] = useState(emptyResources()); const [wanted, setWanted] = useState(emptyResources());
+  const [quantities, setQuantities] = useState(emptyResources);
   const offer = game.trade; const partner = recipients.find((p) => p.id === toId); const toAll = toId === null && isTurn;
+  const recipientName = toAll ? "alle" : partner?.name;
   const incoming = isTradeRecipient(offer, me.id);
   const incomingOfferId = offer && incoming ? offer.id : null;
   const [navigation, setNavigation] = useState({ turn: game.turn, incomingOfferId });
@@ -44,16 +56,18 @@ export function TradePanel({ game, send, busy, turnActions, onClose }: { game: C
   if (turnChanged || newIncomingOffer) {
     setNavigation({ turn: game.turn, incomingOfferId: incomingOfferId ?? navigation.incomingOfferId });
     setView("choice"); setFilter("all");
-    if (turnChanged) { setToId(""); setOffered(emptyResources()); setWanted(emptyResources()); }
+    if (turnChanged) { setToId(""); setQuantities(emptyResources()); }
   }
   const ratio = tradeRatio(game, me.id, give); const bestRatio = Math.min(...RESOURCES.map((r) => tradeRatio(game, me.id, r)));
-  const mixed = RESOURCES.some((r) => offered[r] && wanted[r]) ? "Geben und Erhalten müssen unterschiedliche Rohstoffarten sein." : undefined;
-  const reset = () => { setView("choice"); setFilter("all"); setOffered(emptyResources()); setWanted(emptyResources()); };
-  const selectPartner = (id: string | null) => { setToId(id); setView("give"); };
-  const counter = () => {
+  const reset = () => { setView("choice"); setFilter("all"); setToId(""); setQuantities(emptyResources()); };
+  const selectPartner = (id: string | null) => { setToId(id); setView("compose"); };
+  const reviseOffer = () => {
     if (!offer) return;
-    setOffered({ ...(incoming ? offer.receive : offer.give) });
-    setWanted({ ...(incoming ? offer.give : offer.receive) });
+    const payment = incoming ? offer.receive : offer.give;
+    const receipt = incoming ? offer.give : offer.receive;
+    const draft = emptyResources();
+    for (const resource of RESOURCES) draft[resource] = receipt[resource] - payment[resource];
+    setQuantities(draft);
     selectPartner(incoming ? offer.fromId : offer.toId);
   };
   if (!open) return <Screen onClose={onClose} title="Handeln" subtitle={TRADE_SUBTITLE} headingIcon={<ArrowRightLeft />} actions={turnActions}>
@@ -67,7 +81,7 @@ export function TradePanel({ game, send, busy, turnActions, onClose }: { game: C
     const payment = incoming ? offer.receive : offer.give; const receipt = incoming ? offer.give : offer.receive;
     return <Screen onClose={onClose} title={incoming ? `Angebot von ${from.name}` : ownOffer ? `Angebot an ${toName}` : offer.toId === null ? `${from.name} bietet allen einen Handel an` : `${from.name} handelt mit ${toName}`} eyebrow="Offener Handel" subtitle={involved ? "Prüfe die Rohstoffe für beide Seiten" : "Ein Handel am Tisch ist noch offen"} headingIcon={<ArrowRightLeft />} back={ownOffer ? () => setView("choice") : undefined} actions={<>
       {(involved || isTurn) && <Button variant="outline" disabled={busy} onClick={async () => { if (await send({ type: "cancel_trade", offerId: offer.id })) reset(); }}>{ownOffer ? "Zurückziehen" : "Ablehnen"}</Button>}
-      {involved && <Button variant="outline" disabled={busy} onClick={counter}>{incoming ? "Gegenangebot" : "Ändern"}</Button>}
+      {involved && <Button variant="outline" disabled={busy} onClick={reviseOffer}>{incoming ? "Gegenangebot" : "Ändern"}</Button>}
       {incoming && <Button className="catan-primary" disabled={busy || !canAfford(me.resources, payment)} onClick={async () => { if (await send({ type: "accept_trade", offerId: offer.id })) reset(); }}>Annehmen</Button>}
     </>}>
       <div className="catan-exchange"><p><span>{involved ? "Du gibst" : `${from.name} gibt`}</span><strong><BagText bag={payment} /></strong></p><p><span>{involved ? "Du erhältst" : `${from.name} erhält`}</span><strong><BagText bag={receipt} /></strong></p></div>
@@ -92,26 +106,55 @@ export function TradePanel({ game, send, busy, turnActions, onClose }: { game: C
     </Screen>;
   }
 
-  if (view === "who" || (["give", "receive", "review"].includes(view) && !partner && !toAll)) return <Screen onClose={onClose} title="Mit wem handelst du?" eyebrow="Schritt 1 von 4" subtitle={isTurn ? "Schicke dein Angebot an alle oder wähle eine Person" : "Wähle eine Person für dein Angebot"} headingIcon={<Users />} back={() => setView("choice")} actions={turnActions}>
+  if (view === "who" || (view === "compose" && !recipientName)) return <Screen onClose={onClose} title="Mit wem handelst du?" subtitle={isTurn ? "Schicke dein Angebot an alle oder wähle eine Person" : "Wähle eine Person für dein Angebot"} headingIcon={<Users />} back={() => setView("choice")} actions={turnActions}>
     {isTurn && <button type="button" className="catan-person-choice" disabled={busy} onClick={() => selectPartner(null)}><Users /><span><strong>An alle schicken</strong><small>Alle anderen Mitspielenden erhalten dasselbe Angebot.</small></span><ChevronRight /></button>}
     {recipients.map((p) => <button type="button" className="catan-person-choice" key={p.id} style={{ "--player-color": PLAYER_COLORS[p.color] } as React.CSSProperties} disabled={busy} onClick={() => selectPartner(p.id)}><i className="catan-player-dot" /><span><strong>{p.name}</strong><small>{p.resourceCount} Rohstoffkarten</small></span><ChevronRight /></button>)}
   </Screen>;
 
-  if (view === "give") return <Screen onClose={onClose} title={toAll ? "Was bietest du allen an?" : `Was gibst du ${partner!.name}?`} eyebrow="Schritt 2 von 4" subtitle="Wähle Rohstoffe aus deinem Vorrat" headingIcon={<ArrowRightLeft />} back={() => setView("who")} actions={<Button className="catan-primary" disabled={busy || !resourceCount(offered) || !canAfford(me.resources, offered)} onClick={() => setView("receive")}>Weiter: Was möchtest du?<ChevronRight /></Button>}>
-    <ResourceAmounts label="Ich gebe" value={offered} maximum={me.resources} onChange={setOffered} disabled={busy} />
-    {missingResources(me.resources, offered) && <p className="catan-inline-hint" role="status">{missingResources(me.resources, offered)}</p>}
-  </Screen>;
-
-  if (view === "receive") return <Screen onClose={onClose} title={toAll ? "Was möchtest du erhalten?" : `Was möchtest du von ${partner!.name}?`} eyebrow="Schritt 3 von 4" subtitle="Wähle die Rohstoffe, die du erhalten möchtest" headingIcon={<ArrowRightLeft />} back={() => setView("give")} actions={<Button className="catan-primary" disabled={busy || !resourceCount(wanted) || Boolean(mixed)} onClick={() => setView("review")}>Angebot prüfen<ChevronRight /></Button>}>
-    <ResourceAmounts label="Ich möchte" value={wanted} maximum={emptyResources(19)} availabilityLabel="maximal" onChange={setWanted} disabled={busy} />
-    <p className="catan-inline-hint" role="status">{mixed || (toAll ? "Alle anderen entscheiden, ob sie tauschen können und möchten. Die erste Annahme schließt den Tausch ab." : "Die andere Person entscheidet, ob sie tauschen kann und möchte.")}</p>
-  </Screen>;
-
-  if (view === "review") return <Screen onClose={onClose} title={`Dein Angebot an ${toAll ? "alle" : partner!.name}`} eyebrow="Schritt 4 von 4" subtitle="Prüfe deinen Tausch vor dem Senden" headingIcon={<ArrowRightLeft />} back={() => setView("receive")} actions={<Button className="catan-primary" disabled={busy || !resourceCount(offered) || !resourceCount(wanted) || !canAfford(me.resources, offered) || Boolean(mixed) || Boolean(offer && offer.fromId !== me.id && !incoming)} onClick={async () => { if (await send({ type: "offer_trade", toId: toAll ? null : partner!.id, give: offered, receive: wanted })) reset(); }}>{incoming ? "Gegenangebot senden" : "Handel anbieten"}</Button>}>
-    <div className="catan-exchange"><p><span>Du gibst</span><strong><BagText bag={offered} /></strong></p><p><span>Du erhältst</span><strong><BagText bag={wanted} /></strong></p></div>
-    <TradeInventoryPreview resources={me.resources} give={offered} receive={wanted} unavailable={mixed} />
-    {toAll && <p className="catan-inline-hint">Alle anderen Mitspielenden erhalten dieses Angebot. Die erste Annahme schließt den Tausch ab.</p>}
-  </Screen>;
+  if (view === "compose") {
+    const offered = emptyResources();
+    const wanted = emptyResources();
+    for (const resource of RESOURCES) {
+      offered[resource] = Math.max(0, -quantities[resource]);
+      wanted[resource] = Math.max(0, quantities[resource]);
+    }
+    const ownOffer = offer?.fromId === me.id;
+    const blockedByOffer = offer && !ownOffer && !incoming;
+    const reason = blockedByOffer ? "Schließe zuerst das offene Handelsangebot ab." : missingResources(me.resources, offered);
+    const canSend = !busy && !reason && resourceCount(offered) > 0 && resourceCount(wanted) > 0;
+    const submitLabel = incoming ? "Gegenangebot senden" : ownOffer ? "Änderung senden" : "Handel anbieten";
+    const changeQuantity = (resource: Resource, step: -1 | 1) => {
+      setQuantities((current) => ({ ...current, [resource]: current[resource] + step }));
+    };
+    return <Screen className="catan-trade-compose" onClose={onClose} title={`Angebot an ${recipientName}`} back={() => setView("who")} actions={
+      <Button className="catan-primary" disabled={!canSend} onClick={async () => { if (await send({ type: "offer_trade", toId, give: offered, receive: wanted })) reset(); }}>{submitLabel}</Button>
+    }>
+      <div className="catan-trade-composition-summary" aria-live="polite">
+        <section className="is-loss"><h3>− Du gibst ab</h3><strong>{summarizeQuantities(quantities, -1)}</strong></section>
+        <section className="is-gain"><h3>+ Du erhältst</h3><strong>{summarizeQuantities(quantities, 1)}</strong></section>
+      </div>
+      {reason && <p className="catan-inline-hint" role="status">{reason}</p>}
+      <div className="catan-trade-quantities" role="group" aria-label="Rohstoffmengen für den Tausch">
+        {RESOURCES.map((resource) => {
+          const quantity = quantities[resource];
+          const { label } = RESOURCE_INFO[resource];
+          const available = me.resources[resource];
+          const minimum = -Math.min(available, RESOURCE_CARDS_PER_TYPE);
+          const tone = quantity < 0 ? " is-loss" : quantity > 0 ? " is-gain" : "";
+          return <div className={`catan-trade-quantity${tone}`} key={resource}>
+            <ResourceIcon resource={resource} />
+            <div className="catan-trade-quantity-label"><strong>{label}</strong><small>{available} verfügbar</small></div>
+            <div className="catan-stepper">
+              <Button type="button" variant="outline" size="icon" aria-label={`${label}: Minus`} disabled={busy || quantity <= minimum} onClick={() => changeQuantity(resource, -1)}><Minus /></Button>
+              <output aria-label={`${label}: Tauschmenge`} aria-live="off">{signedQuantity(quantity)}</output>
+              <Button type="button" variant="outline" size="icon" aria-label={`${label}: Plus`} disabled={busy || quantity >= RESOURCE_CARDS_PER_TYPE} onClick={() => changeQuantity(resource, 1)}><Plus /></Button>
+            </div>
+          </div>;
+        })}
+      </div>
+      {toAll && <p className="catan-inline-hint">Die erste Annahme schließt den Tausch ab.</p>}
+    </Screen>;
+  }
 
   return <Screen onClose={onClose} title="Handeln" subtitle={TRADE_SUBTITLE} headingIcon={<ArrowRightLeft />} actions={turnActions}>
     <div className="catan-trade-filters" role="group" aria-label="Handelsbereiche filtern">{TRADE_FILTERS.map(({ id, label }) => <button type="button" key={id} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>)}</div>

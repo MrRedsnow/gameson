@@ -11,6 +11,13 @@ const errors = [];
 const sizes = [[320, 568], [390, 844], [844, 390], [1440, 1000]];
 const menu = (page, id) => page.locator(`[data-catan-menu-panel="${id}"]`);
 const nav = (page, id) => page.locator(`[data-catan-menu-trigger="${id}"]`);
+const tradeRecipients = (trade) => trade.locator(".catan-person-choice");
+const tradeAmount = (trade, resource) => trade.getByLabel(`${resource}: Tauschmenge`, { exact: true });
+const tradeStep = (trade, resource, direction) => trade.getByRole("button", { name: `${resource}: ${direction}`, exact: true });
+async function chooseTradeRecipient(trade, name) {
+  await trade.locator(".catan-trade-option").filter({ hasText: "Mitspielende" }).click();
+  await tradeRecipients(trade).filter({ hasText: name }).click();
+}
 async function qa(page, change) {
   await page.locator(".qa-controls summary").click();
   await change();
@@ -33,6 +40,87 @@ async function visibleInViewport(locator, width, height) {
   await expect(locator).toBeVisible();
   const box = await locator.boundingBox();
   assert.ok(box.x >= -1 && box.y >= -1 && box.x + box.width <= width + 1 && box.y + box.height <= height + 1, `Control clipped: ${JSON.stringify(box)} at ${width}×${height}`);
+}
+async function assertTradeEditor() {
+  const tradePage = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  tradePage.on("pageerror", (error) => errors.push(error.message));
+  await loadPreview(tradePage);
+  await nav(tradePage, "handel").click();
+  const trade = menu(tradePage, "handel");
+  await chooseTradeRecipient(trade, "Benjamin Alexander");
+  const submit = trade.getByRole("button", { name: "Handel anbieten", exact: true });
+  const woodMinus = tradeStep(trade, "Holz", "Minus");
+  const woodPlus = tradeStep(trade, "Holz", "Plus");
+  const orePlus = tradeStep(trade, "Erz", "Plus");
+  await expect(trade.getByRole("heading", { name: "Angebot an Benjamin Alexander", exact: true })).toBeVisible();
+  await woodPlus.click();
+  await expect(tradeAmount(trade, "Holz")).toHaveText("+1");
+  await woodMinus.click();
+  await expect(tradeAmount(trade, "Holz")).toHaveText("0");
+  for (let i = 0; i < 5; i++) await woodMinus.click();
+  await expect(tradeAmount(trade, "Holz")).toHaveText("−5");
+  await expect(woodMinus).toBeDisabled();
+  for (let i = 0; i < 19; i++) await orePlus.click();
+  await expect(tradeAmount(trade, "Erz")).toHaveText("+19");
+  await expect(orePlus).toBeDisabled();
+  for (let i = 0; i < 18; i++) await tradeStep(trade, "Erz", "Minus").click();
+  for (let i = 0; i < 3; i++) await woodPlus.click();
+  await expect(tradeAmount(trade, "Holz")).toHaveText("−2");
+  await expect(tradeAmount(trade, "Erz")).toHaveText("+1");
+  await trade.getByRole("button", { name: "Einen Schritt zurück", exact: true }).click();
+  await tradeRecipients(trade).filter({ hasText: "Benjamin Alexander" }).click();
+  await expect(tradeAmount(trade, "Holz")).toHaveText("−2");
+  await expect(tradeAmount(trade, "Erz")).toHaveText("+1");
+  await qa(tradePage, () => tradePage.getByLabel("Aktion ablehnen", { exact: true }).check());
+  if (!await trade.isVisible()) await nav(tradePage, "handel").click();
+  await submit.click();
+  await expect(tradePage.getByRole("alert")).toContainText("Die Aktion wurde abgelehnt");
+  await expect(tradeAmount(trade, "Holz")).toHaveText("−2");
+  await expect(tradeAmount(trade, "Erz")).toHaveText("+1");
+  await qa(tradePage, () => tradePage.getByLabel("Aktion ablehnen", { exact: true }).uncheck());
+  if (!await trade.isVisible()) await nav(tradePage, "handel").click();
+  await submit.click();
+  await trade.getByRole("button", { name: /^Eigene Angebote/ }).click();
+  await trade.getByRole("button", { name: "Ändern", exact: true }).click();
+  await expect(tradeAmount(trade, "Holz")).toHaveText("−2");
+  await expect(tradeAmount(trade, "Erz")).toHaveText("+1");
+  await woodMinus.click();
+  await trade.getByRole("button", { name: "Änderung senden", exact: true }).click();
+  await qa(tradePage, () => tradePage.getByLabel("Perspektive").selectOption("qa-1"));
+  await expect(trade.getByRole("heading", { name: "Angebot von Anna", exact: true })).toBeVisible();
+  await trade.getByRole("button", { name: "Gegenangebot", exact: true }).click();
+  await expect(trade.getByRole("heading", { name: "Angebot an Anna", exact: true })).toBeVisible();
+  await expect(tradeAmount(trade, "Holz")).toHaveText("+3");
+  await expect(tradeAmount(trade, "Erz")).toHaveText("−1");
+  await tradeStep(trade, "Holz", "Plus").click();
+  await trade.getByRole("button", { name: "Gegenangebot senden", exact: true }).click();
+  await qa(tradePage, () => tradePage.getByLabel("Perspektive").selectOption("qa-0"));
+  await expect(trade.getByRole("heading", { name: "Angebot von Benjamin Alexander", exact: true })).toBeVisible();
+  await expect(trade.locator(".catan-exchange")).toContainText(/Du gibst\s*4 Holz/);
+  await expect(trade.locator(".catan-exchange")).toContainText(/Du erhältst\s*1 Erz/);
+
+  for (const [width, height] of [[320, 568], [844, 390]]) for (const expanded of [false, true]) {
+    await scenario(tradePage, "poor");
+    await scenario(tradePage, "rich");
+    await tradePage.setViewportSize({ width, height });
+    await qa(tradePage, () => tradePage.getByLabel("Text 200%").check());
+    if (expanded) await tradePage.getByRole("button", { name: "Insel im Vollbild öffnen", exact: true }).click();
+    await nav(tradePage, "handel").click();
+    await chooseTradeRecipient(trade, "An alle schicken");
+    await woodMinus.click();
+    await orePlus.click();
+    await expect(submit).toBeEnabled();
+    await submit.click({ trial: true });
+    await visibleInViewport(submit, width, height);
+    assert.ok(await trade.locator(".catan-screen-body").evaluate((body) => body.scrollWidth <= body.clientWidth + 1), "Trade editor fits horizontally at 200% text");
+    await qa(tradePage, () => tradePage.getByRole("button", { name: "Bestand leeren", exact: true }).click());
+    if (!await trade.isVisible()) await nav(tradePage, "handel").click();
+    await expect(submit).toBeDisabled();
+    await expect(tradeAmount(trade, "Holz")).toHaveText("−1");
+    await woodPlus.click();
+    await expect(tradeAmount(trade, "Holz")).toHaveText("0");
+  }
+  await tradePage.close();
 }
 try {
   for (const [width, height] of sizes) {
@@ -111,18 +199,26 @@ try {
     await nav(page, "handel").click();
     const trade = menu(page, "handel");
     await trade.locator(".catan-trade-option").filter({ hasText: "Mitspielende" }).click();
-    const recipients = trade.locator(".catan-person-choice");
+    const recipients = tradeRecipients(trade);
     await expect(recipients).toHaveCount(4);
     await expect(recipients.first()).toContainText("An alle schicken");
     await page.screenshot({ path: `${output}${width}x${height}-trade-recipients.png` });
     await recipients.first().click();
-    await expect(trade.getByRole("heading", { name: "Was bietest du allen an?", exact: true })).toBeVisible();
-    await trade.getByRole("button", { name: "Ich gebe: mehr Holz", exact: true }).click();
-    await trade.getByRole("button", { name: /^Weiter: Was möchtest du/ }).click();
-    await trade.getByRole("button", { name: "Ich möchte: mehr Erz", exact: true }).click();
-    await trade.getByRole("button", { name: /^Angebot prüfen/ }).click();
-    await expect(trade.getByRole("heading", { name: "Dein Angebot an alle", exact: true })).toBeVisible();
-    await trade.getByRole("button", { name: "Handel anbieten", exact: true }).click();
+    await expect(trade.getByRole("heading", { name: "Angebot an alle", exact: true })).toBeVisible();
+    await expect(trade.locator(".catan-trade-quantity")).toHaveCount(5);
+    await expect(trade.getByText("− Du gibst ab", { exact: true })).toBeVisible();
+    await expect(trade.getByText("+ Du erhältst", { exact: true })).toBeVisible();
+    const submit = trade.getByRole("button", { name: "Handel anbieten", exact: true });
+    await expect(submit).toBeDisabled();
+    await tradeStep(trade, "Holz", "Minus").click();
+    await expect(tradeAmount(trade, "Holz")).toHaveText("−1");
+    await expect(submit).toBeDisabled();
+    await tradeStep(trade, "Erz", "Plus").click();
+    await expect(tradeAmount(trade, "Erz")).toHaveText("+1");
+    await expect(trade.getByText("−1 Holz", { exact: true })).toBeVisible();
+    await expect(trade.getByText("+1 Erz", { exact: true })).toBeVisible();
+    await visibleInViewport(submit, width, height);
+    await submit.click();
     await trade.getByRole("button", { name: /^Eigene Angebote/ }).click();
     await expect(trade.getByRole("heading", { name: "Angebot an alle", exact: true })).toBeVisible();
     await expect(trade.getByText(/Benjamin Alexander, Clara, Dominik Maximilian können dein Angebot annehmen/)).toBeVisible();
@@ -133,6 +229,8 @@ try {
     await expect(trade.getByRole("button", { name: "Annehmen", exact: true })).toHaveCount(0);
     await qa(page, () => page.getByLabel("Perspektive").selectOption("qa-2"));
     await expect(trade.getByRole("heading", { name: "Angebot von Anna", exact: true })).toBeVisible();
+    await expect(trade.locator(".catan-exchange")).toContainText(/Du gibst\s*1 Erz/);
+    await expect(trade.locator(".catan-exchange")).toContainText(/Du erhältst\s*1 Holz/);
     await trade.getByRole("button", { name: "Annehmen", exact: true }).click();
     await expect(trade.getByRole("heading", { name: "Angebot von Anna", exact: true })).toHaveCount(0);
     await qa(page, () => page.getByLabel("Perspektive").selectOption("qa-3"));
@@ -142,6 +240,8 @@ try {
     await expect(trade.getByText("An alle schicken", { exact: true })).toHaveCount(0);
     await page.close();
   }
+
+  await assertTradeEditor();
 
   const desktop = await browser.newPage({ viewport:{width:1440,height:1000}, reducedMotion:"reduce" });
   desktop.on("pageerror", (error) => errors.push(error.message));
